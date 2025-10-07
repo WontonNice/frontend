@@ -5,12 +5,9 @@ import AdminDashboard from './components/AdminDashboard';
 import StudentList from './components/StudentList';
 import Login from './components/Login';
 import React from 'react';
-//import StudentActivityForm from './components/StudentActivityForm'; // Make sure this path is correct
 
 type AttendanceStatus = 'Present' | 'Absent';
 type AttendanceRecords = Record<string, AttendanceStatus>;
-
-// const BACKEND_URL = 'https://your-backend-url.onrender.com'; // <-- Replace with actual
 
 export default function AttendanceApp() {
   const [teacherId, setTeacherId] = useState<number | null>(null);
@@ -27,13 +24,12 @@ export default function AttendanceApp() {
   const [showAttendanceScreen, setShowAttendanceScreen] = useState(false); // <-- NEW STATE
   const [teacherDisplayName, setTeacherDisplayName] = useState('');
   const [showActivityScreen, setShowActivityScreen] = useState(false);
-const [activityStudents, setActivityStudents] = useState<string[]>([]);
+  const [activityStudents, setActivityStudents] = useState<string[]>([]);
   const [weeklyActivities, setWeeklyActivities] = useState<Record<string, Record<string, string>>>({});
 
   const today = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const isToday = selectedDate === today;
-  // const minAllowedDate = '2025-07-13'; // YYYY-MM-DD
 
   const allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const todayDay = new Date().toLocaleDateString('en-US', { weekday: 'short' });
@@ -66,7 +62,6 @@ const fetchTeacherDisplayName = async (id: number) => {
       const data = await res.json();
       const rawDisplay = data.class_display_name;
 
-      // 👇 Extract text inside parentheses if it exists
       const match = rawDisplay.match(/\(([^)]+)\)/);
       const extractedName = match ? match[1] : rawDisplay;
 
@@ -114,7 +109,6 @@ const loadActivityStudents = async () => {
 
       if (!res.ok) throw new Error('Failed to add student');
       setNewStudentName('');
-      // Refresh students
       const refreshed = await fetch(`https://attendance-app-backend-ze6p.onrender.com/api/students?teacherId=${teacherId}&date=${today}`);
       const data = await refreshed.json();
       const names = data.map((s: { name: string }) => s.name);
@@ -123,26 +117,6 @@ const loadActivityStudents = async () => {
       alert('Failed to add student');
     }
   };
-
-
-  // const handleDeleteStudent = async (studentName: string) => {
-  //   if (!confirm(`Delete ${studentName}?`)) return;
-
-  //   try {
-  //     const res = await fetch(`https://attendance-app-backend-ze6p.onrender.com/api/students/delete`, {
-  //       method: 'DELETE',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify({ name: studentName, teacherId }),
-  //     });
-
-  //     if (!res.ok) throw new Error('Delete failed');
-  //     setStudents(students.filter(s => s !== studentName));
-  //     setSelectedStudent(students[0] || null);
-  //   } catch (err) {
-  //     alert('Failed to delete student');
-  //   }
-  // };
-
 
   useEffect(() => {
     if (teacherId === null) return;
@@ -160,7 +134,6 @@ const loadActivityStudents = async () => {
         setStudents(names);
         setAttendanceRecords(savedRecords);
         setSelectedStudent(names[0] || null);
-        // setSubmitted(Object.keys(savedRecords).length === names.length);
       } catch (err) {
         console.error(err);
         setError('Failed to load students.');

@@ -20,7 +20,6 @@ export default function AdminDashboard({ teacherId, isAdmin, teacherName, classD
   const [attendanceLocked, setAttendanceLocked] = useState(false);
   const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [showAddClass, setShowAddClass] = useState(false);
-  //const [canEditActivities, setCanEditActivities] = useState(false);
 
   const isReadOnlyAdmin = teacherName.toLowerCase() === 'susan';
 
