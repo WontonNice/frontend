@@ -4,7 +4,7 @@ import "./index.css";
 type AttendanceStatus = "Present" | "Absent";
 type AttendanceRecords = Record<string, AttendanceStatus>;
 
-const BACKEND = "https://attendance-app-backend-ze6p.onrender.com";
+const BACKEND = "https://frontend-tgl3.onrender.com/";
 
 // 🔧 Change these to your real/default teacher
 const DEMO_TEACHER_ID = 1;
