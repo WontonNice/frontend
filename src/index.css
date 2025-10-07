@@ -1,25 +1,7 @@
-/* Tailwind core */
+/* src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Tiny base layer (optional) */
-@layer base {
-  /* full-height app shell */
-  html, body, #root { height: 100%; }
-
-  /* default theme (dark here—switch to gray-50/gray-900 for light) */
-  body { @apply bg-gray-900 text-white antialiased; }
-
-  /* simple link style */
-  a { @apply text-blue-400 hover:text-blue-300; }
-}
-
-/* Optional: a tiny button utility you can reuse */
-@layer components {
-  .btn {
-    @apply inline-flex items-center justify-center rounded-md px-4 py-2
-           bg-blue-600 text-white hover:bg-blue-700
-           focus:outline-none focus:ring-2 focus:ring-blue-400;
-  }
-}
+/* tiny global reset */
+html, body, #root { height: 100%; }
