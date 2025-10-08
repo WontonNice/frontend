@@ -13,27 +13,34 @@ export default function Register() {
   const passwordOk = useMemo(() => p.length >= 8 && p.length <= 128, [p]);
   const formOk = usernameOk && passwordOk && !loading;
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!formOk) return;
-    setLoading(true);
-    setMsg({ type: "", text: "" });
-    try {
-      const res = await fetch(`${API}/api/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: u, password: p })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || res.statusText);
-      setMsg({ type: "ok", text: `Account created for "${data.user.username}"` });
-      setU(""); setP("");
-    } catch (err: any) {
-      setMsg({ type: "err", text: err.message || "Something went wrong" });
-    } finally {
-      setLoading(false);
+async function submit(e: React.FormEvent) {
+  e.preventDefault();
+  setMsg("Creating account…");
+  try {
+    const res = await fetch(`https://frontend-tgl3.onrender.com/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: u, password: p })
+    });
+
+    const text = await res.text();                 // read raw
+    let data: any = null;
+    try { data = text ? JSON.parse(text) : null; } // try JSON
+    catch { /* not JSON */ }
+
+    if (!res.ok) {
+      throw new Error((data && data.error) || text || `HTTP ${res.status}`);
     }
+    if (!data || !data.user) {
+      throw new Error("Server returned no JSON body");
+    }
+
+    setMsg(`✅ Created: ${data.user.username}`);
+    setU(""); setP("");
+  } catch (err: any) {
+    setMsg(`❌ ${err.message}`);
   }
+}
 
   return (
     <div className="min-h-screen grid place-items-center bg-gray-900 p-6 text-white">
