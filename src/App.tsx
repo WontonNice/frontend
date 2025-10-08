@@ -1,19 +1,38 @@
 // src/App.tsx
 import { useState } from "react";
+import { api, BASE_URL } from "./lib/api";
 
 type Page = "home" | "second";
 
 export default function App() {
   const [page, setPage] = useState<Page>("home");
+  const [health, setHealth] = useState<string>("");
+  const [hello, setHello] = useState<string>("");
+
+  const hitHealth = async () => {
+    try { setHealth(await api.health()); } catch (e:any) { setHealth(e.message); }
+  };
+  const hitHello = async () => {
+    try { const r = await api.hello(); setHello(r.msg); } catch (e:any) { setHello(e.message); }
+  };
+
   return page === "second" ? (
     <PageWrap>
       <header className="mb-6">
         <h1 className="text-2xl font-semibold">Second Page</h1>
       </header>
       <main className="text-gray-400 mb-6">
-        Blank placeholder for future content.
+        Backend: <code className="text-white">{BASE_URL}</code>
       </main>
-      <Button onClick={() => setPage("home")}>← Back to Home</Button>
+      <div className="flex gap-3 justify-center">
+        <Button onClick={hitHealth}>GET /health</Button>
+        <Button onClick={hitHello}>GET /api/hello</Button>
+      </div>
+      <div className="mt-4 text-left">
+        <p><strong>/health:</strong> {health || "—"}</p>
+        <p><strong>/api/hello:</strong> {hello || "—"}</p>
+      </div>
+      <Button className="mt-8" onClick={() => setPage("home")}>← Back to Home</Button>
     </PageWrap>
   ) : (
     <PageWrap>
@@ -23,7 +42,15 @@ export default function App() {
       <p className="text-gray-400 mb-6">
         Clean backbone with two pages. Add sections later.
       </p>
-      <Button onClick={() => setPage("second")}>Go to Second Page →</Button>
+      <div className="flex gap-3 justify-center">
+        <Button onClick={() => setPage("second")}>Go to Second Page →</Button>
+        <Button onClick={hitHealth}>GET /health</Button>
+        <Button onClick={hitHello}>GET /api/hello</Button>
+      </div>
+      <div className="mt-4 text-left">
+        <p><strong>/health:</strong> {health || "—"}</p>
+        <p><strong>/api/hello:</strong> {hello || "—"}</p>
+      </div>
     </PageWrap>
   );
 }
@@ -35,7 +62,6 @@ function PageWrap({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
 function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const { className = "", ...rest } = props;
   return (
