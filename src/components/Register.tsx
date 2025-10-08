@@ -115,7 +115,7 @@ export default function Register() {
             >
               {loading ? (
                 <span className="inline-flex items-center gap-2">
-                  <Spinner /> Creating…
+                  <Spinner /> Creating Account…
                 </span>
               ) : (
                 "Create Account"
