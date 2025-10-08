@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-const API = "https://frontend-tgl3.onrender.com";
+const API = "https://backend-3wuq.onrender.com";
 
 export default function Register() {
   const [u, setU] = useState("");
