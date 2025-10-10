@@ -1,7 +1,39 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-const API = "https://backend-3wuq.onrender.com";
+const API = "https://backend-3wuq.onrender.com"; // your backend URL
+
+// Helper: POST with timeout + safe JSON parsing
+async function postWithTimeout(url: string, body: any, ms = 10000) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms);
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: ctl.signal,
+    });
+
+    const text = await res.text();
+    let data: any = null;
+    try { data = text ? JSON.parse(text) : null; } catch {}
+
+    if (!res.ok) {
+      throw new Error((data && data.error) || text || `HTTP ${res.status}`);
+    }
+    if (!data || !data.user) throw new Error("Bad response from server.");
+    return data;
+  } catch (e: any) {
+    if (e?.name === "AbortError") {
+      throw new Error("Server is taking too long. Please try again.");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -9,6 +41,11 @@ export default function Login() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Warm the backend to avoid cold-start lag
+  useEffect(() => {
+    fetch(`${API}/healthz`).catch(() => {});
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -18,29 +55,27 @@ export default function Login() {
     setMsg("");
 
     try {
-      const res = await fetch(`${API}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+      const { user } = await postWithTimeout(
+        `${API}/api/auth/login`,
+        { username, password },
+        10000 // 10s timeout
+      );
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Login failed");
-
-      const { user } = data;
+      // Persist session
+      localStorage.setItem("user", JSON.stringify(user));
       setMsg(`✅ Logged in as "${user.username}" (${user.role})`);
 
-      // save session
-      localStorage.setItem("user", JSON.stringify(user));
-
-      // redirect based on role
-      if (user.role === "teacher") {
-        navigate("/teacher-dashboard");
-      } else {
-        navigate("/student-dashboard");
-      }
+      // Redirect based on role
+      // setTimeout to ensure state updates flush before navigation
+      setTimeout(() => {
+        if (user.role === "teacher") {
+          navigate("/teacher-dashboard");
+        } else {
+          navigate("/student-dashboard");
+        }
+      }, 0);
     } catch (err: any) {
-      setMsg(`❌ ${err.message}`);
+      setMsg(`❌ ${err.message || "Login failed"}`);
     } finally {
       setLoading(false);
     }
@@ -54,7 +89,11 @@ export default function Login() {
       >
         <h1 className="text-2xl font-semibold text-center">Log In</h1>
 
-        {msg && <div className="text-sm text-center p-2 bg-gray-700 rounded-lg">{msg}</div>}
+        {msg && (
+          <div className="text-sm text-center p-2 bg-gray-700 rounded-lg">
+            {msg}
+          </div>
+        )}
 
         <div>
           <label className="block mb-1 text-sm">Username</label>
@@ -84,7 +123,7 @@ export default function Login() {
           type="submit"
           disabled={loading}
           className={`w-full py-2 rounded-lg font-medium transition ${
-            loading ? "bg-blue-600/50" : "bg-blue-600 hover:bg-blue-500"
+            loading ? "bg-blue-600/50 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
           }`}
         >
           {loading ? "Logging in…" : "Log In"}
@@ -94,6 +133,7 @@ export default function Login() {
           type="button"
           onClick={() => navigate("/register")}
           className="w-full mt-3 py-2 rounded-lg font-medium bg-gray-700 hover:bg-gray-600 transition"
+          disabled={loading}
         >
           Create Account
         </button>
