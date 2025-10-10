@@ -3,13 +3,37 @@
 
 <head>
   <meta charset="UTF-8" />
-  <!-- <link rel="icon" type="image/svg+xml" href="/vite.svg" /> -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CCM Attendance Tracker</title>
+
+  <!-- ✅ Inter font (Supabase-style typography) -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- ✅ Favicon (optional) -->
+  <!-- <link rel="icon" type="image/svg+xml" href="/vite.svg" /> -->
+
+  <!-- ✅ Base theme color for dark mode devices -->
+  <meta name="theme-color" content="#0f1115" />
+
+  <!-- ✅ Description for SEO -->
+  <meta name="description" content="CCM Attendance Tracker — Manage student and teacher attendance efficiently." />
+
+  <!-- ✅ Open Graph (optional for link previews) -->
+  <meta property="og:title" content="CCM Attendance Tracker" />
+  <meta property="og:description" content="Manage student and teacher attendance efficiently." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="/preview.png" />
+
+  <!-- ✅ Tailwind is automatically injected by Vite -->
 </head>
 
-<body>
+<body class="bg-[#0f1115] text-white antialiased">
   <div id="root"></div>
+
+  <!-- ✅ Main entry -->
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
