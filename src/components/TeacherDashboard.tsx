@@ -1,16 +1,30 @@
-//import React from "react";
-import LogoutButton from "./LogoutButton";
+import DashboardLayout from "./DashboardLayout";
 
-function TeacherDashboard() {
+export default function TeacherDashboard() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white">
-      <h1 className="text-3xl font-semibold mb-2">👩‍🏫 Teacher Dashboard</h1>
-      <p className="text-gray-300">Welcome, {user.username}!</p>
-      <LogoutButton />
-    </div>
+    <DashboardLayout title="WontonNice's Project">
+      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4">
+        <StatCard title="Database" subtitle="REST Requests" value="—" />
+        <StatCard title="Auth" subtitle="Auth Requests" value="—" />
+        <StatCard title="Storage" subtitle="Storage Requests" value="—" />
+        <StatCard title="Realtime" subtitle="Realtime Requests" value="—" />
+      </div>
+
+      <div className="mt-6 text-white/80">
+        Welcome, <span className="font-semibold">{user?.username}</span>! (Teacher)
+      </div>
+    </DashboardLayout>
   );
 }
 
-export default TeacherDashboard; // ✅ Add this line
+function StatCard({ title, subtitle, value }: { title: string; subtitle: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#0f1218] p-4">
+      <div className="text-base font-semibold">{title}</div>
+      <div className="mt-1 text-sm text-white/60">{subtitle}</div>
+      <div className="mt-6 text-2xl font-bold">{value}</div>
+    </div>
+  );
+}
