@@ -1,16 +1,15 @@
-// src/auth/HomeGate.tsx
 import { Navigate } from "react-router-dom";
 import Login from "../components/Login";
-import { getUser } from "./session";
 
 export default function HomeGate() {
-  const user = getUser();
-  if (!user) return <Login />;
+  const raw = localStorage.getItem("user");
+  if (!raw) return <Login />;
 
-  return (
-    <Navigate
-      to={user.role === "teacher" ? "/teacher-dashboard" : "/student-dashboard"}
-      replace
-    />
-  );
+  let user: any = null;
+  try { user = JSON.parse(raw); } catch {}
+  if (!user || !user.id) return <Login />;
+
+  // ✅ Fallback to 'student' if role is missing
+  const role = user.role === "teacher" ? "teacher" : "student";
+  return <Navigate to={role === "teacher" ? "/teacher-dashboard" : "/student-dashboard"} replace />;
 }
