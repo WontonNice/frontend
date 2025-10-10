@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ for navigation
+import { useNavigate } from "react-router-dom";
 
-const API = "https://backend-3wuq.onrender.com"; // your backend URL
+const API = "https://backend-3wuq.onrender.com";
 
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate(); // ✅ hook for navigation
+  const navigate = useNavigate();
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -27,12 +27,18 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed");
 
-      setMsg(`✅ Logged in as "${data.user.username}"`);
-      setUsername("");
-      setPassword("");
+      const { user } = data;
+      setMsg(`✅ Logged in as "${user.username}" (${user.role})`);
 
-      // TODO: Redirect to dashboard or home after successful login
-      // navigate("/dashboard");
+      // save session
+      localStorage.setItem("user", JSON.stringify(user));
+
+      // redirect based on role
+      if (user.role === "teacher") {
+        navigate("/teacher-dashboard");
+      } else {
+        navigate("/student-dashboard");
+      }
     } catch (err: any) {
       setMsg(`❌ ${err.message}`);
     } finally {
@@ -48,11 +54,7 @@ export default function Login() {
       >
         <h1 className="text-2xl font-semibold text-center">Log In</h1>
 
-        {msg && (
-          <div className="text-sm text-center p-2 bg-gray-700 rounded-lg">
-            {msg}
-          </div>
-        )}
+        {msg && <div className="text-sm text-center p-2 bg-gray-700 rounded-lg">{msg}</div>}
 
         <div>
           <label className="block mb-1 text-sm">Username</label>
@@ -88,7 +90,6 @@ export default function Login() {
           {loading ? "Logging in…" : "Log In"}
         </button>
 
-        {/* 👇 Create Account Button */}
         <button
           type="button"
           onClick={() => navigate("/register")}
