@@ -1,5 +1,5 @@
 // src/components/DashboardLayout.tsx
-import type { PropsWithChildren, ReactNode } from "react";
+import type { PropsWithChildren } from "react";
 import { NavLink } from "react-router-dom";
 import { Home, Database, Lock, Boxes, Activity, Settings } from "lucide-react";
 import LogoutButton from "./LogoutButton";
