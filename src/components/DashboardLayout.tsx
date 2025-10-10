@@ -1,113 +1,58 @@
-import React from "react";
-import type { PropsWithChildren } from "react";
+// src/components/DashboardLayout.tsx
+import type { PropsWithChildren, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Home, Table, Database, Lock, Boxes, Activity, Settings } from "lucide-react";
 import LogoutButton from "./LogoutButton";
 
-type LayoutProps = PropsWithChildren<{ title: string }>;
+type LayoutProps = PropsWithChildren<{ title?: string }>;
 
-export default function DashboardLayout({ title, children }: LayoutProps) {
-  const navigate = useNavigate();
-
+export default function DashboardLayout({ title = "Dashboard", children }: LayoutProps) {
   return (
-    <div className="min-h-screen bg-[#0f1115] text-white flex">
-      {/* Sidebar (collapses; expands on hover) */}
-      <aside
-        className="
-          group
-          sticky top-0 h-screen
-          w-16 hover:w-64
-          transition-[width] duration-300 ease-out
-          bg-[#0b0d12] border-r border-white/10
-          flex flex-col
-          z-20
-        "
-      >
-        {/* Logo / Project Name */}
-        <div
-          className="
-            h-14 flex items-center gap-2 px-3
-            border-b border-white/10
-          "
-        >
-          <div className="h-7 w-7 rounded bg-emerald-500/80 flex items-center justify-center text-xs font-bold">
-            N
+    <div className="flex min-h-screen bg-[#0e0e10] text-white">
+      {/* Sidebar */}
+      <aside className="group relative flex flex-col items-center bg-[#1a1a1d] transition-all duration-300 hover:w-56 w-16 overflow-hidden border-r border-white/10">
+        <div className="w-full flex flex-col items-center gap-2 mt-4">
+          <div className="text-lg font-semibold mb-4 group-hover:opacity-100 opacity-0 transition-opacity duration-300 whitespace-nowrap">
+            WontonNice’s Project
           </div>
-          <div className="whitespace-nowrap overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <div className="text-sm font-semibold leading-4">WontonNice's Project</div>
-            <div className="text-[10px] text-white/60">Production · NANO</div>
-          </div>
-        </div>
 
-        {/* Nav */}
-        <nav className="flex-1 py-3 space-y-1">
-          <SideItem icon={<Home size={18} />} label="Overview" onClick={() => navigate("/student-dashboard")} />
+          <SideItem icon={<Home size={18} />} label="Overview" />
           <SideItem icon={<Table size={18} />} label="Table Editor" />
           <SideItem icon={<Database size={18} />} label="Database" />
           <SideItem icon={<Lock size={18} />} label="Auth" />
           <SideItem icon={<Boxes size={18} />} label="Storage" />
           <SideItem icon={<Activity size={18} />} label="Realtime" />
-        </nav>
+        </div>
 
-        {/* Bottom section */}
-        <div className="border-t border-white/10 p-3">
-          <SideItem icon={<Settings size={18} />} label="Project Settings" />
+        <div className="mt-auto mb-4">
+          <SideItem icon={<Settings size={18} />} label="Settings" />
         </div>
       </aside>
 
-      {/* Main area */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        {/* Top bar */}
-        <header className="h-14 border-b border-white/10 flex items-center justify-between px-4 bg-[#0f1218]/80 backdrop-blur">
-          <div className="text-lg font-semibold">{title}</div>
-
-          <div className="flex items-center gap-3">
-            {/* Example “status pill” (green dot) */}
-            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300 ring-1 ring-emerald-500/30">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              Project Status
-            </span>
-
-            <LogoutButton />
-          </div>
+      {/* Main */}
+      <main className="flex-1 flex flex-col">
+        <header className="flex justify-between items-center bg-[#161618] px-6 py-3 border-b border-white/10">
+          <h1 className="text-lg font-semibold">{title}</h1>
+          <LogoutButton />
         </header>
 
-        {/* Content */}
-        <main className="p-6">{children}</main>
-      </div>
+        <div className="p-6">{children}</div>
+      </main>
     </div>
   );
 }
 
-/** A single sidebar line item that reveals text when the sidebar expands */
-function SideItem({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onClick?: () => void;
-}) {
+function SideItem({ icon, label, onClick }: { icon: ReactNode; label: string; onClick?: () => void }) {
+  const navigate = useNavigate();
   return (
     <button
-      type="button"
-      onClick={onClick}
-      className="
-        group/item w-full
-        flex items-center gap-3
-        px-3 py-2 text-sm
-        text-white/80 hover:text-white
-        hover:bg-white/5
-        transition-colors
-      "
+      onClick={onClick ?? (() => navigate("/"))}
+      className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors hover:bg-white/10"
     >
-      <span className="shrink-0 h-9 w-9 rounded-md bg-white/5 grid place-items-center ring-1 ring-white/10">
+      <div className="w-8 h-8 grid place-items-center bg-white/5 rounded-md text-white/80">
         {icon}
-      </span>
-
-      {/* Label fades in only when sidebar is hovered */}
-      <span className="whitespace-nowrap overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+      </div>
+      <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
         {label}
       </span>
     </button>
