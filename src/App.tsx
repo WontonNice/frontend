@@ -1,20 +1,19 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Login from "./components/Login";
 import Register from "./components/Register";
 import StudentDashboard from "./components/StudentDashboard";
 import TeacherDashboard from "./components/TeacherDashboard";
 import RequireAuth from "./auth/RequireAuth";
 import RequireRole from "./auth/RequireRole";
+import HomeGate from "./auth/HomeGate";
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public */}
-        <Route path="/" element={<Login />} />
+        {/* Home decides: show Login or redirect to dashboard */}
+        <Route path="/" element={<HomeGate />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Protected: Student only */}
         <Route
           path="/student-dashboard"
           element={
@@ -26,7 +25,6 @@ export default function App() {
           }
         />
 
-        {/* Protected: Teacher only */}
         <Route
           path="/teacher-dashboard"
           element={
