@@ -1,10 +1,11 @@
-// src/components/SATMathPanel1.tsx
 import { useState } from "react";
 import { getEffectiveSatMathBank } from "../data/satMathStore";
 
+const LETTERS = ["A", "B", "C", "D", "E"];
 
 export default function SATMathPanel1() {
-  const questions = getEffectiveSatMathBank(); // easy swap later for filters/shuffling
+  // Use ALL topics for “Full Practice”
+  const questions = getEffectiveSatMathBank();
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
@@ -16,24 +17,14 @@ export default function SATMathPanel1() {
 
   const submit = () => {
     if (selected === null) return;
-    const correct = selected === q.correctIndex;
-    if (correct) setScore((s) => s + 1);
+    if (selected === q.correctIndex) setScore((s) => s + 1);
     setShowResult(true);
   };
 
   const next = () => {
     setShowResult(false);
     setSelected(null);
-    if (!isLast) {
-      setIdx((i) => i + 1);
-    }
-  };
-
-  const finish = () => {
-    setShowResult(false);
-    // Option A: show final summary inline
-    // Option B: navigate somewhere else — for now we just freeze on summary.
-    // Do nothing here; summary is shown below when finished.
+    if (!isLast) setIdx((i) => i + 1);
   };
 
   const restart = () => {
@@ -42,8 +33,6 @@ export default function SATMathPanel1() {
     setScore(0);
     setShowResult(false);
   };
-
-  const finished = showResult && isLast;
 
   return (
     <div className="space-y-6">
@@ -54,93 +43,103 @@ export default function SATMathPanel1() {
         Question {idx + 1} of {questions.length} · Score {score}/{questions.length}
       </div>
 
-      {/* Question card */}
-      <div className="rounded-2xl bg-[#111318] ring-1 ring-white/10 p-6 space-y-4">
-        <div className="text-base">{q.prompt}</div>
+      {/* SHSAT-style container */}
+      <div className="rounded-xl bg-white text-[#0e0f13] shadow-xl max-w-5xl mx-auto ring-1 ring-black/10">
+        {/* Top bar (like the test header) */}
+        <div className="h-12 px-4 flex items-center justify-between border-b border-black/10">
+          <div className="text-sm font-medium text-black/60">
+            SHSAT PRACTICE — Section: Math
+          </div>
+          <div className="text-sm text-black/50">Question {idx + 1}</div>
+        </div>
 
-        <div className="space-y-2">
-          {q.choices.map((choice, i) => {
-            const isSelected = selected === i;
-            const isCorrectChoice = showResult && i === q.correctIndex;
-            const isWrongSelected = showResult && isSelected && i !== q.correctIndex;
+        {/* Body */}
+        <div className="p-6 space-y-6">
+          {/* Prompt */}
+          <div className="text-base leading-relaxed">{q.prompt}</div>
 
-            return (
+          {/* Choices */}
+          <div className="space-y-3">
+            {q.choices.map((choice, i) => {
+              const isSelected = selected === i;
+              const isCorrectChoice = showResult && i === q.correctIndex;
+              const isWrongSelected = showResult && isSelected && i !== q.correctIndex;
+
+              return (
+                <label
+                  key={i}
+                  className={[
+                    "flex items-center gap-3 rounded-lg border px-4 py-3 cursor-pointer",
+                    "transition",
+                    isCorrectChoice ? "border-emerald-500 bg-emerald-50" : "",
+                    isWrongSelected ? "border-red-500 bg-red-50" : "",
+                    !isCorrectChoice && !isWrongSelected ? "border-black/10 hover:bg-black/5" : "",
+                  ].join(" ")}
+                >
+                  {/* Radio */}
+                  <input
+                    type="radio"
+                    name={`q-${q.id}`}
+                    checked={isSelected}
+                    onChange={() => !showResult && setSelected(i)}
+                    className="h-4 w-4"
+                  />
+                  {/* Letter */}
+                  <span className="w-6 text-sm font-semibold text-black/70">
+                    {LETTERS[i] || ""}
+                  </span>
+                  {/* Text (allow simple fractions like 9/14) */}
+                  <span className="text-sm">{choice}</span>
+                </label>
+              );
+            })}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-3 pt-2">
+            {!showResult && (
               <button
-                key={i}
-                onClick={() => !showResult && setSelected(i)}
-                className={[
-                  "w-full text-left rounded-xl px-4 py-3 ring-1 transition",
-                  isSelected ? "ring-emerald-400 bg-white/5" : "ring-white/10 hover:ring-white/20",
-                  isCorrectChoice ? "bg-emerald-600/20 ring-emerald-400" : "",
-                  isWrongSelected ? "bg-red-600/20 ring-red-400" : ""
-                ].join(" ")}
+                disabled={!canSubmit}
+                onClick={submit}
+                className={`px-5 py-2 rounded-lg text-sm font-semibold transition
+                  ${canSubmit ? "bg-[#2563eb] hover:bg-[#1e4fd9] text-white"
+                              : "bg-black/10 text-black/40 cursor-not-allowed"}`}
               >
-                <span className="text-sm">{choice}</span>
+                Submit
               </button>
-            );
-          })}
-        </div>
+            )}
+            {showResult && !isLast && (
+              <button
+                onClick={next}
+                className="px-5 py-2 rounded-lg bg-[#2563eb] hover:bg-[#1e4fd9] text-white text-sm font-semibold"
+              >
+                Next
+              </button>
+            )}
+            {showResult && isLast && (
+              <button
+                onClick={restart}
+                className="px-5 py-2 rounded-lg bg-[#2563eb] hover:bg-[#1e4fd9] text-white text-sm font-semibold"
+              >
+                Restart
+              </button>
+            )}
+          </div>
 
-        {/* Actions */}
-        <div className="pt-2 flex items-center gap-3">
-          {!showResult && (
-            <button
-              disabled={!canSubmit}
-              onClick={submit}
-              className={`px-5 py-2 rounded-xl text-sm font-semibold transition
-                ${canSubmit ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-white/10 text-white/50 cursor-not-allowed"}`}
-            >
-              Submit
-            </button>
-          )}
-
-          {showResult && !isLast && (
-            <button
-              onClick={next}
-              className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition"
-            >
-              Next
-            </button>
-          )}
-
-          {showResult && isLast && (
-            <button
-              onClick={finish}
-              className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition"
-            >
-              Finish
-            </button>
-          )}
-        </div>
-
-        {/* Explanation */}
-        {showResult && (
-          <div className="mt-4 rounded-xl bg-[#0e1014] ring-1 ring-white/10 p-4">
-            <div className="text-sm">
-              <span className="font-semibold">
-                {selected === q.correctIndex ? "Correct!" : "Not quite."}
-              </span>{" "}
-              <span className="text-white/70">{q.explanation}</span>
+          {/* Explanation + Source */}
+          {showResult && (
+            <div className="rounded-lg bg-black/5 border border-black/10 p-4 space-y-1">
+              <div className="text-sm">
+                <span className="font-semibold">
+                  {selected === q.correctIndex ? "Correct." : "Not quite."}
+                </span>{" "}
+                {q.explanation}
+              </div>
+              <div className="text-xs text-black/50 italic">Source: {q.source}</div>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Summary (shows right after finishing last question) */}
-      {finished && (
-        <div className="rounded-2xl bg-[#111318] ring-1 ring-white/10 p-6 space-y-3">
-          <div className="text-lg font-semibold">Session Summary</div>
-          <div className="text-white/70">You scored {score} out of {questions.length}.</div>
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={restart}
-              className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-semibold"
-            >
-              Restart
-            </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

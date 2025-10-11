@@ -18,12 +18,13 @@ export type SatMathQuestion = {
 
 export const satMathBank: SatMathQuestion[] = [
   {
-    id: "lin-5x",
-    prompt: "If 5x + 3 = 2x + 18, what is the value of x?",
-    choices: ["5", "-5", "7", "15"],
-    correctIndex: 0,
-    explanation: "5x + 3 = 2x + 18 ⇒ 3x = 15 ⇒ x = 5.",
-    source: "SAT Practice Test #1 — Section 3, Q4",
+    id: "algebra-square-shift",
+    prompt: "If (x − 2)^2 − 6(x − 2) + 9 = 0, what is the value of x?",
+    choices: ["2", "3", "5", "7"],
+    correctIndex: 2, // 5
+    explanation:
+      "Let y = x − 2. Then y^2 − 6y + 9 = (y − 3)^2 = 0 ⇒ y = 3 ⇒ x = 5.",
+    source: "Provided image (Algebra completing the square)",
     topic: "algebra",
   },
   {
