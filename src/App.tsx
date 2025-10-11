@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+// src/App.tsx
+import { Routes, Route, Navigate } from "react-router-dom";
 import Register from "./components/Register";
 import StudentDashboard from "./components/StudentDashboard";
 import TeacherDashboard from "./components/TeacherDashboard";
@@ -8,34 +9,35 @@ import HomeGate from "./auth/HomeGate";
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Home decides: show Login or redirect to dashboard */}
-        <Route path="/" element={<HomeGate />} />
-        <Route path="/register" element={<Register />} />
+    <Routes>
+      {/* Home decides: show Login or redirect to dashboard */}
+      <Route path="/" element={<HomeGate />} />
+      <Route path="/register" element={<Register />} />
 
-        <Route
-          path="/student-dashboard"
-          element={
-            <RequireAuth>
-              <RequireRole role="student">
-                <StudentDashboard />
-              </RequireRole>
-            </RequireAuth>
-          }
-        />
+      <Route
+        path="/student-dashboard"
+        element={
+          <RequireAuth>
+            <RequireRole role="student">
+              <StudentDashboard />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
 
-        <Route
-          path="/teacher-dashboard"
-          element={
-            <RequireAuth>
-              <RequireRole role="teacher">
-                <TeacherDashboard />
-              </RequireRole>
-            </RequireAuth>
-          }
-        />
-      </Routes>
-    </BrowserRouter>
+      <Route
+        path="/teacher-dashboard"
+        element={
+          <RequireAuth>
+            <RequireRole role="teacher">
+              <TeacherDashboard />
+            </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      {/* catch-all to home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
