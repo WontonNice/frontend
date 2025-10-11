@@ -15,7 +15,7 @@ export default function StudentDashboard() {
       </div>
 
       <div className="mt-8 text-white/80">
-        Welcome, <span className="font-semibold">{user?.username}</span>! (Student)
+        Welcome, <span className="font-semibold">{user?.username}</span>! (Teacher)
       </div>
     </DashboardLayout>
   );
