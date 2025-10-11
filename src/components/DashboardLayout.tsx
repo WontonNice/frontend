@@ -25,7 +25,6 @@ export default function DashboardLayout({
         <main className="mx-auto max-w-7xl px-6 pb-10">
           {/* Routed content first; fallback to direct children if provided */}
           <Outlet />
-          {children}
         </main>
       </div>
     </div>
