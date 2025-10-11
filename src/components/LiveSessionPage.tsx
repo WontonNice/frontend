@@ -1,150 +1,57 @@
-// src/components/LiveSessionPage.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
-import { io, Socket } from "socket.io-client";
+// src/components/SATMathPage.tsx
+import { useNavigate } from "react-router-dom";
 
-type Cursor = {
-  id: string;
-  name: string;
-  x: number; // 0..1 relative
-  y: number; // 0..1 relative
-  color: string;
-};
-
-const SOCKET_URL =
-  (import.meta as any).env?.VITE_SOCKET_URL ?? "https://backend-3wuq.onrender.com/";
-
-function colorFromId(id: string) {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue} 85% 65%)`;
+function PanelCard({
+  title,
+  description,
+  onStart,
+  disabled = false,
+}: {
+  title: string;
+  description: string;
+  onStart?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl bg-[#111318] ring-1 ring-white/10 p-5 flex flex-col gap-3
+                  ${disabled ? "opacity-60" : "transition-transform duration-200 hover:-translate-y-0.5 hover:ring-white/20"}`}
+    >
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">{title}</h3>
+        {!disabled && (
+          <button
+            onClick={onStart}
+            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 transition text-white text-sm font-semibold"
+          >
+            Start
+          </button>
+        )}
+      </div>
+      <p className="text-sm text-white/70">{description}</p>
+    </div>
+  );
 }
 
-export default function LiveSessionPage() {
-  const boardRef = useRef<HTMLDivElement>(null);
-  const socketRef = useRef<Socket | null>(null);
-
-  const [me, setMe] = useState<Cursor | null>(null);
-  const [cursors, setCursors] = useState<Record<string, Cursor>>({});
-
-  const user = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem("user") || "{}");
-    } catch {
-      return {};
-    }
-  }, []);
-
-  // Connect & wire socket listeners
-  useEffect(() => {
-    const socket = io(SOCKET_URL, { transports: ["websocket"] });
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      const name: string = user?.username || "Student";
-      const sid: string = socket.id ?? (crypto?.randomUUID?.() ?? String(Date.now()));
-      const mine: Cursor = {
-        id: sid,
-        name,
-        x: 0.5,
-        y: 0.5,
-        color: colorFromId(sid),
-      };
-      setMe(mine);
-      socket.emit("join", { name, room: "global" });
-    });
-
-    socket.on("presence", (snapshot: Cursor[]) => {
-      setCursors(() => {
-        const next: Record<string, Cursor> = {};
-        snapshot.forEach((c) => (next[c.id] = c));
-        return next;
-      });
-    });
-
-    socket.on("move", (c: Cursor) => {
-      setCursors((prev) => ({ ...prev, [c.id]: c }));
-    });
-
-    socket.on("left", (id: string) => {
-      setCursors((prev) => {
-        const copy = { ...prev };
-        delete copy[id];
-        return copy;
-      });
-    });
-
-    return () => {
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, [SOCKET_URL, user?.username]);
-
-  // Emit mouse moves (throttled with rAF)
-  useEffect(() => {
-    if (!me) return;
-
-    let raf = 0;
-    const onMove = (e: MouseEvent) => {
-      const board = boardRef.current;
-      const socket = socketRef.current;
-      if (!board || !socket) return;
-
-      const rect = board.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width;
-      const y = (e.clientY - rect.top) / rect.height;
-      const clampedX = Math.max(0, Math.min(1, x));
-      const clampedY = Math.max(0, Math.min(1, y));
-
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const mine: Cursor = { ...me, x: clampedX, y: clampedY };
-        setMe(mine);
-        socket.emit("move", { ...mine, room: "global" });
-      });
-    };
-
-    const el = boardRef.current;
-    el?.addEventListener("mousemove", onMove);
-    return () => {
-      el?.removeEventListener("mousemove", onMove);
-      cancelAnimationFrame(raf);
-    };
-  }, [me]);
+export default function SATMathPage() {
+  const navigate = useNavigate();
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-semibold">Live Session</h2>
-      <p className="text-white/70 text-sm">
-        Move your mouse inside the whiteboard—everyone in the session will see your cursor.
-      </p>
+    <div className="space-y-6">
+      <h2 className="text-2xl font-semibold">Math</h2>
+      <p className="text-white/70">Pick a panel to begin practicing.</p>
 
-      {/* Whiteboard area */}
-      <div
-        ref={boardRef}
-        className="relative mx-auto max-w-5xl h-[520px] bg-white rounded-xl ring-1 ring-black/10 overflow-hidden"
-      >
-        {Object.values(cursors).map((c) => {
-          const left = `${c.x * 100}%`;
-          const top = `${c.y * 100}%`;
-          return (
-            <div
-              key={c.id}
-              className="absolute pointer-events-none"
-              style={{ left, top, transform: "translate(-20%, -60%)" }}
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill={c.color}>
-                <path d="M3 2l7 18 2-7 7-2L3 2z" />
-              </svg>
-              <div
-                className="mt-1 px-2 py-0.5 text-xs font-medium rounded"
-                style={{ background: c.color, color: "#0b0d12" }}
-              >
-                {c.name}
-              </div>
-            </div>
-          );
-        })}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* ✅ Working panel */}
+        <PanelCard
+          title="Full Practice"
+          description="all sat questions relevant to shsat"
+          onStart={() => navigate("/sat/math/panel-1")}
+        />
+
+        {/* Future panels (placeholders for now) */}
+        <PanelCard title="General Practice" description="mixed math drills" disabled />
+        <PanelCard title="Ratio Practice" description="ratios, proportions, and rates" disabled />
       </div>
     </div>
   );
