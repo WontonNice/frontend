@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { getEffectiveSatMathBank } from "../data/satMathStore";
+import MathText from "./MathText"; // ✅ add this
 
 const LETTERS = ["A", "B", "C", "D", "E"];
 
 export default function SATMathPanel1() {
-  // Use ALL topics for “Full Practice”
   const questions = getEffectiveSatMathBank();
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
@@ -38,25 +38,21 @@ export default function SATMathPanel1() {
     <div className="space-y-6">
       <h2 className="text-2xl font-semibold">Math — Full Practice</h2>
 
-      {/* Progress */}
       <div className="text-sm text-white/60">
         Question {idx + 1} of {questions.length} · Score {score}/{questions.length}
       </div>
 
-      {/* SHSAT-style container */}
       <div className="rounded-xl bg-white text-[#0e0f13] shadow-xl max-w-5xl mx-auto ring-1 ring-black/10">
-        {/* Top bar (like the test header) */}
         <div className="h-12 px-4 flex items-center justify-between border-b border-black/10">
-          <div className="text-sm font-medium text-black/60">
-            SHSAT PRACTICE — Section: Math
-          </div>
+          <div className="text-sm font-medium text-black/60">SHSAT PRACTICE — Section: Math</div>
           <div className="text-sm text-black/50">Question {idx + 1}</div>
         </div>
 
-        {/* Body */}
         <div className="p-6 space-y-6">
-          {/* Prompt */}
-          <div className="text-base leading-relaxed">{q.prompt}</div>
+          {/* ✅ Prompt rendered with KaTeX */}
+          <div className="text-base leading-relaxed">
+            <MathText text={q.prompt} />
+          </div>
 
           {/* Choices */}
           <div className="space-y-3">
@@ -76,7 +72,6 @@ export default function SATMathPanel1() {
                     !isCorrectChoice && !isWrongSelected ? "border-black/10 hover:bg-black/5" : "",
                   ].join(" ")}
                 >
-                  {/* Radio */}
                   <input
                     type="radio"
                     name={`q-${q.id}`}
@@ -84,12 +79,11 @@ export default function SATMathPanel1() {
                     onChange={() => !showResult && setSelected(i)}
                     className="h-4 w-4"
                   />
-                  {/* Letter */}
                   <span className="w-6 text-sm font-semibold text-black/70">
                     {LETTERS[i] || ""}
                   </span>
-                  {/* Text (allow simple fractions like 9/14) */}
-                  <span className="text-sm">{choice}</span>
+                  {/* ✅ Choice rendered with KaTeX */}
+                  <MathText text={choice} className="text-sm" />
                 </label>
               );
             })}
@@ -133,7 +127,8 @@ export default function SATMathPanel1() {
                 <span className="font-semibold">
                   {selected === q.correctIndex ? "Correct." : "Not quite."}
                 </span>{" "}
-                {q.explanation}
+                {/* ✅ Explanation rendered with KaTeX */}
+                <MathText text={q.explanation} />
               </div>
               <div className="text-xs text-black/50 italic">Source: {q.source}</div>
             </div>
