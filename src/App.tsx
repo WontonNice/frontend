@@ -10,6 +10,7 @@ import SATPage from "./components/SATPage";
 import DashboardLayout from "./components/DashboardLayout";
 import SATMathPage from "./components/SATMathPage";
 import SATMathPanel1 from "./components/SATMathPanel1";
+import LiveActivitiesPage from "./components/LiveActivitiesPage"; // ✅ import this
 
 export default function App() {
   return (
@@ -19,11 +20,14 @@ export default function App() {
       <Route path="/register" element={<Register />} />
 
       {/* Authenticated layout (keeps Sidebar/TopBar/Hero) */}
-      <Route element={
-        <RequireAuth>
-          <DashboardLayout />
-        </RequireAuth>
-      }>
+      <Route
+        element={
+          <RequireAuth>
+            <DashboardLayout />
+          </RequireAuth>
+        }
+      >
+        {/* Student and teacher dashboards */}
         <Route
           path="/student-dashboard"
           element={
@@ -40,9 +44,14 @@ export default function App() {
             </RequireRole>
           }
         />
+
+        {/* SAT routes */}
         <Route path="/sat" element={<SATPage />} />
         <Route path="/sat/math" element={<SATMathPage />} />
         <Route path="/sat/math/panel-1" element={<SATMathPanel1 />} />
+
+        {/* ✅ Live Activities route */}
+        <Route path="/live-activities" element={<LiveActivitiesPage />} />
       </Route>
 
       {/* Catch-all */}
