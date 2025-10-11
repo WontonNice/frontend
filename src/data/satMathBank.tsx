@@ -39,4 +39,28 @@ export const satMathBank: SatMathQuestion[] = [
     source: "Provided image — linear equation with decimals",
     topic: "algebra",
   },
+
+  {
+    id: "linear-3x-24",
+    prompt: "If $3x = 24$, what is the value of $2x - 3$?",
+    choices: ["$8$", "$10$", "$11$", "$13$"],
+    correctIndex: 3, // ✅ 2x = 16 → 2x - 3 = 13
+    explanation:
+      "From $3x=24$, we get $x=8$. Then $2x-3=16-3=13$.",
+    source: "Provided image — simple linear equation",
+    topic: "arithmetic",
+  },
+
+  {
+    id: "geometry-rectangular-prism-volume",
+    prompt:
+      "A box in the shape of a right rectangular prism has a volume of $60$ cubic inches. If the dimensions of the box are $3$ inches by $5$ inches by $h$ inches, what is the value of $h$?",
+    choices: ["$3$", "$4$", "$5$", "$6$"],
+    correctIndex: 1, // ✅ 3×5×h = 60 → h = 4
+    explanation:
+      "The volume of a rectangular prism is $V = lwh$. Substituting: $60 = 3\\times5\\times h \\Rightarrow 60 = 15h \\Rightarrow h = 4$.",
+    source: "Provided image — geometry/volume problem",
+    topic: "geometry",
+  },
+
 ];
