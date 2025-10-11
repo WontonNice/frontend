@@ -21,24 +21,22 @@ export const satMathBank: SatMathQuestion[] = [
     id: "algebra-square-shift",
     prompt: "If $\\,(x-2)^2 - 6(x-2) + 9 = 0\\,$, what is the value of $x$?",
     choices: ["$2$", "$3$", "$5$", "$7$"],
-    correctIndex: 1,
+    correctIndex: 2, // ✅ corrected to match x = 5
     explanation:
       "Let $y=x-2$. Then $y^2-6y+9=(y-3)^2=0\\Rightarrow y=3\\Rightarrow x=5$.",
     source: "May 2017 QAS Question #5",
     topic: "algebra",
   },
 
-  // Probability (not apple)
+  // ✅ NEW: 1.2(h+2) = 2h - 1.2
   {
-    id: "prob-not-apple-5-3-6",
-    prompt:
-      "A cooler contains 5 apple, 3 grape, and 6 orange juices. What is the probability a random bottle is \\emph{not} apple?",
-    choices: ["$\\tfrac{1}{9}$", "$\\tfrac{5}{14}$", "$\\tfrac{9}{14}$", "$\\tfrac{2}{3}$"],
-    correctIndex: 2,
+    id: "solve-h-1p2-linear",
+    prompt: "Solve for $h$ in the equation $1.2(h+2)=2h-1.2$.",
+    choices: ["$1.2$", "$2.4$", "$4.5$", "$6$"],
+    correctIndex: 2, // corresponds to $4.5$
     explanation:
-      "Total $=14$, not-apple $=9\\Rightarrow\\;\\dfrac{9}{14}$.",
-    source: "SHSAT-style probability example (provided screenshot)",
-    topic: "data-analysis",
+      "Distribute: $1.2h+2.4=2h-1.2$. Subtract $1.2h$: $2.4=0.8h-1.2$. Add $1.2$: $3.6=0.8h$. Thus $h=\\dfrac{3.6}{0.8}=4.5$.",
+    source: "Provided image — linear equation with decimals",
+    topic: "algebra",
   },
-  // ...your other questions
 ];
