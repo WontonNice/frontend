@@ -8,6 +8,7 @@ import RequireRole from "./auth/RequireRole";
 import HomeGate from "./auth/HomeGate";
 import SATPage from "./components/SATPage";
 import DashboardLayout from "./components/DashboardLayout";
+import SATMathPage from "./components/SATMathPage";
 
 export default function App() {
   return (
@@ -39,6 +40,7 @@ export default function App() {
           }
         />
         <Route path="/sat" element={<SATPage />} />
+        <Route path="/sat/math" element={<SATMathPage />} />
       </Route>
 
       {/* Catch-all */}

@@ -1,8 +1,20 @@
 // src/components/SATPage.tsx
+import { useNavigate } from "react-router-dom";
+
 export default function SATPage() {
+  const navigate = useNavigate();
+
   return (
-    <div className="flex items-center justify-center h-[80vh] text-white text-4xl font-semibold">
-      SAT
+    <div className="space-y-6">
+      <h2 className="text-2xl font-semibold">SAT — Advanced Questions</h2>
+      <p className="text-white/70">Choose a subject below to get started.</p>
+
+      <button
+        onClick={() => navigate("/sat/math")}
+        className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 transition text-white font-semibold"
+      >
+        Math
+      </button>
     </div>
   );
 }
