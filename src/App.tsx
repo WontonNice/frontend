@@ -11,6 +11,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import SATMathPage from "./components/SATMathPage";
 import SATMathPanel1 from "./components/SATMathPanel1";
 import LiveActivitiesPage from "./components/LiveActivitiesPage"; 
+import LiveSessionPage from "./components/LiveSessionPage";
 
 export default function App() {
   return (
@@ -52,6 +53,7 @@ export default function App() {
 
         {/* ✅ Live Activities route */}
         <Route path="/live-activities" element={<LiveActivitiesPage />} />
+        <Route path="/live-activities/session" element={<LiveSessionPage />} />
       </Route>
 
       {/* Catch-all */}
