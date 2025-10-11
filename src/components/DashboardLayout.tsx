@@ -1,7 +1,6 @@
 // src/components/DashboardLayout.tsx
-import { useState, type PropsWithChildren, type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
-import { useRef, useEffect } from "react";
+import { useState, type PropsWithChildren, type ReactNode, useRef, useEffect } from "react";
+import { NavLink, Outlet } from "react-router-dom";
 import { Home, Database, BookOpen, Boxes, Activity, Settings } from "lucide-react";
 import LogoutButton from "./LogoutButton";
 
@@ -19,10 +18,15 @@ export default function DashboardLayout({
     <div className="min-h-screen bg-[#0f1115] text-white antialiased flex">
       <Sidebar />
 
+      {/* Keep overlay behavior for now */}
       <div className="flex-1 pl-16 transition-all duration-300">
         <TopBar />
         <Hero title={title} subtitle={subtitle} />
-        <main className="mx-auto max-w-7xl px-6 pb-10">{children}</main>
+        <main className="mx-auto max-w-7xl px-6 pb-10">
+          {/* Routed content first; fallback to direct children if provided */}
+          <Outlet />
+          {children}
+        </main>
       </div>
     </div>
   );
@@ -31,39 +35,39 @@ export default function DashboardLayout({
 /* ---------- Sidebar ---------- */
 function Sidebar() {
   const [open, setOpen] = useState(false);
-  const [pinned, setPinned] = useState(false); // allow click-to-pin for touch
 
   return (
     <aside
-      onMouseEnter={() => !pinned && setOpen(true)}
-      onMouseLeave={() => !pinned && setOpen(false)}
-      onFocus={() => !pinned && setOpen(true)}            // keyboard
-      onBlur={(e) => {                                     // close when focus leaves
-        if (!pinned && !e.currentTarget.contains(e.relatedTarget as Node)) {
-          setOpen(false);
-        }
-      }}
-      aria-expanded={open}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
       className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-white/10 bg-[#0b0d12] transition-all duration-300 ease-out ${
         open ? "w-64" : "w-16"
       }`}
     >
       {/* Header / Project badge */}
       <div className="flex items-center gap-3 border-b border-white/10 px-3 h-14">
-        <button
-          className="grid h-7 w-7 place-items-center rounded bg-emerald-500/80 text-xs font-bold"
-          title={pinned ? "Unpin sidebar" : "Pin sidebar"}
-          onClick={() => setPinned(p => !p)}                 // tap to pin/unpin
-        >
+        <div className="grid h-7 w-7 place-items-center rounded bg-emerald-500/80 text-xs font-bold">
           N
-        </button>
+        </div>
         <div className={`transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}>
           <div className="text-sm font-semibold leading-4">WontonNice’s Project</div>
           <div className="text-[10px] text-white/60">main · Production</div>
         </div>
       </div>
 
-      {/* ...nav and footer remain the same */}
+      {/* Navigation */}
+      <nav className="flex-1 py-3 space-y-1">
+        <SideLink to="/student-dashboard" icon={<Home size={18} />} label="Overview" open={open} />
+        <SideLink to="#" icon={<Database size={18} />} label="Progress Report" open={open} />
+        <SideLink to="/sat" icon={<BookOpen size={18} />} label="Advanced Questions" open={open} />
+        <SideLink to="#" icon={<Boxes size={18} />} label="Live Activities" open={open} />
+        <SideLink to="#" icon={<Activity size={18} />} label="Exams" open={open} />
+      </nav>
+
+      {/* Footer */}
+      <div className="mt-auto border-t border-white/10 p-3">
+        <SideLink to="#" icon={<Settings size={18} />} label="Settings" open={open} />
+      </div>
     </aside>
   );
 }
@@ -82,14 +86,13 @@ function SideLink({
   return (
     <NavLink
       to={to}
-      onClick={() => console.log("nav ->", to)} 
+      onClick={() => console.log("nav ->", to)}
       className={({ isActive }) =>
         `relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-          isActive
-            ? "bg-white/10 text-white"
-            : "text-white/70 hover:text-white hover:bg-white/5"
+          isActive ? "bg-white/10 text-white" : "text-white/70 hover:text-white hover:bg-white/5"
         }`
       }
+      title={label}
     >
       {({ isActive }) => (
         <>
@@ -104,11 +107,7 @@ function SideLink({
             {icon}
           </span>
           {/* Label */}
-          <span
-            className={`whitespace-nowrap transition-opacity duration-150 ${
-              open ? "opacity-100" : "opacity-0"
-            }`}
-          >
+          <span className={`whitespace-nowrap transition-opacity duration-150 ${open ? "opacity-100" : "opacity-0"}`}>
             {label}
           </span>
         </>
@@ -117,7 +116,6 @@ function SideLink({
   );
 }
 
-/* ---------- Top bar ---------- */
 /* ---------- Top bar ---------- */
 function TopBar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -141,13 +139,11 @@ function TopBar() {
         <div className="text-sm text-white/60">Last 60 minutes</div>
 
         <div className="flex items-center gap-3 relative" ref={menuRef}>
-          {/* Project status pill */}
           <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300 ring-1 ring-emerald-500/30">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
             Project Status
           </span>
 
-          {/* Profile avatar */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="relative h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white text-sm font-semibold flex items-center justify-center hover:opacity-90"
@@ -155,7 +151,6 @@ function TopBar() {
             {user?.username?.[0]?.toUpperCase() || "?"}
           </button>
 
-          {/* Dropdown menu */}
           {menuOpen && (
             <div className="absolute right-0 top-10 w-64 bg-[#1a1c22] border border-white/10 rounded-xl shadow-xl overflow-hidden">
               <div className="px-4 py-3 border-b border-white/10">
@@ -197,9 +192,7 @@ function Hero({ title, subtitle }: { title: string; subtitle?: string }) {
       <div className="mx-auto max-w-7xl px-6 py-10">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">
-              {title}
-            </h1>
+            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">{title}</h1>
             {subtitle && <p className="mt-2 text-white/60">{subtitle}</p>}
           </div>
 
