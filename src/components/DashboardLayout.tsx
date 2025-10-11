@@ -12,7 +12,6 @@ type LayoutProps = PropsWithChildren<{
 export default function DashboardLayout({
   title = "WontonNice’s Project",
   subtitle,
-  children,
 }: LayoutProps) {
   return (
     <div className="min-h-screen bg-[#0f1115] text-white antialiased flex">
