@@ -66,16 +66,16 @@ function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 py-3 space-y-1">
-        <SideLink to="/student-dashboard" icon={<Home size={18} />} label="Project overview" open={open} />
-        <SideLink to="#" icon={<Database size={18} />} label="Database" open={open} />
-        <SideLink to="#" icon={<Lock size={18} />} label="Authentication" open={open} />
-        <SideLink to="#" icon={<Boxes size={18} />} label="Storage" open={open} />
-        <SideLink to="#" icon={<Activity size={18} />} label="Realtime" open={open} />
+        <SideLink to="/student-dashboard" icon={<Home size={18} />} label="Overview" open={open} />
+        <SideLink to="#" icon={<Database size={18} />} label="Progress Report" open={open} />
+        <SideLink to="#" icon={<Lock size={18} />} label="Advanced Questions" open={open} />
+        <SideLink to="#" icon={<Boxes size={18} />} label="Live Activities" open={open} />
+        <SideLink to="#" icon={<Activity size={18} />} label="Exams" open={open} />
       </nav>
 
       {/* Footer */}
       <div className="mt-auto border-t border-white/10 p-3">
-        <SideLink to="#" icon={<Settings size={18} />} label="Project Settings" open={open} />
+        <SideLink to="#" icon={<Settings size={18} />} label="Settings" open={open} />
       </div>
     </aside>
   );
