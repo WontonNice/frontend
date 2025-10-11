@@ -9,6 +9,7 @@ import HomeGate from "./auth/HomeGate";
 import SATPage from "./components/SATPage";
 import DashboardLayout from "./components/DashboardLayout";
 import SATMathPage from "./components/SATMathPage";
+import SATMathPanel1 from "./components/SATMathPanel1";
 
 export default function App() {
   return (
