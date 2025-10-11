@@ -1,11 +1,11 @@
 // src/components/StudentDashboard.tsx
-import DashboardLayout from "./DashboardLayout";
+// ❌ remove: import DashboardLayout from "./DashboardLayout";
 
 export default function StudentDashboard() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   return (
-    <DashboardLayout title="WontonNice’s Project" subtitle="Overview">
+    <div className="space-y-8">
       {/* Stat cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl bg-[#111318] ring-1 ring-white/10 p-4 transition-transform duration-200 hover:-translate-y-0.5 hover:ring-white/20">
@@ -34,9 +34,9 @@ export default function StudentDashboard() {
       </div>
 
       {/* Welcome */}
-      <div className="mt-8 text-white/80">
+      <div className="text-white/80">
         Welcome, <span className="font-semibold">{user?.username}</span>! (Student)
       </div>
-    </DashboardLayout>
+    </div>
   );
 }
