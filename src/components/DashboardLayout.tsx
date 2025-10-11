@@ -1,6 +1,7 @@
 // src/components/DashboardLayout.tsx
 import { useState, type PropsWithChildren, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
+import { useRef, useEffect } from "react";
 import {
   Home,
   Database,
@@ -129,17 +130,72 @@ function SideLink({
 }
 
 /* ---------- Top bar ---------- */
+/* ---------- Top bar ---------- */
 function TopBar() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
   return (
-    <header className="sticky top-0 z-20 h-14 border-b border-white/10 bg-[#0f1218]/90 backdrop-blur">
-      <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-6">
+    <header className="sticky top-0 z-20 h-14 bg-[#0f1218]/90 backdrop-blur border-b border-white/10">
+      <div className="mx-auto max-w-7xl h-full px-6 flex items-center justify-between">
         <div className="text-sm text-white/60">Last 60 minutes</div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex items-center gap-3 relative" ref={menuRef}>
+          {/* Project status pill */}
           <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300 ring-1 ring-emerald-500/30">
             <span className="h-2 w-2 rounded-full bg-emerald-400" />
             Project Status
           </span>
-          <LogoutButton />
+
+          {/* Profile avatar */}
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="relative h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white text-sm font-semibold flex items-center justify-center hover:opacity-90"
+          >
+            {user?.username?.[0]?.toUpperCase() || "?"}
+          </button>
+
+          {/* Dropdown menu */}
+          {menuOpen && (
+            <div className="absolute right-0 top-10 w-64 bg-[#1a1c22] border border-white/10 rounded-xl shadow-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-white/10">
+                <div className="text-sm font-semibold text-white">{user?.username || "User"}</div>
+                <div className="text-xs text-white/50">{user?.email || "user@example.com"}</div>
+              </div>
+
+              <ul className="py-1 text-sm text-white/80">
+                <li className="px-4 py-2 hover:bg-white/5 cursor-pointer">Account preferences</li>
+                <li className="px-4 py-2 hover:bg-white/5 cursor-pointer">Feature previews</li>
+                <li className="px-4 py-2 hover:bg-white/5 cursor-pointer">Command menu</li>
+              </ul>
+
+              <div className="border-t border-white/10 py-1">
+                <div className="px-4 py-2 text-xs text-white/50 uppercase tracking-wide">Theme</div>
+                <ul className="text-sm text-white/80">
+                  <li className="px-4 py-2 hover:bg-white/5 cursor-pointer">Dark</li>
+                  <li className="px-4 py-2 hover:bg-white/5 cursor-pointer">Light</li>
+                  <li className="px-4 py-2 hover:bg-white/5 cursor-pointer">Classic Dark</li>
+                  <li className="px-4 py-2 hover:bg-white/5 cursor-pointer">System</li>
+                </ul>
+              </div>
+
+              <div className="border-t border-white/10 px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 cursor-pointer">
+                <LogoutButton />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>
