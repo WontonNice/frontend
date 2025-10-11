@@ -7,47 +7,41 @@ import RequireAuth from "./auth/RequireAuth";
 import RequireRole from "./auth/RequireRole";
 import HomeGate from "./auth/HomeGate";
 import SATPage from "./components/SATPage";
+import DashboardLayout from "./components/DashboardLayout";
 
 export default function App() {
   return (
     <Routes>
-      {/* Home decides: show Login or redirect to dashboard */}
+      {/* Public */}
       <Route path="/" element={<HomeGate />} />
       <Route path="/register" element={<Register />} />
 
-      <Route
-        path="/student-dashboard"
-        element={
-          <RequireAuth>
+      {/* Authenticated layout (keeps Sidebar/TopBar/Hero) */}
+      <Route element={
+        <RequireAuth>
+          <DashboardLayout />
+        </RequireAuth>
+      }>
+        <Route
+          path="/student-dashboard"
+          element={
             <RequireRole role="student">
               <StudentDashboard />
             </RequireRole>
-          </RequireAuth>
-        }
-      />
-
-      <Route
-        path="/teacher-dashboard"
-        element={
-          <RequireAuth>
+          }
+        />
+        <Route
+          path="/teacher-dashboard"
+          element={
             <RequireRole role="teacher">
               <TeacherDashboard />
             </RequireRole>
-          </RequireAuth>
-        }
-      />
+          }
+        />
+        <Route path="/sat" element={<SATPage />} />
+      </Route>
 
-      {/* ✅ SAT placeholder page (auth required) */}
-      <Route
-        path="/sat"
-        element={
-          <RequireAuth>
-            <SATPage />
-          </RequireAuth>
-        }
-      />
-
-      {/* catch-all to home */}
+      {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
