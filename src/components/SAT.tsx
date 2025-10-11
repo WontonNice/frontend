@@ -1,6 +1,6 @@
 // src/components/SAT.tsx
 import { useMemo, useState } from "react";
-import DashboardLayout from "./DashboardLayout";
+import DashboardLayout from "./DashboardLayout.tsx";
 import { questionBank, type SatSection, normalize } from "../data/questionBank.tsx";
 
 type Mode = SatSection | null;
