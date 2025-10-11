@@ -61,7 +61,7 @@ function Sidebar() {
       <nav className="flex-1 py-3 space-y-1">
         <SideLink to="/student-dashboard" icon={<Home size={18} />} label="Overview" open={open} />
         <SideLink to="#" icon={<Database size={18} />} label="Progress Report" open={open} />
-        <SideLink to="#" icon={<BookOpen size={18} />} label="Advanced Questions" open={open} />
+        <SideLink to="/sat" icon={<BookOpen size={18} />} label="Advanced Questions" open={open} />
         <SideLink to="#" icon={<Boxes size={18} />} label="Live Activities" open={open} />
         <SideLink to="#" icon={<Activity size={18} />} label="Exams" open={open} />
       </nav>
@@ -88,6 +88,7 @@ function SideLink({
   return (
     <NavLink
       to={to}
+      onClick={() => console.log("nav ->", to)} 
       className={({ isActive }) =>
         `relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
           isActive
