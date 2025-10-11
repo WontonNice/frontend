@@ -2,14 +2,7 @@
 import { useState, type PropsWithChildren, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { useRef, useEffect } from "react";
-import {
-  Home,
-  Database,
-  Lock,
-  Boxes,
-  Activity,
-  Settings,
-} from "lucide-react";
+import { Home, Database, BookOpen, Boxes, Activity, Settings } from "lucide-react";
 import LogoutButton from "./LogoutButton";
 
 type LayoutProps = PropsWithChildren<{
@@ -68,7 +61,7 @@ function Sidebar() {
       <nav className="flex-1 py-3 space-y-1">
         <SideLink to="/student-dashboard" icon={<Home size={18} />} label="Overview" open={open} />
         <SideLink to="#" icon={<Database size={18} />} label="Progress Report" open={open} />
-        <SideLink to="#" icon={<Lock size={18} />} label="Advanced Questions" open={open} />
+        <SideLink to="#" icon={<BookOpen size={18} />} label="Advanced Questions" open={open} />
         <SideLink to="#" icon={<Boxes size={18} />} label="Live Activities" open={open} />
         <SideLink to="#" icon={<Activity size={18} />} label="Exams" open={open} />
       </nav>
