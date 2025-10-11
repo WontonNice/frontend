@@ -10,7 +10,7 @@ import SATPage from "./components/SATPage";
 import DashboardLayout from "./components/DashboardLayout";
 import SATMathPage from "./components/SATMathPage";
 import SATMathPanel1 from "./components/SATMathPanel1";
-import LiveActivitiesPage from "./components/LiveActivitiesPage"; // ✅ import this
+import LiveActivitiesPage from "./components/LiveActivitiesPage"; 
 
 export default function App() {
   return (
