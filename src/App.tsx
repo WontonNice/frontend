@@ -6,6 +6,7 @@ import TeacherDashboard from "./components/TeacherDashboard";
 import RequireAuth from "./auth/RequireAuth";
 import RequireRole from "./auth/RequireRole";
 import HomeGate from "./auth/HomeGate";
+import SATPage from "./components/SATPage";
 
 export default function App() {
   return (
@@ -32,6 +33,16 @@ export default function App() {
             <RequireRole role="teacher">
               <TeacherDashboard />
             </RequireRole>
+          </RequireAuth>
+        }
+      />
+
+      {/* ✅ SAT placeholder page (auth required) */}
+      <Route
+        path="/sat"
+        element={
+          <RequireAuth>
+            <SATPage />
           </RequireAuth>
         }
       />
