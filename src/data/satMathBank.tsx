@@ -19,22 +19,26 @@ export type SatMathQuestion = {
 export const satMathBank: SatMathQuestion[] = [
   {
     id: "algebra-square-shift",
-    prompt: "If (x − 2)^2 − 6(x − 2) + 9 = 0, what is the value of x?",
-    choices: ["2", "3", "5", "7"],
-    correctIndex: 2, // 5
+    prompt: "If $\\,(x-2)^2 - 6(x-2) + 9 = 0\\,$, what is the value of $x$?",
+    choices: ["$2$", "$3$", "$5$", "$7$"],
+    correctIndex: 2,
     explanation:
-      "Let y = x − 2. Then y^2 − 6y + 9 = (y − 3)^2 = 0 ⇒ y = 3 ⇒ x = 5.",
+      "Let $y=x-2$. Then $y^2-6y+9=(y-3)^2=0\\Rightarrow y=3\\Rightarrow x=5$.",
     source: "Provided image (Algebra completing the square)",
     topic: "algebra",
   },
+
+  // Probability (not apple)
   {
-    id: "ratio-3-5",
+    id: "prob-not-apple-5-3-6",
     prompt:
-      "In a bag, the ratio of red to blue marbles is 3:5. If there are 40 marbles total, how many are red?",
-    choices: ["15", "25", "20", "12"],
-    correctIndex: 0,
-    explanation: "Total parts = 3 + 5 = 8. Red = (3/8) × 40 = 15.",
-    source: "Custom Question Bank — Ratios Set 1",
-    topic: "ratios",
+      "A cooler contains 5 apple, 3 grape, and 6 orange juices. What is the probability a random bottle is \\emph{not} apple?",
+    choices: ["$\\tfrac{1}{9}$", "$\\tfrac{5}{14}$", "$\\tfrac{9}{14}$", "$\\tfrac{2}{3}$"],
+    correctIndex: 2,
+    explanation:
+      "Total $=14$, not-apple $=9\\Rightarrow\\;\\dfrac{9}{14}$.",
+    source: "SHSAT-style probability example (provided screenshot)",
+    topic: "data-analysis",
   },
+  // ...your other questions
 ];
