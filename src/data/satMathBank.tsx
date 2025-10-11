@@ -23,7 +23,7 @@ export const satMathBank: SatMathQuestion[] = [
     choices: ["$2$", "$3$", "$5$", "$7$"],
     correctIndex: 1,
     explanation:
-      "Ask Nathan Teacher",
+      "Let $y=x-2$. Then $y^2-6y+9=(y-3)^2=0\\Rightarrow y=3\\Rightarrow x=5$.",
     source: "May 2017 QAS Question #5",
     topic: "algebra",
   },
