@@ -1,11 +1,19 @@
 // src/data/satMathBank.ts
+export type SatMathTopic =
+  | "algebra"
+  | "arithmetic"
+  | "ratios"
+  | "geometry"
+  | "data-analysis";
+
 export type SatMathQuestion = {
   id: string;
   prompt: string;
-  choices: string[];
-  correctIndex: number;
+  choices: string[];     // keep for now (used by current runner)
+  correctIndex: number;  // keep for now
   explanation: string;
-  source: string; // ✅ new parameter
+  source: string;
+  topic: SatMathTopic;   // ✅ replaced questionType with topic
 };
 
 export const satMathBank: SatMathQuestion[] = [
@@ -15,14 +23,17 @@ export const satMathBank: SatMathQuestion[] = [
     choices: ["5", "-5", "7", "15"],
     correctIndex: 0,
     explanation: "5x + 3 = 2x + 18 ⇒ 3x = 15 ⇒ x = 5.",
-    source: "SAT Practice Test #1 — Section 3, Q4"
+    source: "SAT Practice Test #1 — Section 3, Q4",
+    topic: "algebra",
   },
   {
     id: "ratio-3-5",
-    prompt: "In a bag, the ratio of red to blue marbles is 3:5. If there are 40 marbles total, how many are red?",
+    prompt:
+      "In a bag, the ratio of red to blue marbles is 3:5. If there are 40 marbles total, how many are red?",
     choices: ["15", "25", "20", "12"],
     correctIndex: 0,
     explanation: "Total parts = 3 + 5 = 8. Red = (3/8) × 40 = 15.",
-    source: "Custom Question Bank — Ratios Set 1"
-  }
+    source: "Custom Question Bank — Ratios Set 1",
+    topic: "ratios",
+  },
 ];

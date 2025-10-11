@@ -1,9 +1,10 @@
 // src/components/SATMathPanel1.tsx
 import { useState } from "react";
-import { satMathBank } from "../data/satMathBank";
+import { getEffectiveSatMathBank } from "../data/satMathStore";
+
 
 export default function SATMathPanel1() {
-  const questions = satMathBank; // easy swap later for filters/shuffling
+  const questions = getEffectiveSatMathBank(); // easy swap later for filters/shuffling
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
