@@ -41,6 +41,7 @@ export default function App() {
         />
         <Route path="/sat" element={<SATPage />} />
         <Route path="/sat/math" element={<SATMathPage />} />
+        <Route path="/sat/math/panel-1" element={<SATMathPanel1 />} />
       </Route>
 
       {/* Catch-all */}
