@@ -11,7 +11,7 @@ type Cursor = {
 };
 
 const SOCKET_URL =
-  (import.meta as any).env?.VITE_SOCKET_URL ?? "https://your-realtime.onrender.com";
+  (import.meta as any).env?.VITE_SOCKET_URL ?? "https://backend-3wuq.onrender.com/";
 
 function colorFromId(id: string) {
   let hash = 0;
