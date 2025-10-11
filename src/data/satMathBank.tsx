@@ -21,10 +21,10 @@ export const satMathBank: SatMathQuestion[] = [
     id: "algebra-square-shift",
     prompt: "If $\\,(x-2)^2 - 6(x-2) + 9 = 0\\,$, what is the value of $x$?",
     choices: ["$2$", "$3$", "$5$", "$7$"],
-    correctIndex: 2,
+    correctIndex: 1,
     explanation:
-      "Let $y=x-2$. Then $y^2-6y+9=(y-3)^2=0\\Rightarrow y=3\\Rightarrow x=5$.",
-    source: "Provided image (Algebra completing the square)",
+      "Ask Nathan Teacher",
+    source: "May 2017 QAS Question #5",
     topic: "algebra",
   },
 
