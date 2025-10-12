@@ -18,10 +18,11 @@ const io = new Server(httpServer, { cors: { origin: "*" } });
 /** roomCursors: Map<room, Map<socketId, {id,name,x,y}>> */
 const roomCursors = new Map();
 
-/** roomState: Map<room, { sessionId, strokes, images }> */
+/** roomState: Map<room, { sessionId:number, strokes:Stroke[], images:WbImage[] }> */
 const roomState = new Map();
 
-const getRoomMap = (room) => roomCursors.get(room) || roomCursors.set(room, new Map()).get(room);
+const getRoomMap = (room) =>
+  roomCursors.get(room) || roomCursors.set(room, new Map()).get(room);
 const serialize = (room) => Array.from(getRoomMap(room).values());
 const clamp01 = (n) => Math.min(1, Math.max(0, Number.isFinite(n) ? n : 0.5));
 
@@ -40,15 +41,11 @@ io.on("connection", (socket) => {
     cursors.set(socket.id, { id: socket.id, name: socket.data.name, x: 0.5, y: 0.5 });
     io.to(room).emit("presence", serialize(room));
 
-    // ✅ Send session data (so student rehydrates board)
-    const state = roomState.get(room);
-    if (state) {
-      socket.emit("session:state", state);
-    } else {
-      // create empty state
-      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] });
-      socket.emit("session:state", roomState.get(room));
-    }
+    // send/ensure session state
+    const state =
+      roomState.get(room) ||
+      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+    socket.emit("session:state", state);
   });
 
   socket.on("move", ({ x, y } = {}) => {
@@ -57,8 +54,7 @@ io.on("connection", (socket) => {
     const cursors = getRoomMap(room);
     const prev = cursors.get(socket.id);
     if (!prev) return;
-    const nx = clamp01(x),
-      ny = clamp01(y);
+    const nx = clamp01(x), ny = clamp01(y);
     const updated = { ...prev, x: nx, y: ny };
     cursors.set(socket.id, updated);
     socket.to(room).emit("move", updated);
@@ -87,7 +83,7 @@ io.on("connection", (socket) => {
   });
 
   // ===============================
-  // Drawing + images
+  // Drawing + images (PERSISTED)
   // ===============================
 
   socket.on("draw:segment", (p) => {
@@ -96,39 +92,72 @@ io.on("connection", (socket) => {
     const { from, to, color, size, mode } = p || {};
     if (!from || !to) return;
 
-    // ✅ save to session
-    const state = roomState.get(room);
-    if (state) {
-      state.strokes.push({
-        from: { x: +from.x, y: +from.y },
-        to: { x: +to.x, y: +to.y },
-        color: typeof color === "string" ? color : "#111827",
-        size: Math.max(1, Math.min(64, +size || 3)),
-        mode: mode === "eraser" ? "eraser" : "pen",
-      });
-    }
+    const state =
+      roomState.get(room) ||
+      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
 
-    // broadcast to others
-    socket.to(room).emit("draw:segment", p);
+    const stroke = {
+      from: { x: +from.x, y: +from.y },
+      to: { x: +to.x, y: +to.y },
+      color: typeof color === "string" ? color : "#111827",
+      size: Math.max(1, Math.min(64, +size || 3)),
+      mode: mode === "eraser" ? "eraser" : "pen",
+    };
+    state.strokes.push(stroke);
+
+    socket.to(room).emit("draw:segment", stroke);
   });
 
   socket.on("draw:clear", () => {
     const room = socket.data.room;
     if (!room) return;
-    const state = roomState.get(room);
-    if (state) {
-      state.strokes = [];
-      state.images = [];
-    }
+    const state =
+      roomState.get(room) ||
+      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+    state.strokes = [];
+    state.images = [];
     socket.to(room).emit("draw:clear");
   });
 
+  // add image (supports width fraction "w")
   socket.on("image:add", (img) => {
     const room = socket.data.room;
     if (!room || !img?.src) return;
+
+    const state =
+      roomState.get(room) ||
+      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+
+    const safe = {
+      id: img.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      src: img.src,
+      x: Math.min(1, Math.max(0, +img.x || 0.5)),
+      y: Math.min(1, Math.max(0, +img.y || 0.5)),
+      w: Math.min(1, Math.max(0.05, +img.w || 0.2)),
+    };
+    state.images.push(safe);
+    socket.to(room).emit("image:add", safe);
+  });
+
+  // update image (drag / resize)
+  socket.on("image:update", (patch) => {
+    const room = socket.data.room;
+    if (!room || !patch?.id) return;
     const state = roomState.get(room);
-    if (state) state.images.push(img);
-    socket.to(room).emit("image:add", img);
+    if (!state) return;
+    const idx = state.images.findIndex((i) => i.id === patch.id);
+    if (idx === -1) return;
+
+    const cur = state.images[idx];
+    const next = {
+      ...cur,
+      ...(patch.x != null ? { x: Math.min(1, Math.max(0, +patch.x)) } : {}),
+      ...(patch.y != null ? { y: Math.min(1, Math.max(0, +patch.y)) } : {}),
+      ...(patch.w != null ? { w: Math.min(1, Math.max(0.05, +patch.w)) } : {}),
+    };
+    state.images[idx] = next;
+
+    socket.to(room).emit("image:update", { id: next.id, x: next.x, y: next.y, w: next.w });
   });
 });
 
@@ -136,51 +165,12 @@ io.on("connection", (socket) => {
 //  Teacher session controls
 // ===============================
 
-// ✅ Endpoint to end/reset session (teacher action)
 app.post("/session/end", (req, res) => {
-  const { room } = req.body;
+  const { room } = req.body || {};
   if (!room) return res.status(400).json({ error: "Missing room" });
-
-  // Wipe the room’s state
   roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] });
   io.to(room).emit("session:ended");
   res.json({ ok: true });
-});
-
-// When storing images in room state, support { id, src, x, y, w }
-socket.on("image:add", (img) => {
-  const room = socket.data.room;
-  if (!room || !img?.src) return;
-  const state = roomState.get(room) || { sessionId: Date.now(), strokes: [], images: [] };
-  roomState.set(room, state);
-  const safe = {
-    id: img.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    src: img.src,
-    x: Math.min(1, Math.max(0, +img.x || 0.5)),
-    y: Math.min(1, Math.max(0, +img.y || 0.5)),
-    w: Math.min(1, Math.max(0.05, +img.w || 0.2)),
-  };
-  state.images.push(safe);
-  socket.to(room).emit("image:add", safe);
-});
-
-// NEW: update image position/size (drag/resize)
-socket.on("image:update", (patch) => {
-  const room = socket.data.room;
-  if (!room || !patch?.id) return;
-  const state = roomState.get(room);
-  if (!state) return;
-  const idx = state.images.findIndex((i) => i.id === patch.id);
-  if (idx === -1) return;
-  const cur = state.images[idx];
-  const next = {
-    ...cur,
-    ...(patch.x != null ? { x: Math.min(1, Math.max(0, +patch.x)) } : {}),
-    ...(patch.y != null ? { y: Math.min(1, Math.max(0, +patch.y)) } : {}),
-    ...(patch.w != null ? { w: Math.min(1, Math.max(0.05, +patch.w)) } : {}),
-  };
-  state.images[idx] = next;
-  socket.to(room).emit("image:update", { id: next.id, x: next.x, y: next.y, w: next.w });
 });
 
 // ===============================
