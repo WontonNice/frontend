@@ -14,7 +14,6 @@ type Stroke = {
   mode: "pen" | "eraser";
 };
 
-// Network image payload (normalized, as the server expects)
 type NetImage = {
   id: string;
   src: string;
@@ -23,7 +22,6 @@ type NetImage = {
   w?: number; // width fraction (0..1)
 };
 
-// Local image for rendering (world units)
 type LocalImage = {
   id: string;
   src: string;
@@ -52,9 +50,16 @@ function computeView(el: HTMLElement): View {
   return { scale, offsetX, offsetY, width, height };
 }
 
+// For absolutely-positioned HTML (cursors/images) relative to the board:
 function worldToScreen(wx: number, wy: number) {
   const v = viewRef.current;
   return { x: v.offsetX + wx * v.scale, y: v.offsetY + wy * v.scale };
+}
+
+// For canvas drawing (canvas local coords; NO offsets):
+function worldToCanvas(wx: number, wy: number) {
+  const v = viewRef.current;
+  return { x: wx * v.scale, y: wy * v.scale };
 }
 
 function screenToWorld(sx: number, sy: number) {
@@ -146,16 +151,18 @@ export default function LiveSessionPage() {
   ) => {
     const ctx = ctxRef.current;
     if (!ctx) return;
-    const fromS = worldToScreen(fromW.x, fromW.y);
-    const toS = worldToScreen(toW.x, toW.y);
+
+    // IMPORTANT: convert to *canvas* coords (no offsets)
+    const fromC = worldToCanvas(fromW.x, fromW.y);
+    const toC = worldToCanvas(toW.x, toW.y);
 
     const prev = ctx.globalCompositeOperation;
     ctx.globalCompositeOperation = mode === "eraser" ? "destination-out" : "source-over";
     if (mode !== "eraser") ctx.strokeStyle = color;
-    ctx.lineWidth = size; // screen pixels (kept constant visually)
+    ctx.lineWidth = size; // screen/CSS px (dpr transform already applied)
     ctx.beginPath();
-    ctx.moveTo(fromS.x, fromS.y);
-    ctx.lineTo(toS.x, toS.y);
+    ctx.moveTo(fromC.x, fromC.y);
+    ctx.lineTo(toC.x, toC.y);
     ctx.stroke();
     ctx.globalCompositeOperation = prev;
   };
@@ -182,7 +189,6 @@ export default function LiveSessionPage() {
       const mine: Cursor = { id: socket.id!, name, x: 0.5, y: 0.5, color: colorFromId(socket.id!) };
       setMe(mine);
       socket.emit("join", { name, room: ROOM });
-      // Optional: show yourself instantly on others
       socket.emit("move", { x: 0.5, y: 0.5 });
     });
 
@@ -199,7 +205,6 @@ export default function LiveSessionPage() {
     // hydrate on join
     socket.on("session:state", (payload: { sessionId: number; strokes: Stroke[]; images: NetImage[] }) => {
       wbRef.current.strokes = payload.strokes || [];
-      // Convert images to world units locally
       wbRef.current.images = (payload.images || []).map((img) => ({
         id: img.id,
         src: img.src,
@@ -223,7 +228,6 @@ export default function LiveSessionPage() {
       }
     });
 
-    // drawing
     socket.on("draw:segment", (p: Stroke) => {
       wbRef.current.strokes.push(p);
       const fromW = normToWorld(p.from.x, p.from.y);
@@ -242,7 +246,6 @@ export default function LiveSessionPage() {
       }
     });
 
-    // images (authoritative from server) + dedupe
     socket.on("image:add", (img: NetImage) => {
       const withW: LocalImage = {
         id: img.id,
@@ -251,7 +254,7 @@ export default function LiveSessionPage() {
         y: (img.y ?? 0.5) * WORLD_H,
         w: (img.w ?? 0.2) * WORLD_W,
       };
-      if (wbRef.current.images.some((i) => i.id === withW.id)) return; // dedupe
+      if (wbRef.current.images.some((i) => i.id === withW.id)) return;
       wbRef.current.images.push(withW);
       setImages((prev) => (prev.some((i) => i.id === withW.id) ? prev : [...prev, withW]));
     });
@@ -388,12 +391,10 @@ export default function LiveSessionPage() {
     };
     window.addEventListener("resize", handleResize);
 
-    // devicePixelRatio changes (zoom/monitor change)
     const mq = matchMedia?.(`(resolution: ${window.devicePixelRatio}dppx)`);
     const onDpr = () => { ensureCanvasSize(); repaintFromHistory(); };
     mq?.addEventListener?.("change", onDpr);
 
-    // prevent scroll while drawing
     const el = boardRef.current;
     const onWheel = (e: WheelEvent) => { if (drawingRef.current) e.preventDefault(); };
     el?.addEventListener("wheel", onWheel, { passive: false });
@@ -511,7 +512,7 @@ export default function LiveSessionPage() {
         style={{
           WebkitUserSelect: "none",
           userSelect: "none",
-          cursor: tool === "cursor" ? "default" : "crosshair", // precise drawing feel; use 'none' to hide OS cursor
+          cursor: tool === "cursor" ? "default" : "crosshair",
         }}
       >
         {/* images UNDER canvas, rendered from world -> screen */}
@@ -565,7 +566,7 @@ export default function LiveSessionPage() {
                 style={{
                   left: `${posS.x}px`,
                   top: `${posS.y}px`,
-                  transform: "translate(-50%, -50%)", // center on exact point
+                  transform: "translate(-50%, -50%)",
                 }}
               >
                 <div
