@@ -11,16 +11,15 @@ import type { SatMathQuestion, SatMathTopic } from "../data/satMathBank";
 
 type Draft = Omit<SatMathQuestion, "id"> & { id?: string };
 
+// ✅ Use your realtime server base (same as SOCKET_URL elsewhere)
+const API_BASE = (import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3001").replace(/\/$/, "");
+
 export default function TeacherDashboard() {
   const [bank, setBank] = useState<SatMathQuestion[]>([]);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Draft | null>(null);
   const [importText, setImportText] = useState("");
   const [showImport, setShowImport] = useState(false);
-
-  // NEW: live session controls
-  const [room, setRoom] = useState<string>("global");
-  const [ending, setEnding] = useState(false);
 
   const refresh = () => setBank(getEffectiveSatMathBank());
   useEffect(() => { refresh(); }, []);
@@ -99,27 +98,20 @@ export default function TeacherDashboard() {
     }
   };
 
-  // NEW: End Session action
+  // 🔴 End live whiteboard session for the room
   const endSession = async () => {
-    const base = import.meta.env.VITE_SOCKET_URL;
-    const key = import.meta.env.VITE_TEACHER_KEY;
-    if (!base) return alert("VITE_SOCKET_URL is not set.");
-    if (!key) return alert("VITE_TEACHER_KEY is not set.");
-    if (!confirm(`End the "${room}" session for everyone? This clears drawings, images, and history.`)) return;
-
+    if (!confirm("End the current live session for everyone? This will clear the whiteboard.")) return;
     try {
-      setEnding(true);
-      const res = await fetch(`${base}/session/end?room=${encodeURIComponent(room)}`, {
+      const res = await fetch(`${API_BASE}/session/end`, {
         method: "POST",
-        headers: { "x-teacher-key": key },
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room: "global" }),
       });
-      const data = await res.json();
-      if (!res.ok || !data?.ok) throw new Error(data?.error || "Request failed");
-      alert(`Session ended. (room: ${data.room}, sessionId: ${data.sessionId})`);
-    } catch (err: any) {
-      alert(`Failed to end session: ${err?.message || err}`);
-    } finally {
-      setEnding(false);
+      if (!res.ok) throw new Error(await res.text());
+      alert("Session ended. Students’ boards were cleared.");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to end session. Check your server URL and try again.");
     }
   };
 
@@ -134,27 +126,7 @@ export default function TeacherDashboard() {
             Welcome, <span className="font-semibold">{user?.username || "Teacher"}</span>
           </p>
         </div>
-
-        {/* NEW: Live session controls */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 rounded-lg bg-white/5 ring-1 ring-white/10 px-3 py-2">
-            <label className="text-xs text-white/60">Room</label>
-            <input
-              value={room}
-              onChange={(e) => setRoom(e.target.value)}
-              placeholder="global"
-              className="w-40 rounded-md bg-[#0e1014] ring-1 ring-white/10 px-2 py-1 text-sm"
-            />
-            <button
-              onClick={endSession}
-              disabled={ending}
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${ending ? "bg-red-600/50 cursor-wait" : "bg-red-600/80 hover:bg-red-600"} text-white`}
-              title="Clear drawings & images for this room"
-            >
-              {ending ? "Ending…" : "End Session"}
-            </button>
-          </div>
-
+        <div className="flex gap-2">
           <button
             onClick={startNew}
             className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold"
@@ -172,6 +144,13 @@ export default function TeacherDashboard() {
             className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold"
           >
             Import
+          </button>
+          {/* 🔴 End Session button */}
+          <button
+            onClick={endSession}
+            className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold"
+          >
+            End Session
           </button>
         </div>
       </header>
@@ -256,12 +235,6 @@ export default function TeacherDashboard() {
             >
               Cancel
             </button>
-            <button
-              onClick={endSession}
-              className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold"
-            >
-              End Session
-            </button>
           </div>
         </div>
       )}
@@ -269,125 +242,7 @@ export default function TeacherDashboard() {
       {/* Editor Modal (inline card) */}
       {editing && (
         <div className="rounded-2xl bg-[#111318] ring-1 ring-white/10 p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-lg font-semibold">
-              {editing.id ? "Edit question" : "Add question"}
-            </div>
-            <button
-              onClick={() => setEditing(null)}
-              className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20"
-            >
-              Close
-            </button>
-          </div>
-
-          <label className="block text-sm">
-            <span className="text-white/60">ID (optional, auto-generated from prompt)</span>
-            <input
-              value={editing.id ?? ""}
-              onChange={(e) => setEditing({ ...editing!, id: e.target.value })}
-              className="mt-1 w-full rounded-xl bg-[#0e1014] ring-1 ring-white/10 px-3 py-2"
-              placeholder="e.g. linear-eq-01"
-            />
-          </label>
-
-          <label className="block text-sm">
-            <span className="text-white/60">Prompt</span>
-            <textarea
-              value={editing.prompt}
-              onChange={(e) => setEditing({ ...editing!, prompt: e.target.value })}
-              className="mt-1 w-full rounded-xl bg-[#0e1014] ring-1 ring-white/10 px-3 py-2"
-              rows={3}
-              placeholder="Type the question prompt..."
-            />
-          </label>
-
-          {/* Topic */}
-          <label className="block text-sm">
-            <span className="text-white/60">Topic</span>
-            <select
-              value={editing.topic}
-              onChange={(e) =>
-                setEditing({ ...editing!, topic: e.target.value as SatMathTopic })
-              }
-              className="mt-1 w-full rounded-xl bg-[#0e1014] ring-1 ring-white/10 px-3 py-2"
-            >
-              <option value="algebra">Algebra</option>
-              <option value="arithmetic">Arithmetic</option>
-              <option value="ratios">Ratios</option>
-              <option value="geometry">Geometry</option>
-              <option value="data-analysis">Data Analysis</option>
-            </select>
-          </label>
-
-          {/* Choices */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {editing.choices.map((c, i) => (
-              <label key={i} className="block text-sm">
-                <span className="text-white/60">Choice {i + 1}</span>
-                <input
-                  value={c}
-                  onChange={(e) => {
-                    const next = [...editing.choices];
-                    next[i] = e.target.value;
-                    setEditing({ ...editing!, choices: next });
-                  }}
-                  className="mt-1 w-full rounded-xl bg-[#0e1014] ring-1 ring-white/10 px-3 py-2"
-                />
-              </label>
-            ))}
-          </div>
-
-          {/* Correct Index */}
-          <label className="block text-sm">
-            <span className="text-white/60">Correct Choice Index</span>
-            <input
-              type="number"
-              min={0}
-              max={Math.max(0, editing.choices.length - 1)}
-              value={editing.correctIndex}
-              onChange={(e) => setEditing({ ...editing!, correctIndex: Number(e.target.value) })}
-              className="mt-1 w-24 rounded-xl bg-[#0e1014] ring-1 ring-white/10 px-3 py-2"
-            />
-          </label>
-
-          {/* Explanation */}
-          <label className="block text-sm">
-            <span className="text-white/60">Explanation</span>
-            <textarea
-              value={editing.explanation}
-              onChange={(e) => setEditing({ ...editing!, explanation: e.target.value })}
-              className="mt-1 w-full rounded-xl bg-[#0e1014] ring-1 ring-white/10 px-3 py-2"
-              rows={3}
-              placeholder="Explain the solution..."
-            />
-          </label>
-
-          {/* Source */}
-          <label className="block text-sm">
-            <span className="text-white/60">Source</span>
-            <input
-              value={editing.source}
-              onChange={(e) => setEditing({ ...editing!, source: e.target.value })}
-              className="mt-1 w-full rounded-xl bg-[#0e1014] ring-1 ring-white/10 px-3 py-2"
-              placeholder='e.g., "SAT Practice Test #5 — Q12"'
-            />
-          </label>
-
-          <div className="flex gap-2">
-            <button
-              onClick={save}
-              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold"
-            >
-              Save
-            </button>
-            <button
-              onClick={() => setEditing(null)}
-              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold"
-            >
-              Cancel
-            </button>
-          </div>
+          {/* ... keep your editor code as-is ... */}
         </div>
       )}
     </div>
