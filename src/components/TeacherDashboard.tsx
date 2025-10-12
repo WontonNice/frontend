@@ -256,6 +256,12 @@ export default function TeacherDashboard() {
             >
               Cancel
             </button>
+            <button
+              onClick={endSession}
+              className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold"
+            >
+              End Session
+            </button>
           </div>
         </div>
       )}
