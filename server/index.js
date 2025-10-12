@@ -61,6 +61,30 @@ io.on("connection", (socket) => {
       }
     }
   });
+
+  // draw: segment (broadcast to the room)
+socket.on("draw:segment", (p) => {
+  const room = socket.data.room;
+  if (!room) return;
+  // Validate payload minimally
+  const { from, to, color, size, mode } = p || {};
+  if (!from || !to) return;
+  socket.to(room).emit("draw:segment", {
+    from: { x: +from.x, y: +from.y },
+    to: { x: +to.x, y: +to.y },
+    color: typeof color === "string" ? color : "#111827",
+    size: Math.max(1, Math.min(64, +size || 3)),
+    mode: mode === "eraser" ? "eraser" : "pen",
+  });
+});
+
+// clear board for everyone in room
+socket.on("draw:clear", () => {
+  const room = socket.data.room;
+  if (!room) return;
+  socket.to(room).emit("draw:clear");
+});
+
 });
 
 const PORT = process.env.PORT || 3001; // Render sets PORT automatically
