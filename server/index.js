@@ -5,9 +5,11 @@ import { Server } from "socket.io";
 import cors from "cors";
 
 const app = express();
-app.use(cors({
-  origin: process.env.CORS_ORIGIN?.split(",") || "*",
-}));
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN?.split(",") || "*",
+  })
+);
 app.use(express.json());
 const httpServer = createServer(app);
 
@@ -15,7 +17,7 @@ const allowed = process.env.CORS_ORIGIN?.split(",") || "*";
 const io = new Server(httpServer, {
   cors: { origin: allowed },
   maxHttpBufferSize: 6 * 1024 * 1024, // 6MB
-  perMessageDeflate: { threshold: 1024 }, // compress larger messages
+  perMessageDeflate: { threshold: 1024 },
 });
 
 // ===============================
@@ -25,7 +27,13 @@ const io = new Server(httpServer, {
 /** roomCursors: Map<room, Map<socketId, {id,name,x,y}>> */
 const roomCursors = new Map();
 
-/** roomState: Map<room, { sessionId:number, strokes:Stroke[], images:WbImage[] }> */
+/**
+ * roomState: Map<room, {
+ *   sessionId:number,
+ *   strokes: Array<Stroke & { userId: string }>,
+ *   images: Array<WbImage>
+ * }>
+ */
 const roomState = new Map();
 
 const getRoomMap = (room) =>
@@ -52,9 +60,11 @@ io.on("connection", (socket) => {
     const state =
       roomState.get(room) ||
       roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
-      const MAX_BOOTSTRAP_STROKES = 1000;
-      socket.emit("session:state", {
+
+    const MAX_BOOTSTRAP_STROKES = 1000;
+    socket.emit("session:state", {
       sessionId: state.sessionId,
+      // include userId per stroke so clients can layer by author
       strokes: state.strokes.slice(-MAX_BOOTSTRAP_STROKES),
       images: state.images,
     });
@@ -66,7 +76,8 @@ io.on("connection", (socket) => {
     const cursors = getRoomMap(room);
     const prev = cursors.get(socket.id);
     if (!prev) return;
-    const nx = clamp01(x), ny = clamp01(y);
+    const nx = clamp01(x),
+      ny = clamp01(y);
     const updated = { ...prev, x: nx, y: ny };
     cursors.set(socket.id, updated);
     socket.to(room).volatile.emit("move", updated);
@@ -82,7 +93,7 @@ io.on("connection", (socket) => {
     io.to(room).emit("presence", serialize(room));
     socket.data.room = undefined;
     if (cursors.size === 0) {
-      roomCursors.delete(room); 
+      roomCursors.delete(room);
       roomState.delete(room);
     }
   });
@@ -95,7 +106,6 @@ io.on("connection", (socket) => {
         io.to(room).emit("left", socket.id);
         io.to(room).emit("presence", serialize(room));
       }
-      // If no one remains, free state
       if (cursors.size === 0) {
         roomCursors.delete(room);
         roomState.delete(room);
@@ -107,10 +117,11 @@ io.on("connection", (socket) => {
   // Drawing + images (PERSISTED)
   // ===============================
 
-  socket.on("draw:segment", (p) => {
+  // Add a stroke and tag it with the author's socket.id
+  socket.on("draw:segment", (p = {}) => {
     const room = socket.data.room;
     if (!room) return;
-    const { from, to, color, size, mode } = p || {};
+    const { from, to, color, size, mode } = p;
     if (!from || !to) return;
 
     const state =
@@ -121,14 +132,33 @@ io.on("connection", (socket) => {
       from: { x: clamp01(+from.x), y: clamp01(+from.y) },
       to: { x: clamp01(+to.x), y: clamp01(+to.y) },
       color: typeof color === "string" ? color : "#111827",
-      size: Math.max(1, Math.min(64, (Number.isFinite(+size) ? +size : 3))),
+      size: Math.max(1, Math.min(64, Number.isFinite(+size) ? +size : 3)),
       mode: mode === "eraser" ? "eraser" : "pen",
+      userId: socket.id, // <--- owner
     };
+
     state.strokes.push(stroke);
 
-    socket.to(room).emit("draw:segment", stroke);
+    // include sender so their local layer can also reconcile if needed
+    io.to(room).emit("draw:segment", stroke);
   });
 
+  // Clear ONLY the caller's strokes (leave other users' strokes intact)
+  socket.on("draw:clear:user", () => {
+    const room = socket.data.room;
+    if (!room) return;
+
+    const state =
+      roomState.get(room) ||
+      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+
+    state.strokes = (state.strokes || []).filter((s) => s.userId !== socket.id);
+
+    // notify all clients to clear that user's layer only
+    io.to(room).emit("draw:clear:user", { userId: socket.id });
+  });
+
+  // (Optional) Legacy global clear — keep if a teacher needs a complete reset
   socket.on("draw:clear", () => {
     const room = socket.data.room;
     if (!room) return;
@@ -141,30 +171,28 @@ io.on("connection", (socket) => {
   });
 
   // add image (supports width fraction "w")
-// inside io.on("connection")
-socket.on("image:add", (img) => {
-  const room = socket.data.room;
-  if (!room || !img?.src) return;
-  // ~5MB cap to avoid huge base64 payloads
-  const approxBytes = Math.floor((img.src.length || 0) * 0.75);
-  if (approxBytes > 5 * 1024 * 1024) {
-    return; // optionally emit an error event back to the sender
-  }
+  socket.on("image:add", (img) => {
+    const room = socket.data.room;
+    if (!room || !img?.src) return;
 
-  const state =
-    roomState.get(room) ||
-    roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+    // ~5MB cap to avoid huge base64 payloads
+    const approxBytes = Math.floor((img.src.length || 0) * 0.75);
+    if (approxBytes > 5 * 1024 * 1024) return;
 
-  const safe = {
-    id: img.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    src: img.src,
-    x: Math.min(1, Math.max(0, Number.isFinite(+img?.x) ? +img.x : 0.5)),
-    y: Math.min(1, Math.max(0, Number.isFinite(+img?.y) ? +img.y : 0.5)),
-    w: Math.min(1, Math.max(0.05, Number.isFinite(+img?.w) ? +img.w : 0.2)),
-  };
-  state.images.push(safe);
-  io.to(room).emit("image:add", safe);  // <-- not socket.to(...), include sender
-});
+    const state =
+      roomState.get(room) ||
+      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+
+    const safe = {
+      id: img.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      src: img.src,
+      x: clamp01(+img?.x || 0.5),
+      y: clamp01(+img?.y || 0.5),
+      w: Math.min(1, Math.max(0.05, Number.isFinite(+img?.w) ? +img.w : 0.2)),
+    };
+    state.images.push(safe);
+    io.to(room).emit("image:add", safe); // include sender
+  });
 
   // update image (drag / resize)
   socket.on("image:update", (patch) => {
@@ -172,14 +200,15 @@ socket.on("image:add", (img) => {
     if (!room || !patch?.id) return;
     const state = roomState.get(room);
     if (!state) return;
+
     const idx = state.images.findIndex((i) => i.id === patch.id);
     if (idx === -1) return;
 
     const cur = state.images[idx];
     const next = {
       ...cur,
-      ...(patch.x != null ? { x: Math.min(1, Math.max(0, +patch.x)) } : {}),
-      ...(patch.y != null ? { y: Math.min(1, Math.max(0, +patch.y)) } : {}),
+      ...(patch.x != null ? { x: clamp01(+patch.x) } : {}),
+      ...(patch.y != null ? { y: clamp01(+patch.y) } : {}),
       ...(patch.w != null ? { w: Math.min(1, Math.max(0.05, +patch.w)) } : {}),
     };
     state.images[idx] = next;

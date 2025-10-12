@@ -10,10 +10,14 @@ type Stroke = {
   from: { x: number; y: number }; // normalized 0..1
   to: { x: number; y: number };   // normalized 0..1
   color: string;
-  size: number; // rendered in screen px (kept as-is)
+  size: number; // screen px
   mode: "pen" | "eraser";
 };
 
+// Incoming draw message (server should attach userId)
+type StrokeMsg = Stroke & { userId: string };
+
+// Network image payload (normalized, as server expects)
 type NetImage = {
   id: string;
   src: string;
@@ -22,12 +26,13 @@ type NetImage = {
   w?: number; // width fraction (0..1)
 };
 
+// Local image for rendering (world units)
 type LocalImage = {
   id: string;
   src: string;
-  x: number; // world px (0..WORLD_W)
-  y: number; // world px (0..WORLD_H)
-  w: number; // world px (width in WORLD space)
+  x: number; // world px
+  y: number; // world px
+  w: number; // world px
 };
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3001";
@@ -50,25 +55,19 @@ function computeView(el: HTMLElement): View {
   return { scale, offsetX, offsetY, width, height };
 }
 
-// For absolutely-positioned HTML (cursors/images) relative to the board:
+// For absolutely-positioned HTML (cursors/images)
 function worldToScreen(wx: number, wy: number) {
   const v = viewRef.current;
   return { x: v.offsetX + wx * v.scale, y: v.offsetY + wy * v.scale };
 }
 
-// For canvas drawing (canvas local coords; NO offsets):
+// For canvas pixel coords (no offsets)
 function worldToCanvas(wx: number, wy: number) {
   const v = viewRef.current;
   return { x: wx * v.scale, y: wy * v.scale };
 }
 
-// From screen (board) coords into world (handles letterbox offsets)
-function screenToWorld(sx: number, sy: number) {
-  const v = viewRef.current;
-  return { x: (sx - v.offsetX) / v.scale, y: (sy - v.offsetY) / v.scale };
-}
-
-// From canvas local coords into world (NO offsets)
+// From canvas local coords to world
 function canvasToWorld(cx: number, cy: number) {
   const v = viewRef.current;
   return { x: cx / v.scale, y: cy / v.scale };
@@ -88,12 +87,15 @@ const colorFromId = (id: string) => {
 
 export default function LiveSessionPage() {
   const boardRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const hitCanvasRef = useRef<HTMLCanvasElement | null>(null); // interaction canvas for pointer rect/DPR
   const socketRef = useRef<Socket | null>(null);
   const rafRef = useRef<number | null>(null);
 
-  const wbRef = useRef<{ strokes: Stroke[]; images: LocalImage[] }>({ strokes: [], images: [] });
+  // Per-user layers (DOM canvases) and histories
+  const layersHostRef = useRef<HTMLDivElement | null>(null);
+  const layerMapRef = useRef<Map<string, HTMLCanvasElement>>(new Map());
+  const layerCtxRef = useRef<Map<string, CanvasRenderingContext2D>>(new Map());
+  const strokesByUserRef = useRef<Map<string, Stroke[]>>(new Map());
 
   const [me, setMe] = useState<Cursor | null>(null);
   const [cursors, setCursors] = useState<Record<string, Cursor>>({});
@@ -121,48 +123,68 @@ export default function LiveSessionPage() {
     }
   }, []);
 
-  // ---------- canvas helpers (letterboxed world) ----------
-  const ensureCanvasSize = () => {
-    const el = boardRef.current, canvas = canvasRef.current;
-    if (!el || !canvas) return;
-
-    const view = computeView(el);
-    viewRef.current = view;
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.max(1, Math.floor(view.width * dpr));
-    canvas.height = Math.max(1, Math.floor(view.height * dpr));
-
-    // place canvas inside letterbox area
-    canvas.style.position = "absolute";
-    canvas.style.left = `${view.offsetX}px`;
-    canvas.style.top = `${view.offsetY}px`;
-    canvas.style.width = `${view.width}px`;
-    canvas.style.height = `${view.height}px`;
-
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
+  // ----- Layer helpers -----
+  const ensureLayerCanvas = (userId: string) => {
+    let c = layerMapRef.current.get(userId);
+    if (!c) {
+      c = document.createElement("canvas");
+      c.className = "absolute top-0 left-0";
+      c.style.pointerEvents = "none"; // layers don't eat pointer events
+      layersHostRef.current?.appendChild(c);
+      layerMapRef.current.set(userId, c);
     }
-    ctxRef.current = ctx;
+    // size & DPR
+    const dpr = window.devicePixelRatio || 1;
+    const v = viewRef.current;
+    c.style.left = `${v.offsetX}px`;
+    c.style.top = `${v.offsetY}px`;
+    c.style.width = `${v.width}px`;
+    c.style.height = `${v.height}px`;
+    c.width = Math.max(1, Math.floor(v.width * dpr));
+    c.height = Math.max(1, Math.floor(v.height * dpr));
+
+    // ctx config
+    const ctx = c.getContext("2d")!;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    layerCtxRef.current.set(userId, ctx);
+    return ctx;
   };
 
-  const drawSegmentLocal = (
-    fromW: { x: number; y: number }, // world coords
-    toW: { x: number; y: number },   // world coords
+  const getCtxForUser = (userId: string) => {
+    let ctx = layerCtxRef.current.get(userId);
+    if (!ctx) ctx = ensureLayerCanvas(userId);
+    return ctx!;
+  };
+
+  const replayUser = (userId: string) => {
+    const ctx = getCtxForUser(userId);
+    const v = viewRef.current;
+    ctx.clearRect(0, 0, v.width, v.height);
+    const strokes = strokesByUserRef.current.get(userId) || [];
+    for (const s of strokes) {
+      const fromW = normToWorld(s.from.x, s.from.y);
+      const toW = normToWorld(s.to.x, s.to.y);
+      drawOnCtx(ctx, fromW, toW, s.color, s.size, s.mode);
+    }
+  };
+
+  const replayAll = () => {
+    for (const userId of layerMapRef.current.keys()) replayUser(userId);
+  };
+
+  // ----- drawing on a specific context (user layer) -----
+  const drawOnCtx = (
+    ctx: CanvasRenderingContext2D,
+    fromW: { x: number; y: number },
+    toW: { x: number; y: number },
     color: string,
     size: number,
     mode: "pen" | "eraser"
   ) => {
-    const ctx = ctxRef.current;
-    if (!ctx) return;
-
-    // canvas coords (no offsets)
     const fromC = worldToCanvas(fromW.x, fromW.y);
     const toC = worldToCanvas(toW.x, toW.y);
-
     const prev = ctx.globalCompositeOperation;
     ctx.globalCompositeOperation = mode === "eraser" ? "destination-out" : "source-over";
     if (mode !== "eraser") ctx.strokeStyle = color;
@@ -174,16 +196,28 @@ export default function LiveSessionPage() {
     ctx.globalCompositeOperation = prev;
   };
 
-  const repaintFromHistory = () => {
-    const ctx = ctxRef.current;
-    if (!ctx) return;
-    const v = viewRef.current;
-    ctx.clearRect(0, 0, v.width, v.height);
-    for (const s of wbRef.current.strokes) {
-      const fromW = normToWorld(s.from.x, s.from.y);
-      const toW = normToWorld(s.to.x, s.to.y);
-      drawSegmentLocal(fromW, toW, s.color, s.size, s.mode);
-    }
+  // ----- size hit-canvas + all layers -----
+  const ensureCanvasesSize = () => {
+    const board = boardRef.current, hit = hitCanvasRef.current;
+    if (!board || !hit) return;
+
+    const v = computeView(board);
+    viewRef.current = v;
+
+    const dpr = window.devicePixelRatio || 1;
+    hit.style.position = "absolute";
+    hit.style.left = `${v.offsetX}px`;
+    hit.style.top = `${v.offsetY}px`;
+    hit.style.width = `${v.width}px`;
+    hit.style.height = `${v.height}px`;
+    hit.width = Math.max(1, Math.floor(v.width * dpr));
+    hit.height = Math.max(1, Math.floor(v.height * dpr));
+    const hctx = hit.getContext("2d");
+    hctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // resize all user layers and replay their strokes
+    for (const userId of layerMapRef.current.keys()) ensureLayerCanvas(userId);
+    replayAll();
   };
 
   // ---------- socket connection ----------
@@ -197,62 +231,84 @@ export default function LiveSessionPage() {
       setMe(mine);
       socket.emit("join", { name, room: ROOM });
       socket.emit("move", { x: 0.5, y: 0.5 });
+      // ensure my layer exists
+      ensureLayerCanvas(socket.id!);
     });
 
     socket.on("presence", (snapshot: ServerCursor[]) => {
       const next: Record<string, Cursor> = {};
       snapshot.forEach((c) => (next[c.id] = { ...c, color: colorFromId(c.id) }));
       setCursors(next);
+      // Ensure canvases for known users (lazy create on first stroke anyway)
+      snapshot.forEach((c) => ensureLayerCanvas(c.id));
     });
 
+    // Cursor moves unchanged
     socket.on("move", (c: ServerCursor) => {
       setCursors((prev) => ({ ...prev, [c.id]: { ...c, color: colorFromId(c.id) } }));
     });
 
-    // hydrate on join
-    socket.on("session:state", (payload: { sessionId: number; strokes: Stroke[]; images: NetImage[] }) => {
-      wbRef.current.strokes = payload.strokes || [];
-      wbRef.current.images = (payload.images || []).map((img) => ({
+    // Initial state (strokes now should be grouped per user on the server; if not, they won't be erasable retroactively)
+    socket.on("session:state", (payload: { sessionId: number; strokes: (Stroke & { userId?: string })[]; images: NetImage[] }) => {
+      // Reset local
+      strokesByUserRef.current.clear();
+      // Bucket strokes by user
+      for (const s of payload.strokes || []) {
+        const uid = s && (s as any).userId ? (s as any).userId as string : "_unknown";
+        if (!strokesByUserRef.current.has(uid)) strokesByUserRef.current.set(uid, []);
+        strokesByUserRef.current.get(uid)!.push({ from: s.from, to: s.to, color: s.color, size: s.size, mode: s.mode });
+        ensureLayerCanvas(uid);
+      }
+      // Images
+      const imgs = (payload.images || []).map((img) => ({
         id: img.id,
         src: img.src,
         x: (img.x ?? 0.5) * WORLD_W,
         y: (img.y ?? 0.5) * WORLD_H,
         w: (img.w ?? 0.2) * WORLD_W,
       }));
-      setImages(wbRef.current.images);
-      ensureCanvasSize();
-      repaintFromHistory();
+      setImages(imgs);
+
+      ensureCanvasesSize();
+      replayAll();
     });
 
-    socket.on("session:ended", () => {
-      wbRef.current.strokes = [];
-      wbRef.current.images = [];
-      setImages([]);
-      const ctx = ctxRef.current;
-      if (ctx) {
-        const v = viewRef.current;
-        ctx.clearRect(0, 0, v.width, v.height);
-      }
-    });
+    // Per-stroke updates — draw onto the author's layer only
+    socket.on("draw:segment", (p: StrokeMsg) => {
+      const uid = p.userId || "_unknown";
+      if (!strokesByUserRef.current.has(uid)) strokesByUserRef.current.set(uid, []);
+      strokesByUserRef.current.get(uid)!.push({ from: p.from, to: p.to, color: p.color, size: p.size, mode: p.mode });
 
-    socket.on("draw:segment", (p: Stroke) => {
-      wbRef.current.strokes.push(p);
+      const ctx = getCtxForUser(uid);
       const fromW = normToWorld(p.from.x, p.from.y);
       const toW = normToWorld(p.to.x, p.to.y);
-      drawSegmentLocal(fromW, toW, p.color, p.size, p.mode);
+      drawOnCtx(ctx, fromW, toW, p.color, p.size, p.mode);
     });
 
+    // Clear only a specific user's layer/history
+    socket.on("draw:clear:user", ({ userId }: { userId: string }) => {
+      const ctx = getCtxForUser(userId);
+      const v = viewRef.current;
+      ctx.clearRect(0, 0, v.width, v.height);
+      strokesByUserRef.current.set(userId, []);
+    });
+
+    // Legacy/global clear (if still emitted by old servers) — do nothing OR handle images only
     socket.on("draw:clear", () => {
-      wbRef.current.strokes = [];
-      wbRef.current.images = [];
+      // Ignore clearing others' drawings to satisfy the requirement.
+      // Still clear images so board resets when a teacher intentionally ends a session.
       setImages([]);
-      const ctx = ctxRef.current;
-      if (ctx) {
-        const v = viewRef.current;
-        ctx.clearRect(0, 0, v.width, v.height);
-      }
     });
 
+    // Session ended: wipe layers and histories, but keep canvases allocated
+    socket.on("session:ended", () => {
+      const v = viewRef.current;
+      for (const ctx of layerCtxRef.current.values()) ctx.clearRect(0, 0, v.width, v.height);
+      strokesByUserRef.current.clear();
+      setImages([]);
+    });
+
+    // Images
     socket.on("image:add", (img: NetImage) => {
       const withW: LocalImage = {
         id: img.id,
@@ -261,8 +317,6 @@ export default function LiveSessionPage() {
         y: (img.y ?? 0.5) * WORLD_H,
         w: (img.w ?? 0.2) * WORLD_W,
       };
-      if (wbRef.current.images.some((i) => i.id === withW.id)) return;
-      wbRef.current.images.push(withW);
       setImages((prev) => (prev.some((i) => i.id === withW.id) ? prev : [...prev, withW]));
     });
 
@@ -271,8 +325,6 @@ export default function LiveSessionPage() {
       if (patch.x != null) worldPatch.x = patch.x * WORLD_W;
       if (patch.y != null) worldPatch.y = patch.y * WORLD_H;
       if (patch.w != null) worldPatch.w = patch.w * WORLD_W;
-
-      wbRef.current.images = wbRef.current.images.map((im) => (im.id === patch.id ? { ...im, ...worldPatch } : im));
       setImages((prev) => prev.map((im) => (im.id === patch.id ? { ...im, ...worldPatch } : im)));
     });
 
@@ -286,17 +338,14 @@ export default function LiveSessionPage() {
   // ---------- pointer move + drawing ----------
   useEffect(() => {
     const board = boardRef.current;
-    const canvas = canvasRef.current;
-    if (!board || !canvas || !me) return;
+    const hit = hitCanvasRef.current;
+    if (!board || !hit || !me) return;
 
     const onPointerDown = (e: PointerEvent) => {
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-
-      // Use the canvas rect (letterboxed area) — no offsets needed afterwards
-      const crect = canvas.getBoundingClientRect();
+      const crect = hit.getBoundingClientRect();
       const cx = e.clientX - crect.left;
       const cy = e.clientY - crect.top;
-
       const { x: wx, y: wy } = canvasToWorld(cx, cy);
       const clampedW = { x: Math.min(Math.max(wx, 0), WORLD_W), y: Math.min(Math.max(wy, 0), WORLD_H) };
       lastNormRef.current = worldToNorm(clampedW.x, clampedW.y);
@@ -304,10 +353,9 @@ export default function LiveSessionPage() {
     };
 
     const onPointerMove = (e: PointerEvent) => {
-      const crect = canvas.getBoundingClientRect();
+      const crect = hit.getBoundingClientRect();
       const cx = e.clientX - crect.left;
       const cy = e.clientY - crect.top;
-
       const { x: wx, y: wy } = canvasToWorld(cx, cy);
       const clampedW = { x: Math.min(Math.max(wx, 0), WORLD_W), y: Math.min(Math.max(wy, 0), WORLD_H) };
       const n = worldToNorm(clampedW.x, clampedW.y);
@@ -325,12 +373,27 @@ export default function LiveSessionPage() {
       if (drawingRef.current && lastNormRef.current) {
         const fromN = lastNormRef.current, toN = n;
         lastNormRef.current = toN;
-        const fromW = normToWorld(fromN.x, fromN.y);
-        const toW = normToWorld(toN.x, toN.y);
-        const mode = tool === "eraser" ? "eraser" : "pen";
-        drawSegmentLocal(fromW, toW, strokeColor, strokeSize, mode);
-        const stroke: Stroke = { from: fromN, to: toN, color: strokeColor, size: strokeSize, mode };
-        wbRef.current.strokes.push(stroke);
+
+        const stroke: Stroke = {
+          from: fromN,
+          to: toN,
+          color: strokeColor,
+          size: strokeSize,
+          mode: tool === "eraser" ? "eraser" : "pen",
+        };
+
+        // Draw locally on MY layer only
+        const myId = me.id;
+        const ctx = getCtxForUser(myId);
+        const fromW = normToWorld(stroke.from.x, stroke.from.y);
+        const toW = normToWorld(stroke.to.x, stroke.to.y);
+        drawOnCtx(ctx, fromW, toW, stroke.color, stroke.size, stroke.mode);
+
+        // Record in my history
+        if (!strokesByUserRef.current.has(myId)) strokesByUserRef.current.set(myId, []);
+        strokesByUserRef.current.get(myId)!.push(stroke);
+
+        // Broadcast (server attaches userId)
         socketRef.current?.emit("draw:segment", stroke);
       }
 
@@ -346,7 +409,6 @@ export default function LiveSessionPage() {
             x: Math.min(WORLD_W, Math.max(0, (active.startImg.x ?? WORLD_W / 2) + dxW)),
             y: Math.min(WORLD_H, Math.max(0, (active.startImg.y ?? WORLD_H / 2) + dyW)),
           };
-          wbRef.current.images = wbRef.current.images.map((im) => (im.id === patchWorld.id ? { ...im, ...patchWorld } : im));
           setImages((prev) => prev.map((im) => (im.id === patchWorld.id ? { ...im, ...patchWorld } : im)));
           socketRef.current?.emit("image:update", {
             id: patchWorld.id,
@@ -355,9 +417,7 @@ export default function LiveSessionPage() {
           });
         } else if (active.mode === "resize") {
           const newWWorld = Math.min(WORLD_W, Math.max(0.05 * WORLD_W, (active.startImg.w ?? 0.2 * WORLD_W) + dxW));
-          const patchWorld = { id: active.id, w: newWWorld };
-          wbRef.current.images = wbRef.current.images.map((im) => (im.id === patchWorld.id ? { ...im, ...patchWorld } : im));
-          setImages((prev) => prev.map((im) => (im.id === patchWorld.id ? { ...im, ...patchWorld } : im)));
+          setImages((prev) => prev.map((im) => (im.id === active.id ? { ...im, w: newWWorld } : im)));
           socketRef.current?.emit("image:update", {
             id: active.id,
             w: newWWorld / WORLD_W,
@@ -384,29 +444,25 @@ export default function LiveSessionPage() {
     };
   }, [me, tool, strokeColor, strokeSize]);
 
-  // ---------- canvas sizing & repaint ----------
+  // ---------- sizing & DPR ----------
   useEffect(() => {
-    ensureCanvasSize();
-    repaintFromHistory();
+    ensureCanvasesSize();
 
     const ro = typeof ResizeObserver !== "undefined"
       ? new ResizeObserver(() => {
-          ensureCanvasSize();
-          repaintFromHistory();
+          ensureCanvasesSize();
         })
       : null;
     if (boardRef.current && ro) ro.observe(boardRef.current);
 
-    const handleResize = () => {
-      ensureCanvasSize();
-      repaintFromHistory();
-    };
+    const handleResize = () => ensureCanvasesSize();
     window.addEventListener("resize", handleResize);
 
     const mq = matchMedia?.(`(resolution: ${window.devicePixelRatio}dppx)`);
-    const onDpr = () => { ensureCanvasSize(); repaintFromHistory(); };
+    const onDpr = () => ensureCanvasesSize();
     mq?.addEventListener?.("change", onDpr);
 
+    // prevent scroll while drawing
     const el = boardRef.current;
     const onWheel = (e: WheelEvent) => { if (drawingRef.current) e.preventDefault(); };
     el?.addEventListener("wheel", onWheel, { passive: false });
@@ -419,19 +475,20 @@ export default function LiveSessionPage() {
     };
   }, []);
 
-  const clearBoard = () => {
-    const ctx = ctxRef.current;
-    if (ctx) {
-      const v = viewRef.current;
-      ctx.clearRect(0, 0, v.width, v.height);
-    }
-    wbRef.current.strokes = [];
-    wbRef.current.images = [];
-    setImages([]);
-    socketRef.current?.emit("draw:clear");
+  // ---------- Clear only my drawings ----------
+  const clearMine = () => {
+    if (!me) return;
+    const myId = me.id;
+    // local
+    strokesByUserRef.current.set(myId, []);
+    const ctx = getCtxForUser(myId);
+    const v = viewRef.current;
+    ctx.clearRect(0, 0, v.width, v.height);
+    // notify server
+    socketRef.current?.emit("draw:clear:user");
   };
 
-  // ---------- paste / drop images (emit only; server echo updates UI) ----------
+  // ---------- paste / drop images ----------
   useEffect(() => {
     const el = boardRef.current;
     if (!el) return;
@@ -442,7 +499,7 @@ export default function LiveSessionPage() {
         const src = reader.result as string;
         const id = crypto.randomUUID();
         const norm = worldToNorm(xWorld, yWorld);
-        const wNorm = 0.2; // 20% of WORLD_W
+        const wNorm = 0.2;
         socketRef.current?.emit("image:add", { src, id, x: norm.x, y: norm.y, w: wNorm } as NetImage);
       };
       reader.readAsDataURL(file);
@@ -485,11 +542,11 @@ export default function LiveSessionPage() {
     };
   }, [me]);
 
-  // ---------- image pointer handlers (world-based) ----------
+  // ---------- image pointer handlers ----------
   const beginMove = (e: React.PointerEvent, img: LocalImage) => {
     if (tool !== "cursor") return;
     e.stopPropagation();
-    const crect = canvasRef.current!.getBoundingClientRect();
+    const crect = hitCanvasRef.current!.getBoundingClientRect();
     const cx = e.clientX - crect.left, cy = e.clientY - crect.top;
     const { x: wx, y: wy } = canvasToWorld(cx, cy);
     dragRef.current = { id: img.id, mode: "move", startX: wx, startY: wy, startImg: { ...img } };
@@ -499,7 +556,7 @@ export default function LiveSessionPage() {
   const beginResize = (e: React.PointerEvent, img: LocalImage) => {
     if (tool !== "cursor") return;
     e.stopPropagation();
-    const crect = canvasRef.current!.getBoundingClientRect();
+    const crect = hitCanvasRef.current!.getBoundingClientRect();
     const cx = e.clientX - crect.left;
     const { x: wx } = canvasToWorld(cx, 0);
     dragRef.current = { id: img.id, mode: "resize", startX: wx, startY: 0, startImg: { ...img } };
@@ -515,7 +572,7 @@ export default function LiveSessionPage() {
         <button onClick={() => setTool("eraser")} className={`px-2 py-1 text-xs rounded ${tool === "eraser" ? "bg-emerald-500 text-black" : "bg-white/10"}`}>Erase</button>
         <input type="color" value={strokeColor} onChange={(e) => setStrokeColor(e.target.value)} className="w-6 h-6 rounded border-0 bg-transparent cursor-pointer" />
         <input type="range" min={1} max={24} value={strokeSize} onChange={(e) => setStrokeSize(Number(e.target.value))} className="w-24" />
-        <button onClick={clearBoard} className="px-2 py-1 text-xs rounded bg-red-500/80 text-black">Clear</button>
+        <button onClick={clearMine} className="px-2 py-1 text-xs rounded bg-red-500/80 text-black">Clear Mine</button>
       </div>
 
       <div
@@ -527,7 +584,7 @@ export default function LiveSessionPage() {
           cursor: tool === "cursor" ? "default" : "crosshair",
         }}
       >
-        {/* images UNDER canvas, rendered from world -> screen */}
+        {/* images UNDER layers */}
         {images.map((img) => {
           const pos = worldToScreen(img.x, img.y);
           const pxWidth = (img.w ?? 0.2 * WORLD_W) * viewRef.current.scale;
@@ -559,31 +616,26 @@ export default function LiveSessionPage() {
           );
         })}
 
-        {/* single canvas ABOVE images; pass-through in cursor mode */}
+        {/* per-user layer canvases */}
+        <div ref={layersHostRef} className="absolute inset-0 z-10 pointer-events-none" />
+
+        {/* hit/interaction canvas (for rect/DPR; we don't draw on it) */}
         <canvas
-          ref={canvasRef}
+          ref={hitCanvasRef}
           className={`absolute z-10 ${tool === "cursor" ? "pointer-events-none" : ""}`}
-          style={{ inset: "auto" }} // positioned by ensureCanvasSize()
+          style={{ inset: "auto" }} // positioned by ensureCanvasesSize()
         />
 
-        {/* live cursors — align my dot to OS cursor hotspot (top-left), others centered */}
+        {/* live cursors (same as before) */}
         <div className="absolute inset-0 pointer-events-none z-20">
           {Object.values(cursors).map((c) => {
             const posW = normToWorld(c.x, c.y);
             const posS = worldToScreen(posW.x, posW.y);
             const isMe = me && c.id === me.id;
-
             const transform =
-              isMe && tool === "cursor"
-                ? "translate(1px, 1px)"           // top-left anchor + tiny nudge for OS arrow tip
-                : "translate(-50%, -50%)";        // centered for crosshair & all remote cursors
-
+              isMe && tool === "cursor" ? "translate(1px, 1px)" : "translate(-50%, -50%)";
             return (
-              <div
-                key={c.id}
-                className="absolute"
-                style={{ left: `${posS.x}px`, top: `${posS.y}px`, transform }}
-              >
+              <div key={c.id} className="absolute" style={{ left: `${posS.x}px`, top: `${posS.y}px`, transform }}>
                 <div
                   className="rounded-full"
                   style={{
@@ -593,10 +645,7 @@ export default function LiveSessionPage() {
                     boxShadow: "0 0 0 2px #fff, 0 0 0 4px rgba(0,0,0,.15)",
                   }}
                 />
-                <div
-                  className="mt-1 px-2 py-0.5 text-xs font-medium rounded"
-                  style={{ background: c.color, color: "#0b0d12" }}
-                >
+                <div className="mt-1 px-2 py-0.5 text-xs font-medium rounded" style={{ background: c.color, color: "#0b0d12" }}>
                   {c.name}
                 </div>
               </div>
