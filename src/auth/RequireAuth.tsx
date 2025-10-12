@@ -13,16 +13,14 @@ export default function RequireAuth({ children }: PropsWithChildren): ReactNode 
   return children as ReactNode;
 }
 
-function safeGetUser(): { id?: string; username?: string; role?: "student" | "teacher" } | null {
+function safeGetUser() {
   try {
     const raw = localStorage.getItem("user");
     if (!raw) return null;
     const u = JSON.parse(raw);
-    // minimal shape check
-    if (u && typeof u.username === "string") return u;
-    return null;
+    return u && typeof u === "object" ? u : null;
   } catch {
-    // corrupted JSON → treat as logged out
     return null;
   }
 }
+
