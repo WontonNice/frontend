@@ -300,47 +300,65 @@ export default function LiveSessionPage() {
     socketRef.current?.emit("draw:clear");
   };
 
-  // ---------- paste / drop images ----------
-  useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
-      const item = e.clipboardData?.items[0];
-      if (item && item.type.startsWith("image/")) {
+// --- handle paste/drop images ---
+useEffect(() => {
+  const el = boardRef.current;
+  if (!el) return;
+
+  // helper to process a File into an image
+  const handleImageFile = (file: File, x = 0.5, y = 0.5) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = reader.result as string;
+      const imgObj = { src, x, y, id: crypto.randomUUID() };
+      wbRef.current.images.push(imgObj);
+      setImages((prev) => [...prev, imgObj]);
+      socketRef.current?.emit("image:add", imgObj);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // ✅ Paste listener — works on the board itself
+  const handlePaste = (e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
         const file = item.getAsFile();
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          const src = reader.result as string;
-          const imgObj = { src, x: me?.x || 0.5, y: me?.y || 0.5, id: crypto.randomUUID() };
-          wbRef.current.images.push(imgObj);
-          setImages((prev) => [...prev, imgObj]);
-          socketRef.current?.emit("image:add", imgObj);
-        };
-        reader.readAsDataURL(file);
+        if (file) {
+          e.preventDefault();
+          handleImageFile(file, me?.x ?? 0.5, me?.y ?? 0.5);
+          break;
+        }
       }
-    };
-    const handleDrop = (e: DragEvent) => {
-      e.preventDefault();
-      const file = e.dataTransfer?.files[0];
-      if (file && file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const src = reader.result as string;
-          const imgObj = { src, x: 0.5, y: 0.5, id: crypto.randomUUID() };
-          wbRef.current.images.push(imgObj);
-          setImages((prev) => [...prev, imgObj]);
-          socketRef.current?.emit("image:add", imgObj);
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-    window.addEventListener("paste", handlePaste);
-    window.addEventListener("drop", handleDrop);
-    window.addEventListener("dragover", (e) => e.preventDefault());
-    return () => {
-      window.removeEventListener("paste", handlePaste);
-      window.removeEventListener("drop", handleDrop);
-    };
-  }, [me]);
+    }
+  };
+
+  // ✅ Drag-and-drop images
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      handleImageFile(file, 0.5, 0.5);
+    }
+  };
+
+  const handleDragOver = (e: DragEvent) => e.preventDefault();
+
+  el.addEventListener("paste", handlePaste as any);
+  el.addEventListener("drop", handleDrop as any);
+  el.addEventListener("dragover", handleDragOver as any);
+
+  // 🔒 Make sure the board can receive focus (so paste works)
+  el.tabIndex = 0;
+  el.focus();
+
+  return () => {
+    el.removeEventListener("paste", handlePaste as any);
+    el.removeEventListener("drop", handleDrop as any);
+    el.removeEventListener("dragover", handleDragOver as any);
+  };
+}, [me]);
 
   return (
     <div className="w-full p-0 m-0">
