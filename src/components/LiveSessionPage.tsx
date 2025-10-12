@@ -14,7 +14,6 @@ type Stroke = {
   mode: "pen" | "eraser";
 };
 
-// Network image payload (normalized, as the server expects)
 type NetImage = {
   id: string;
   src: string;
@@ -23,7 +22,6 @@ type NetImage = {
   w?: number; // width fraction (0..1)
 };
 
-// Local image for rendering (world units)
 type LocalImage = {
   id: string;
   src: string;
@@ -64,9 +62,16 @@ function worldToCanvas(wx: number, wy: number) {
   return { x: wx * v.scale, y: wy * v.scale };
 }
 
+// From screen (board) coords into world (handles letterbox offsets)
 function screenToWorld(sx: number, sy: number) {
   const v = viewRef.current;
   return { x: (sx - v.offsetX) / v.scale, y: (sy - v.offsetY) / v.scale };
+}
+
+// From canvas local coords into world (NO offsets)
+function canvasToWorld(cx: number, cy: number) {
+  const v = viewRef.current;
+  return { x: cx / v.scale, y: cy / v.scale };
 }
 
 const normToWorld = (nx: number, ny: number) => ({ x: nx * WORLD_W, y: ny * WORLD_H });
@@ -280,25 +285,30 @@ export default function LiveSessionPage() {
 
   // ---------- pointer move + drawing ----------
   useEffect(() => {
-    const el = boardRef.current;
-    if (!el || !me) return;
+    const board = boardRef.current;
+    const canvas = canvasRef.current;
+    if (!board || !canvas || !me) return;
 
     const onPointerDown = (e: PointerEvent) => {
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
-      const rect = el.getBoundingClientRect();
-      const sx = e.clientX - rect.left;
-      const sy = e.clientY - rect.top;
-      const { x: wx, y: wy } = screenToWorld(sx, sy);
+
+      // Use the canvas rect (letterboxed area) — no offsets needed afterwards
+      const crect = canvas.getBoundingClientRect();
+      const cx = e.clientX - crect.left;
+      const cy = e.clientY - crect.top;
+
+      const { x: wx, y: wy } = canvasToWorld(cx, cy);
       const clampedW = { x: Math.min(Math.max(wx, 0), WORLD_W), y: Math.min(Math.max(wy, 0), WORLD_H) };
       lastNormRef.current = worldToNorm(clampedW.x, clampedW.y);
       if (tool !== "cursor") drawingRef.current = true;
     };
 
     const onPointerMove = (e: PointerEvent) => {
-      const rect = el.getBoundingClientRect();
-      const sx = e.clientX - rect.left;
-      const sy = e.clientY - rect.top;
-      const { x: wx, y: wy } = screenToWorld(sx, sy);
+      const crect = canvas.getBoundingClientRect();
+      const cx = e.clientX - crect.left;
+      const cy = e.clientY - crect.top;
+
+      const { x: wx, y: wy } = canvasToWorld(cx, cy);
       const clampedW = { x: Math.min(Math.max(wx, 0), WORLD_W), y: Math.min(Math.max(wy, 0), WORLD_H) };
       const n = worldToNorm(clampedW.x, clampedW.y);
 
@@ -362,12 +372,12 @@ export default function LiveSessionPage() {
       dragRef.current = { id: null, mode: null, startX: 0, startY: 0, startImg: null };
     };
 
-    el.addEventListener("pointerdown", onPointerDown);
-    el.addEventListener("pointermove", onPointerMove, { passive: true });
+    board.addEventListener("pointerdown", onPointerDown);
+    board.addEventListener("pointermove", onPointerMove, { passive: true });
     window.addEventListener("pointerup", endStroke);
     return () => {
-      el.removeEventListener("pointerdown", onPointerDown);
-      el.removeEventListener("pointermove", onPointerMove as any);
+      board.removeEventListener("pointerdown", onPointerDown);
+      board.removeEventListener("pointermove", onPointerMove as any);
       window.removeEventListener("pointerup", endStroke);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
@@ -479,9 +489,9 @@ export default function LiveSessionPage() {
   const beginMove = (e: React.PointerEvent, img: LocalImage) => {
     if (tool !== "cursor") return;
     e.stopPropagation();
-    const rect = boardRef.current!.getBoundingClientRect();
-    const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
-    const { x: wx, y: wy } = screenToWorld(sx, sy);
+    const crect = canvasRef.current!.getBoundingClientRect();
+    const cx = e.clientX - crect.left, cy = e.clientY - crect.top;
+    const { x: wx, y: wy } = canvasToWorld(cx, cy);
     dragRef.current = { id: img.id, mode: "move", startX: wx, startY: wy, startImg: { ...img } };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
@@ -489,9 +499,9 @@ export default function LiveSessionPage() {
   const beginResize = (e: React.PointerEvent, img: LocalImage) => {
     if (tool !== "cursor") return;
     e.stopPropagation();
-    const rect = boardRef.current!.getBoundingClientRect();
-    const sx = e.clientX - rect.left;
-    const { x: wx } = screenToWorld(sx, 0);
+    const crect = canvasRef.current!.getBoundingClientRect();
+    const cx = e.clientX - crect.left;
+    const { x: wx } = canvasToWorld(cx, 0);
     dragRef.current = { id: img.id, mode: "resize", startX: wx, startY: 0, startImg: { ...img } };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
@@ -563,11 +573,9 @@ export default function LiveSessionPage() {
             const posS = worldToScreen(posW.x, posW.y);
             const isMe = me && c.id === me.id;
 
-            // When I'm in pointer mode, my OS cursor hotspot is top-left, so don't center the dot.
-            // Give a tiny nudge so the dot sits right under the arrow tip.
             const transform =
               isMe && tool === "cursor"
-                ? "translate(1px, 1px)"           // top-left anchor + slight nudge
+                ? "translate(1px, 1px)"           // top-left anchor + tiny nudge for OS arrow tip
                 : "translate(-50%, -50%)";        // centered for crosshair & all remote cursors
 
             return (
