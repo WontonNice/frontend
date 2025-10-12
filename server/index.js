@@ -5,11 +5,18 @@ import { Server } from "socket.io";
 import cors from "cors";
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN?.split(",") || "*",
+}));
 app.use(express.json());
 const httpServer = createServer(app);
 
-const io = new Server(httpServer, { cors: { origin: "*" } });
+const allowed = process.env.CORS_ORIGIN?.split(",") || "*";
+const io = new Server(httpServer, {
+  cors: { origin: allowed },
+  maxHttpBufferSize: 6 * 1024 * 1024, // 6MB
+  perMessageDeflate: { threshold: 1024 }, // compress larger messages
+});
 
 // ===============================
 //  Data stores
@@ -57,7 +64,7 @@ io.on("connection", (socket) => {
     const nx = clamp01(x), ny = clamp01(y);
     const updated = { ...prev, x: nx, y: ny };
     cursors.set(socket.id, updated);
-    socket.to(room).emit("move", updated);
+    socket.to(room).volatile.emit("move", updated);
   });
 
   socket.on("leave", () => {
@@ -69,6 +76,10 @@ io.on("connection", (socket) => {
     io.to(room).emit("left", socket.id);
     io.to(room).emit("presence", serialize(room));
     socket.data.room = undefined;
+    if (cursors.size === 0) {
+      roomCursors.delete(room); 
+      roomState.delete(room);
+    }
   });
 
   socket.on("disconnecting", () => {
@@ -78,6 +89,11 @@ io.on("connection", (socket) => {
       if (cursors.delete(socket.id)) {
         io.to(room).emit("left", socket.id);
         io.to(room).emit("presence", serialize(room));
+      }
+      // If no one remains, free state
+      if (cursors.size === 0) {
+        roomCursors.delete(room);
+        roomState.delete(room);
       }
     }
   });
@@ -95,12 +111,18 @@ io.on("connection", (socket) => {
     const state =
       roomState.get(room) ||
       roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+      const MAX_BOOTSTRAP_STROKES = 1000;
+      socket.emit("session:state", {
+      sessionId: state.sessionId,
+      strokes: state.strokes.slice(-MAX_BOOTSTRAP_STROKES),
+      images: state.images,
+      });
 
     const stroke = {
-      from: { x: +from.x, y: +from.y },
-      to: { x: +to.x, y: +to.y },
+      from: { x: clamp01(+from.x), y: clamp01(+from.y) },
+      to: { x: clamp01(+to.x), y: clamp01(+to.y) },
       color: typeof color === "string" ? color : "#111827",
-      size: Math.max(1, Math.min(64, +size || 3)),
+      size: Math.max(1, Math.min(64, (Number.isFinite(+size) ? +size : 3))),
       mode: mode === "eraser" ? "eraser" : "pen",
     };
     state.strokes.push(stroke);
@@ -116,7 +138,7 @@ io.on("connection", (socket) => {
       roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
     state.strokes = [];
     state.images = [];
-    socket.to(room).emit("draw:clear");
+    io.to(room).emit("draw:clear");
   });
 
   // add image (supports width fraction "w")
@@ -124,6 +146,11 @@ io.on("connection", (socket) => {
 socket.on("image:add", (img) => {
   const room = socket.data.room;
   if (!room || !img?.src) return;
+  // ~5MB cap to avoid huge base64 payloads
+  const approxBytes = Math.floor((img.src.length || 0) * 0.75);
+  if (approxBytes > 5 * 1024 * 1024) {
+    return; // optionally emit an error event back to the sender
+  }
 
   const state =
     roomState.get(room) ||
@@ -132,9 +159,9 @@ socket.on("image:add", (img) => {
   const safe = {
     id: img.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     src: img.src,
-    x: Math.min(1, Math.max(0, +img.x || 0.5)),
-    y: Math.min(1, Math.max(0, +img.y || 0.5)),
-    w: Math.min(1, Math.max(0.05, +img.w || 0.2)),
+    x: Math.min(1, Math.max(0, Number.isFinite(+img?.x) ? +img.x : 0.5)),
+    y: Math.min(1, Math.max(0, Number.isFinite(+img?.y) ? +img.y : 0.5)),
+    w: Math.min(1, Math.max(0.05, Number.isFinite(+img?.w) ? +img.w : 0.2)),
   };
   state.images.push(safe);
   io.to(room).emit("image:add", safe);  // <-- not socket.to(...), include sender
