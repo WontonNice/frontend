@@ -147,6 +147,42 @@ app.post("/session/end", (req, res) => {
   res.json({ ok: true });
 });
 
+// When storing images in room state, support { id, src, x, y, w }
+socket.on("image:add", (img) => {
+  const room = socket.data.room;
+  if (!room || !img?.src) return;
+  const state = roomState.get(room) || { sessionId: Date.now(), strokes: [], images: [] };
+  roomState.set(room, state);
+  const safe = {
+    id: img.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    src: img.src,
+    x: Math.min(1, Math.max(0, +img.x || 0.5)),
+    y: Math.min(1, Math.max(0, +img.y || 0.5)),
+    w: Math.min(1, Math.max(0.05, +img.w || 0.2)),
+  };
+  state.images.push(safe);
+  socket.to(room).emit("image:add", safe);
+});
+
+// NEW: update image position/size (drag/resize)
+socket.on("image:update", (patch) => {
+  const room = socket.data.room;
+  if (!room || !patch?.id) return;
+  const state = roomState.get(room);
+  if (!state) return;
+  const idx = state.images.findIndex((i) => i.id === patch.id);
+  if (idx === -1) return;
+  const cur = state.images[idx];
+  const next = {
+    ...cur,
+    ...(patch.x != null ? { x: Math.min(1, Math.max(0, +patch.x)) } : {}),
+    ...(patch.y != null ? { y: Math.min(1, Math.max(0, +patch.y)) } : {}),
+    ...(patch.w != null ? { w: Math.min(1, Math.max(0.05, +patch.w)) } : {}),
+  };
+  state.images[idx] = next;
+  socket.to(room).emit("image:update", { id: next.id, x: next.x, y: next.y, w: next.w });
+});
+
 // ===============================
 //  Start server
 // ===============================
