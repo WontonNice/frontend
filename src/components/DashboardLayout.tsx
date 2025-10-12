@@ -1,6 +1,6 @@
 // src/components/DashboardLayout.tsx
 import { useState, type PropsWithChildren, type ReactNode, useRef, useEffect } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom"; // ⬅️ useLocation added
 import { Home, Database, BookOpen, Boxes, Activity, Settings } from "lucide-react";
 import LogoutButton from "./LogoutButton";
 
@@ -13,6 +13,9 @@ export default function DashboardLayout({
   title = "WontonNice’s Project",
   subtitle,
 }: LayoutProps) {
+  const location = useLocation();
+  const isLive = location.pathname.startsWith("/live-activities"); // ⬅️ adjust if your route differs
+
   return (
     <div className="min-h-screen bg-[#0f1115] text-white antialiased flex">
       <Sidebar />
@@ -20,9 +23,11 @@ export default function DashboardLayout({
       {/* Keep overlay behavior for now */}
       <div className="flex-1 pl-16 transition-all duration-300">
         <TopBar />
-        <Hero title={title} subtitle={subtitle} />
-        <main className="mx-auto max-w-7xl px-6 pb-10">
-          {/* Routed content first; fallback to direct children if provided */}
+        {/* Hide hero on the live page */}
+        {!isLive && <Hero title={title} subtitle={subtitle} />}
+
+        {/* Live = full-bleed; Others = centered container */}
+        <main className={isLive ? "p-0" : "mx-auto max-w-7xl px-6 pb-10"}>
           <Outlet />
         </main>
       </div>
@@ -36,15 +41,14 @@ function Sidebar() {
 
   return (
     <aside
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        className={`fixed inset-y-0 left-0 z-50 pointer-events-auto flex flex-col border-r border-white/10 bg-[#0b0d12] transition-all duration-300 ease-out ${
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      className={`fixed inset-y-0 left-0 z-50 pointer-events-auto flex flex-col border-r border-white/10 bg-[#0b0d12] transition-all duration-300 ease-out ${
         open ? "w-64" : "w-16"
-        }`}
-        role="navigation"
-        aria-label="Sidebar"
+      }`}
+      role="navigation"
+      aria-label="Sidebar"
     >
-
       {/* Header / Project badge */}
       <div className="flex items-center gap-3 border-b border-white/10 px-3 h-14">
         <div className="grid h-7 w-7 place-items-center rounded bg-emerald-500/80 text-xs font-bold">
@@ -121,6 +125,7 @@ function SideLink({
 function TopBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null); // ⬅️ for measuring height
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -132,10 +137,26 @@ function TopBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Keep --topbar-height synced to actual header height
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const apply = () =>
+      document.documentElement.style.setProperty("--topbar-height", `${el.offsetHeight}px`);
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    window.addEventListener("resize", apply);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", apply);
+    };
+  }, []);
+
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   return (
-    <header className="sticky top-0 z-20 h-14 bg-[#0f1218]/90 backdrop-blur border-b border-white/10">
+    <header ref={headerRef} className="sticky top-0 z-20 h-14 bg-[#0f1218]/90 backdrop-blur border-b border-white/10">
       <div className="mx-auto max-w-7xl h-full px-6 flex items-center justify-between">
         <div className="text-sm text-white/60">Last 60 minutes</div>
 
@@ -160,9 +181,9 @@ function TopBar() {
               </div>
 
               <ul className="py-1 text-sm text-white/80">
-                <li className="px-4 py-2 hover:bg-white/5 cursor-pointer">Account preferences</li>
-                <li className="px-4 py-2 hover:bg-white/5 cursor-pointer">Feature previews</li>
-                <li className="px-4 py-2 hover:bg-white/5 cursor-pointer">Command menu</li>
+                <li className="px-4 py-2 hover:bg:white/5 cursor-pointer">Account preferences</li>
+                <li className="px-4 py-2 hover:bg:white/5 cursor-pointer">Feature previews</li>
+                <li className="px-4 py-2 hover:bg:white/5 cursor-pointer">Command menu</li>
               </ul>
 
               <div className="border-t border-white/10 py-1">
