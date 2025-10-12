@@ -18,6 +18,10 @@ export default function TeacherDashboard() {
   const [importText, setImportText] = useState("");
   const [showImport, setShowImport] = useState(false);
 
+  // NEW: live session controls
+  const [room, setRoom] = useState<string>("global");
+  const [ending, setEnding] = useState(false);
+
   const refresh = () => setBank(getEffectiveSatMathBank());
   useEffect(() => { refresh(); }, []);
 
@@ -95,6 +99,30 @@ export default function TeacherDashboard() {
     }
   };
 
+  // NEW: End Session action
+  const endSession = async () => {
+    const base = import.meta.env.VITE_SOCKET_URL;
+    const key = import.meta.env.VITE_TEACHER_KEY;
+    if (!base) return alert("VITE_SOCKET_URL is not set.");
+    if (!key) return alert("VITE_TEACHER_KEY is not set.");
+    if (!confirm(`End the "${room}" session for everyone? This clears drawings, images, and history.`)) return;
+
+    try {
+      setEnding(true);
+      const res = await fetch(`${base}/session/end?room=${encodeURIComponent(room)}`, {
+        method: "POST",
+        headers: { "x-teacher-key": key },
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) throw new Error(data?.error || "Request failed");
+      alert(`Session ended. (room: ${data.room}, sessionId: ${data.sessionId})`);
+    } catch (err: any) {
+      alert(`Failed to end session: ${err?.message || err}`);
+    } finally {
+      setEnding(false);
+    }
+  };
+
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   return (
@@ -106,7 +134,27 @@ export default function TeacherDashboard() {
             Welcome, <span className="font-semibold">{user?.username || "Teacher"}</span>
           </p>
         </div>
-        <div className="flex gap-2">
+
+        {/* NEW: Live session controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 rounded-lg bg-white/5 ring-1 ring-white/10 px-3 py-2">
+            <label className="text-xs text-white/60">Room</label>
+            <input
+              value={room}
+              onChange={(e) => setRoom(e.target.value)}
+              placeholder="global"
+              className="w-40 rounded-md bg-[#0e1014] ring-1 ring-white/10 px-2 py-1 text-sm"
+            />
+            <button
+              onClick={endSession}
+              disabled={ending}
+              className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${ending ? "bg-red-600/50 cursor-wait" : "bg-red-600/80 hover:bg-red-600"} text-white`}
+              title="Clear drawings & images for this room"
+            >
+              {ending ? "Ending…" : "End Session"}
+            </button>
+          </div>
+
           <button
             onClick={startNew}
             className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold"
