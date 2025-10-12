@@ -174,7 +174,7 @@ export default function LiveSessionPage() {
 
   // ---------- socket connection ----------
   useEffect(() => {
-    const socket = io(SOCKET_URL, { transports: ["websocket"] });
+    const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
     socketRef.current = socket;
 
     socket.on("connect", () => {
@@ -182,6 +182,8 @@ export default function LiveSessionPage() {
       const mine: Cursor = { id: socket.id!, name, x: 0.5, y: 0.5, color: colorFromId(socket.id!) };
       setMe(mine);
       socket.emit("join", { name, room: ROOM });
+      // Optional: show yourself instantly on others
+      socket.emit("move", { x: 0.5, y: 0.5 });
     });
 
     socket.on("presence", (snapshot: ServerCursor[]) => {
@@ -506,7 +508,11 @@ export default function LiveSessionPage() {
       <div
         ref={boardRef}
         className="relative w-full h-[calc(100vh-var(--topbar-height))] bg-white overflow-hidden touch-none"
-        style={{ WebkitUserSelect: "none", userSelect: "none" }}
+        style={{
+          WebkitUserSelect: "none",
+          userSelect: "none",
+          cursor: tool === "cursor" ? "default" : "crosshair", // precise drawing feel; use 'none' to hide OS cursor
+        }}
       >
         {/* images UNDER canvas, rendered from world -> screen */}
         {images.map((img) => {
@@ -547,15 +553,36 @@ export default function LiveSessionPage() {
           style={{ inset: "auto" }} // positioned by ensureCanvasSize()
         />
 
-        {/* live cursors (normalized -> world -> screen) */}
-        <div className="absolute inset-0 pointer-events-none">
+        {/* live cursors (normalized -> world -> screen) — centered dot exactly at point */}
+        <div className="absolute inset-0 pointer-events-none z-20">
           {Object.values(cursors).map((c) => {
             const posW = normToWorld(c.x, c.y);
             const posS = worldToScreen(posW.x, posW.y);
             return (
-              <div key={c.id} className="absolute" style={{ left: `${posS.x}px`, top: `${posS.y}px`, transform: "translate(-20%, -60%)" }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill={c.color}><path d="M3 2l7 18 2-7 7-2L3 2z" /></svg>
-                <div className="mt-1 px-2 py-0.5 text-xs font-medium rounded" style={{ background: c.color, color: "#0b0d12" }}>{c.name}</div>
+              <div
+                key={c.id}
+                className="absolute"
+                style={{
+                  left: `${posS.x}px`,
+                  top: `${posS.y}px`,
+                  transform: "translate(-50%, -50%)", // center on exact point
+                }}
+              >
+                <div
+                  className="rounded-full"
+                  style={{
+                    width: 8,
+                    height: 8,
+                    background: c.color,
+                    boxShadow: "0 0 0 2px #fff, 0 0 0 4px rgba(0,0,0,.15)",
+                  }}
+                />
+                <div
+                  className="mt-1 px-2 py-0.5 text-xs font-medium rounded"
+                  style={{ background: c.color, color: "#0b0d12" }}
+                >
+                  {c.name}
+                </div>
               </div>
             );
           })}
