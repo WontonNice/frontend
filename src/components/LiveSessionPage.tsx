@@ -642,7 +642,7 @@ export default function LiveSessionPage() {
           title={drawingLockedForMe ? "Drawing disabled by teacher" : "Brush size"}
         />
         <button onClick={clearMine} className="px-2 py-1 text-xs rounded bg-red-500/80 text-black">
-          Clear Mine
+          Clear
         </button>
       </div>
 

@@ -36,37 +36,45 @@ const roomCursors = new Map();
  */
 const roomState = new Map();
 
+/** roomFlags: Map<room, { drawingDisabled: boolean }> */
+const roomFlags = new Map();
+
 const getRoomMap = (room) =>
   roomCursors.get(room) || roomCursors.set(room, new Map()).get(room);
 const serialize = (room) => Array.from(getRoomMap(room).values());
 const clamp01 = (n) => Math.min(1, Math.max(0, Number.isFinite(n) ? n : 0.5));
+const getFlags = (room) =>
+  roomFlags.get(room) || roomFlags.set(room, { drawingDisabled: false }).get(room);
 
 // ===============================
 //  Socket.io
 // ===============================
 
 io.on("connection", (socket) => {
-  socket.on("join", ({ name, room }) => {
+  socket.on("join", ({ name, room, role } = {}) => {
     if (!room) return;
     socket.join(room);
     socket.data.room = room;
     socket.data.name = (name || "Anonymous").toString().slice(0, 64);
+    // simple role hint from client; secure it with auth if needed
+    socket.data.role = role === "teacher" ? "teacher" : "student";
 
     const cursors = getRoomMap(room);
     cursors.set(socket.id, { id: socket.id, name: socket.data.name, x: 0.5, y: 0.5 });
     io.to(room).emit("presence", serialize(room));
 
-    // send/ensure session state
+    // ensure session + flags and send to joiner
     const state =
       roomState.get(room) ||
       roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+    const flags = getFlags(room);
 
     const MAX_BOOTSTRAP_STROKES = 1000;
     socket.emit("session:state", {
       sessionId: state.sessionId,
-      // include userId per stroke so clients can layer by author
-      strokes: state.strokes.slice(-MAX_BOOTSTRAP_STROKES),
+      strokes: state.strokes.slice(-MAX_BOOTSTRAP_STROKES), // each stroke has userId
       images: state.images,
+      admin: { drawingDisabled: !!flags.drawingDisabled },
     });
   });
 
@@ -76,8 +84,7 @@ io.on("connection", (socket) => {
     const cursors = getRoomMap(room);
     const prev = cursors.get(socket.id);
     if (!prev) return;
-    const nx = clamp01(x),
-      ny = clamp01(y);
+    const nx = clamp01(x), ny = clamp01(y);
     const updated = { ...prev, x: nx, y: ny };
     cursors.set(socket.id, updated);
     socket.to(room).volatile.emit("move", updated);
@@ -95,6 +102,7 @@ io.on("connection", (socket) => {
     if (cursors.size === 0) {
       roomCursors.delete(room);
       roomState.delete(room);
+      roomFlags.delete(room);
     }
   });
 
@@ -109,8 +117,23 @@ io.on("connection", (socket) => {
       if (cursors.size === 0) {
         roomCursors.delete(room);
         roomState.delete(room);
+        roomFlags.delete(room);
       }
     }
+  });
+
+  // ===============================
+  // Admin controls
+  // ===============================
+
+  // Teacher toggles student drawing
+  socket.on("admin:drawing:set", ({ disabled } = {}) => {
+    const room = socket.data.room;
+    if (!room) return;
+    if (socket.data.role !== "teacher") return; // gate
+    const flags = getFlags(room);
+    flags.drawingDisabled = !!disabled;
+    io.to(room).emit("admin:drawing:set", { disabled: !!disabled });
   });
 
   // ===============================
@@ -121,6 +144,11 @@ io.on("connection", (socket) => {
   socket.on("draw:segment", (p = {}) => {
     const room = socket.data.room;
     if (!room) return;
+
+    // enforce lock: while disabled, ignore non-teacher strokes
+    const flags = getFlags(room);
+    if (flags.drawingDisabled && socket.data.role !== "teacher") return;
+
     const { from, to, color, size, mode } = p;
     if (!from || !to) return;
 
@@ -134,16 +162,16 @@ io.on("connection", (socket) => {
       color: typeof color === "string" ? color : "#111827",
       size: Math.max(1, Math.min(64, Number.isFinite(+size) ? +size : 3)),
       mode: mode === "eraser" ? "eraser" : "pen",
-      userId: socket.id, // <--- owner
+      userId: socket.id, // owner
     };
 
     state.strokes.push(stroke);
 
-    // include sender so their local layer can also reconcile if needed
+    // send to everyone (authoritative stroke includes userId)
     io.to(room).emit("draw:segment", stroke);
   });
 
-  // Clear ONLY the caller's strokes (leave other users' strokes intact)
+  // Clear ONLY the caller's strokes
   socket.on("draw:clear:user", () => {
     const room = socket.data.room;
     if (!room) return;
@@ -154,17 +182,19 @@ io.on("connection", (socket) => {
 
     state.strokes = (state.strokes || []).filter((s) => s.userId !== socket.id);
 
-    // notify all clients to clear that user's layer only
     io.to(room).emit("draw:clear:user", { userId: socket.id });
   });
 
-  // (Optional) Legacy global clear — keep if a teacher needs a complete reset
+  // Teacher-only global clear (drawings + images)
   socket.on("draw:clear", () => {
     const room = socket.data.room;
     if (!room) return;
+    if (socket.data.role !== "teacher") return; // gate
+
     const state =
       roomState.get(room) ||
       roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+
     state.strokes = [];
     state.images = [];
     io.to(room).emit("draw:clear");
@@ -214,6 +244,7 @@ io.on("connection", (socket) => {
     state.images[idx] = next;
 
     socket.to(room).emit("image:update", { id: next.id, x: next.x, y: next.y, w: next.w });
+    socket.emit("image:update", { id: next.id, x: next.x, y: next.y, w: next.w }); // echo to author
   });
 });
 
@@ -224,8 +255,11 @@ io.on("connection", (socket) => {
 app.post("/session/end", (req, res) => {
   const { room } = req.body || {};
   if (!room) return res.status(400).json({ error: "Missing room" });
+
   roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] });
+  roomFlags.set(room, { drawingDisabled: false });
   io.to(room).emit("session:ended");
+
   res.json({ ok: true });
 });
 
