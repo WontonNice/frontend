@@ -103,6 +103,7 @@ export default function LiveSessionPage() {
   const [strokeColor, setStrokeColor] = useState("#111827");
   const [strokeSize, setStrokeSize] = useState(3);
   const [images, setImages] = useState<LocalImage[]>([]);
+  const [drawingDisabled, setDrawingDisabled] = useState<boolean>(false); // 👈 NEW
 
   const dragRef = useRef<{
     id: string | null;
@@ -248,6 +249,16 @@ export default function LiveSessionPage() {
       setCursors((prev) => ({ ...prev, [c.id]: { ...c, color: colorFromId(c.id) } }));
     });
 
+    // 🔒 Admin drawing lock
+    socket.on("admin:drawing:set", ({ disabled }: { disabled: boolean }) => {
+      setDrawingDisabled(!!disabled);
+      // If drawing was in progress and we get disabled, stop it
+      if (disabled) {
+        drawingRef.current = false;
+        lastNormRef.current = null;
+      }
+    });
+
     // Initial state
     socket.on("session:state", (payload: { sessionId: number; strokes: (Stroke & { userId?: string })[]; images: NetImage[] }) => {
       // Reset local
@@ -347,6 +358,13 @@ export default function LiveSessionPage() {
       const { x: wx, y: wy } = canvasToWorld(cx, cy);
       const clampedW = { x: Math.min(Math.max(wx, 0), WORLD_W), y: Math.min(Math.max(wy, 0), WORLD_H) };
       lastNormRef.current = worldToNorm(clampedW.x, clampedW.y);
+
+      // 👇 Block drawing if admin disabled it
+      if (tool !== "cursor" && drawingDisabled) {
+        drawingRef.current = false;
+        return;
+      }
+
       if (tool !== "cursor") drawingRef.current = true;
     };
 
@@ -369,6 +387,13 @@ export default function LiveSessionPage() {
       }
 
       if (drawingRef.current && lastNormRef.current) {
+        // Safety: if it became disabled mid-stroke, stop now.
+        if (drawingDisabled) {
+          drawingRef.current = false;
+          lastNormRef.current = null;
+          return;
+        }
+
         const fromN = lastNormRef.current, toN = n;
         lastNormRef.current = toN;
 
@@ -395,7 +420,7 @@ export default function LiveSessionPage() {
         socketRef.current?.emit("draw:segment", stroke);
       }
 
-      // dragging/resizing images (world-based)
+      // dragging/resizing images (world-based) — unchanged
       const active = dragRef.current;
       if (active.id && active.mode && active.startImg) {
         const dxW = wx - active.startX;
@@ -440,7 +465,7 @@ export default function LiveSessionPage() {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [me, tool, strokeColor, strokeSize]);
+  }, [me, tool, strokeColor, strokeSize, drawingDisabled]);
 
   // ---------- sizing & DPR ----------
   useEffect(() => {
@@ -565,13 +590,63 @@ export default function LiveSessionPage() {
     <div className="w-full p-0 m-0">
       {/* toolbar */}
       <div className="fixed z-[60] right-4 top-[calc(var(--topbar-height,56px)+8px)] flex items-center gap-2 bg-black/40 backdrop-blur px-3 py-2 rounded-lg ring-1 ring-white/10">
-        <button onClick={() => setTool("cursor")} className={`px-2 py-1 text-xs rounded ${tool === "cursor" ? "bg-emerald-500 text-black" : "bg-white/10"}`}>Pointer</button>
-        <button onClick={() => setTool("pen")} className={`px-2 py-1 text-xs rounded ${tool === "pen" ? "bg-emerald-500 text-black" : "bg-white/10"}`}>Draw</button>
-        <button onClick={() => setTool("eraser")} className={`px-2 py-1 text-xs rounded ${tool === "eraser" ? "bg-emerald-500 text-black" : "bg-white/10"}`}>Erase</button>
-        <input type="color" value={strokeColor} onChange={(e) => setStrokeColor(e.target.value)} className="w-6 h-6 rounded border-0 bg-transparent cursor-pointer" />
-        <input type="range" min={1} max={24} value={strokeSize} onChange={(e) => setStrokeSize(Number(e.target.value))} className="w-24" />
-        <button onClick={clearMine} className="px-2 py-1 text-xs rounded bg-red-500/80 text-black">Clear Mine</button>
+        <button
+          onClick={() => setTool("cursor")}
+          className={`px-2 py-1 text-xs rounded ${tool === "cursor" ? "bg-emerald-500 text-black" : "bg-white/10"}`}
+        >
+          Pointer
+        </button>
+        <button
+          onClick={() => !drawingDisabled && setTool("pen")}
+          disabled={drawingDisabled}
+          title={drawingDisabled ? "Drawing disabled by teacher" : "Draw"}
+          className={`px-2 py-1 text-xs rounded ${
+            tool === "pen" ? "bg-emerald-500 text-black" : "bg-white/10"
+          } ${drawingDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        >
+          Draw
+        </button>
+        <button
+          onClick={() => !drawingDisabled && setTool("eraser")}
+          disabled={drawingDisabled}
+          title={drawingDisabled ? "Drawing disabled by teacher" : "Erase"}
+          className={`px-2 py-1 text-xs rounded ${
+            tool === "eraser" ? "bg-emerald-500 text-black" : "bg-white/10"
+          } ${drawingDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+        >
+          Erase
+        </button>
+        <input
+          type="color"
+          value={strokeColor}
+          onChange={(e) => setStrokeColor(e.target.value)}
+          className="w-6 h-6 rounded border-0 bg-transparent cursor-pointer"
+          disabled={drawingDisabled}
+          title={drawingDisabled ? "Drawing disabled by teacher" : "Pick color"}
+        />
+        <input
+          type="range"
+          min={1}
+          max={24}
+          value={strokeSize}
+          onChange={(e) => setStrokeSize(Number(e.target.value))}
+          className="w-24"
+          disabled={drawingDisabled}
+          title={drawingDisabled ? "Drawing disabled by teacher" : "Brush size"}
+        />
+        <button onClick={clearMine} className="px-2 py-1 text-xs rounded bg-red-500/80 text-black">
+          Clear Mine
+        </button>
       </div>
+
+      {/* banner when disabled */}
+      {drawingDisabled && (
+        <div className="fixed left-1/2 -translate-x-1/2 top-[calc(var(--topbar-height,56px)+8px)] z-[65]">
+          <div className="px-3 py-1 rounded-md bg-amber-500 text-black text-xs font-semibold shadow">
+            Drawing disabled by teacher
+          </div>
+        </div>
+      )}
 
       <div
         ref={boardRef}
@@ -579,7 +654,12 @@ export default function LiveSessionPage() {
         style={{
           WebkitUserSelect: "none",
           userSelect: "none",
-          cursor: tool === "cursor" ? "default" : "crosshair",
+          cursor:
+            tool === "cursor"
+              ? "default"
+              : drawingDisabled
+              ? "not-allowed"
+              : "crosshair",
         }}
       >
         {/* images UNDER layers */}
@@ -631,9 +711,7 @@ export default function LiveSessionPage() {
             const posS = worldToScreen(posW.x, posW.y);
 
             const isPointerMode = tool === "cursor";
-            // Tuned offsets so the arrow tip sits exactly on the world pixel.
-            // (SVG path tip is near the top-left; these shifts align the hotspot.)
-            const ARROW_TX = -20; // %
+            const ARROW_TX = -20; // %  (align svg tip to hotspot)
             const ARROW_TY = -60; // %
 
             return (
@@ -647,12 +725,10 @@ export default function LiveSessionPage() {
                 }}
               >
                 {isPointerMode ? (
-                  // Arrow cursor marker — hotspot = tip
                   <svg width="22" height="22" viewBox="0 0 24 24" fill={c.color}>
                     <path d="M3 2l7 18 2-7 7-2L3 2z" />
                   </svg>
                 ) : (
-                  // Centered dot for draw/erase — hotspot = center
                   <div
                     className="rounded-full"
                     style={{
