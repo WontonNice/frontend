@@ -1,6 +1,11 @@
 /* src/index.css */
 @import "tailwindcss";
 
+:root {
+  /* adjust this number to match your actual topbar height */
+  --topbar-height: 64px;
+}
+
 /* Global Supabase-style dark theme */
 html, body, #root {
   height: 100%;

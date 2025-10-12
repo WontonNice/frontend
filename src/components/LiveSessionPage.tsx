@@ -62,7 +62,6 @@ export default function LiveSessionPage() {
     };
   }, [SOCKET_URL, user?.username]);
 
-  // Pointer tracking (mouse/touch/pen) with rAF throttle
   useEffect(() => {
     const el = boardRef.current;
     if (!el || !me) return;
@@ -71,10 +70,9 @@ export default function LiveSessionPage() {
       const rect = el.getBoundingClientRect();
       const x = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
       const y = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
-      // local optimistic update
       setMe((prev) => (prev ? { ...prev, x, y } : prev));
       setCursors((prev) => ({ ...prev, [me.id]: { ...me, x, y } }));
-      // throttle network sends
+
       if (rafRef.current == null) {
         rafRef.current = requestAnimationFrame(() => {
           rafRef.current = null;
@@ -94,22 +92,32 @@ export default function LiveSessionPage() {
   }, [me]);
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Live Session</h2>
-      <p className="text-white/70 text-sm">Move your pointer in the whiteboard — everyone will see it.</p>
-
+    // no header/paragraph; container has no extra spacing
+    <div className="w-full p-0">
       <div
         ref={boardRef}
-        className="relative mx-auto max-w-5xl h-[520px] bg-white rounded-xl ring-1 ring-black/10 overflow-hidden"
+        className="
+          relative w-full
+          h-[calc(100vh-var(--topbar-height))]  /* fills viewport under your topbar */
+          bg-white overflow-hidden
+          rounded-xl ring-1 ring-black/10
+        "
       >
         {Object.values(cursors).map((c) => {
           const left = `${c.x * 100}%`, top = `${c.y * 100}%`;
           return (
-            <div key={c.id} className="absolute pointer-events-none" style={{ left, top, transform: "translate(-20%, -60%)" }}>
+            <div
+              key={c.id}
+              className="absolute pointer-events-none"
+              style={{ left, top, transform: "translate(-20%, -60%)" }}
+            >
               <svg width="22" height="22" viewBox="0 0 24 24" fill={c.color}>
                 <path d="M3 2l7 18 2-7 7-2L3 2z" />
               </svg>
-              <div className="mt-1 px-2 py-0.5 text-xs font-medium rounded" style={{ background: c.color, color: "#0b0d12" }}>
+              <div
+                className="mt-1 px-2 py-0.5 text-xs font-medium rounded"
+                style={{ background: c.color, color: "#0b0d12" }}
+              >
                 {c.name}
               </div>
             </div>
