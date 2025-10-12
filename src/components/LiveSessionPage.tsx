@@ -368,7 +368,6 @@ export default function LiveSessionPage() {
         className="relative w-full h-[calc(100vh-var(--topbar-height))] bg-white overflow-hidden touch-none"
         style={{ WebkitUserSelect: "none", userSelect: "none" }}
       >
-        <canvas ref={canvasRef} className="absolute inset-0 block" />
 
         {/* images (draggable + resizable) */}
         {images.map((img) => {
@@ -391,6 +390,8 @@ export default function LiveSessionPage() {
             </div>
           );
         })}
+
+        <canvas ref={canvasRef} className="absolute inset-0 block" />
 
         {/* live cursors */}
         <div className="absolute inset-0 pointer-events-none">
