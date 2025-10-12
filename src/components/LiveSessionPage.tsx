@@ -14,6 +14,7 @@ type Stroke = {
   mode: "pen" | "eraser";
 };
 
+// Network image payload (normalized, as the server expects)
 type NetImage = {
   id: string;
   src: string;
@@ -22,6 +23,7 @@ type NetImage = {
   w?: number; // width fraction (0..1)
 };
 
+// Local image for rendering (world units)
 type LocalImage = {
   id: string;
   src: string;
@@ -152,14 +154,14 @@ export default function LiveSessionPage() {
     const ctx = ctxRef.current;
     if (!ctx) return;
 
-    // IMPORTANT: convert to *canvas* coords (no offsets)
+    // canvas coords (no offsets)
     const fromC = worldToCanvas(fromW.x, fromW.y);
     const toC = worldToCanvas(toW.x, toW.y);
 
     const prev = ctx.globalCompositeOperation;
     ctx.globalCompositeOperation = mode === "eraser" ? "destination-out" : "source-over";
     if (mode !== "eraser") ctx.strokeStyle = color;
-    ctx.lineWidth = size; // screen/CSS px (dpr transform already applied)
+    ctx.lineWidth = size;
     ctx.beginPath();
     ctx.moveTo(fromC.x, fromC.y);
     ctx.lineTo(toC.x, toC.y);
@@ -554,20 +556,25 @@ export default function LiveSessionPage() {
           style={{ inset: "auto" }} // positioned by ensureCanvasSize()
         />
 
-        {/* live cursors (normalized -> world -> screen) — centered dot exactly at point */}
+        {/* live cursors — align my dot to OS cursor hotspot (top-left), others centered */}
         <div className="absolute inset-0 pointer-events-none z-20">
           {Object.values(cursors).map((c) => {
             const posW = normToWorld(c.x, c.y);
             const posS = worldToScreen(posW.x, posW.y);
+            const isMe = me && c.id === me.id;
+
+            // When I'm in pointer mode, my OS cursor hotspot is top-left, so don't center the dot.
+            // Give a tiny nudge so the dot sits right under the arrow tip.
+            const transform =
+              isMe && tool === "cursor"
+                ? "translate(1px, 1px)"           // top-left anchor + slight nudge
+                : "translate(-50%, -50%)";        // centered for crosshair & all remote cursors
+
             return (
               <div
                 key={c.id}
                 className="absolute"
-                style={{
-                  left: `${posS.x}px`,
-                  top: `${posS.y}px`,
-                  transform: "translate(-50%, -50%)",
-                }}
+                style={{ left: `${posS.x}px`, top: `${posS.y}px`, transform }}
               >
                 <div
                   className="rounded-full"
