@@ -120,24 +120,25 @@ io.on("connection", (socket) => {
   });
 
   // add image (supports width fraction "w")
-  socket.on("image:add", (img) => {
-    const room = socket.data.room;
-    if (!room || !img?.src) return;
+// inside io.on("connection")
+socket.on("image:add", (img) => {
+  const room = socket.data.room;
+  if (!room || !img?.src) return;
 
-    const state =
-      roomState.get(room) ||
-      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+  const state =
+    roomState.get(room) ||
+    roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
 
-    const safe = {
-      id: img.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      src: img.src,
-      x: Math.min(1, Math.max(0, +img.x || 0.5)),
-      y: Math.min(1, Math.max(0, +img.y || 0.5)),
-      w: Math.min(1, Math.max(0.05, +img.w || 0.2)),
-    };
-    state.images.push(safe);
-    socket.to(room).emit("image:add", safe);
-  });
+  const safe = {
+    id: img.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    src: img.src,
+    x: Math.min(1, Math.max(0, +img.x || 0.5)),
+    y: Math.min(1, Math.max(0, +img.y || 0.5)),
+    w: Math.min(1, Math.max(0.05, +img.w || 0.2)),
+  };
+  state.images.push(safe);
+  io.to(room).emit("image:add", safe);  // <-- not socket.to(...), include sender
+});
 
   // update image (drag / resize)
   socket.on("image:update", (patch) => {
