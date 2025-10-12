@@ -52,7 +52,12 @@ io.on("connection", (socket) => {
     const state =
       roomState.get(room) ||
       roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
-    socket.emit("session:state", state);
+      const MAX_BOOTSTRAP_STROKES = 1000;
+      socket.emit("session:state", {
+      sessionId: state.sessionId,
+      strokes: state.strokes.slice(-MAX_BOOTSTRAP_STROKES),
+      images: state.images,
+    });
   });
 
   socket.on("move", ({ x, y } = {}) => {
@@ -111,12 +116,6 @@ io.on("connection", (socket) => {
     const state =
       roomState.get(room) ||
       roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
-      const MAX_BOOTSTRAP_STROKES = 1000;
-      socket.emit("session:state", {
-      sessionId: state.sessionId,
-      strokes: state.strokes.slice(-MAX_BOOTSTRAP_STROKES),
-      images: state.images,
-      });
 
     const stroke = {
       from: { x: clamp01(+from.x), y: clamp01(+from.y) },
