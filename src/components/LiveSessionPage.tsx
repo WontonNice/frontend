@@ -1,9 +1,18 @@
+// src/components/LiveSessionPage.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 
 type ServerCursor = { id: string; name: string; x: number; y: number };
 type Cursor = ServerCursor & { color: string };
 type Tool = "cursor" | "pen" | "eraser";
+
+type Stroke = {
+  from: { x: number; y: number }; // normalized 0..1
+  to: { x: number; y: number };   // normalized 0..1
+  color: string;
+  size: number;
+  mode: "pen" | "eraser";
+};
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3001";
 const ROOM = "global";
@@ -20,6 +29,12 @@ export default function LiveSessionPage() {
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const rafRef = useRef<number | null>(null);
+
+  // 🔐 keep full whiteboard state for repainting (survives re-render)
+  const wbRef = useRef<{ strokes: Stroke[]; images: { id: string; src: string; x: number; y: number }[] }>({
+    strokes: [],
+    images: [],
+  });
 
   const [me, setMe] = useState<Cursor | null>(null);
   const [cursors, setCursors] = useState<Record<string, Cursor>>({});
@@ -39,15 +54,15 @@ export default function LiveSessionPage() {
     }
   }, []);
 
-  // --- setup canvas ---
+  // ---------- canvas helpers ----------
   const ensureCanvasSize = () => {
     const el = boardRef.current;
     const canvas = canvasRef.current;
     if (!el || !canvas) return;
     const dpr = window.devicePixelRatio || 1;
     const { width, height } = el.getBoundingClientRect();
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
+    canvas.width = Math.max(1, Math.floor(width * dpr));
+    canvas.height = Math.max(1, Math.floor(height * dpr));
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
     const ctx = canvas.getContext("2d");
@@ -65,7 +80,13 @@ export default function LiveSessionPage() {
     return { x: nx * rect.width, y: ny * rect.height };
   };
 
-  const drawSegmentLocal = (from: { x: number; y: number }, to: { x: number; y: number }, color: string, size: number, mode: "pen" | "eraser") => {
+  const drawSegmentLocal = (
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    color: string,
+    size: number,
+    mode: "pen" | "eraser"
+  ) => {
     const ctx = ctxRef.current;
     if (!ctx) return;
     const prev = ctx.globalCompositeOperation;
@@ -79,7 +100,21 @@ export default function LiveSessionPage() {
     ctx.globalCompositeOperation = prev;
   };
 
-  // --- socket connection ---
+  const repaintFromHistory = () => {
+    const ctx = ctxRef.current;
+    const el = boardRef.current;
+    if (!ctx || !el) return;
+    const r = el.getBoundingClientRect();
+    ctx.clearRect(0, 0, r.width, r.height);
+    for (const s of wbRef.current.strokes) {
+      const from = pxFromNorm(s.from.x, s.from.y);
+      const to = pxFromNorm(s.to.x, s.to.y);
+      drawSegmentLocal(from, to, s.color, s.size, s.mode);
+    }
+    // images are DOM elements (state-driven), so no work needed here
+  };
+
+  // ---------- socket connection ----------
   useEffect(() => {
     const socket = io(SOCKET_URL, { transports: ["websocket"] });
     socketRef.current = socket;
@@ -101,25 +136,59 @@ export default function LiveSessionPage() {
       setCursors((prev) => ({ ...prev, [c.id]: { ...c, color: colorFromId(c.id) } }));
     });
 
-    // draw events
-    socket.on("draw:segment", (p) => {
-      const from = pxFromNorm(p.from.x, p.from.y);
-      const to = pxFromNorm(p.to.x, p.to.y);
-      drawSegmentLocal(from, to, p.color, p.size, p.mode);
-    });
+    // ✅ receive full session on join/refresh
+    socket.on(
+      "session:state",
+      (payload: {
+        sessionId: number;
+        strokes: Stroke[];
+        images: { id: string; src: string; x: number; y: number }[];
+      }) => {
+        wbRef.current.strokes = payload.strokes || [];
+        wbRef.current.images = payload.images || [];
+        setImages(wbRef.current.images); // render images
+        ensureCanvasSize();
+        repaintFromHistory();            // paint strokes
+      }
+    );
 
-    socket.on("draw:clear", () => {
+    // ✅ teacher ended the session -> wipe locally
+    socket.on("session:ended", () => {
+      wbRef.current.strokes = [];
+      wbRef.current.images = [];
+      setImages([]);
       const ctx = ctxRef.current;
       const el = boardRef.current;
       if (ctx && el) {
         const r = el.getBoundingClientRect();
         ctx.clearRect(0, 0, r.width, r.height);
       }
-      setImages([]);
     });
 
-    // --- image events ---
-    socket.on("image:add", (img) => {
+    // drawing events
+    socket.on("draw:segment", (p: Stroke) => {
+      // keep history so we can repaint on resize
+      wbRef.current.strokes.push(p);
+      const from = pxFromNorm(p.from.x, p.from.y);
+      const to = pxFromNorm(p.to.x, p.to.y);
+      drawSegmentLocal(from, to, p.color, p.size, p.mode);
+    });
+
+    socket.on("draw:clear", () => {
+      wbRef.current.strokes = [];
+      wbRef.current.images = [];
+      setImages([]);
+      const ctx = ctxRef.current;
+      const el = boardRef.current;
+      if (ctx && el) {
+        const r = el.getBoundingClientRect();
+        ctx.clearRect(0, 0, r.width, r.height);
+      }
+    });
+
+    // image events
+    socket.on("image:add", (img: { id: string; src: string; x: number; y: number }) => {
+      wbRef.current.images.push(img);
       setImages((prev) => [...prev, img]);
     });
 
@@ -130,7 +199,7 @@ export default function LiveSessionPage() {
     };
   }, [SOCKET_URL, user?.username]);
 
-  // --- pointer move + drawing ---
+  // ---------- pointer move + drawing ----------
   useEffect(() => {
     const el = boardRef.current;
     if (!el || !me) return;
@@ -138,19 +207,20 @@ export default function LiveSessionPage() {
     const onPointerDown = (e: PointerEvent) => {
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
       const rect = el.getBoundingClientRect();
-      const nx = (e.clientX - rect.left) / rect.width;
-      const ny = (e.clientY - rect.top) / rect.height;
+      const nx = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      const ny = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
       lastNormRef.current = { x: nx, y: ny };
       if (tool !== "cursor") drawingRef.current = true;
     };
 
     const onPointerMove = (e: PointerEvent) => {
       const rect = el.getBoundingClientRect();
-      const nx = (e.clientX - rect.left) / rect.width;
-      const ny = (e.clientY - rect.top) / rect.height;
+      const nx = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      const ny = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
 
       setMe((prev) => (prev ? { ...prev, x: nx, y: ny } : prev));
       setCursors((prev) => (me ? { ...prev, [me.id]: { ...me, x: nx, y: ny } } : prev));
+
       if (rafRef.current == null) {
         rafRef.current = requestAnimationFrame(() => {
           rafRef.current = null;
@@ -162,12 +232,19 @@ export default function LiveSessionPage() {
         const fromN = lastNormRef.current;
         const toN = { x: nx, y: ny };
         lastNormRef.current = toN;
+
+        // local paint
         const fromPx = pxFromNorm(fromN.x, fromN.y);
         const toPx = pxFromNorm(toN.x, toN.y);
-        drawSegmentLocal(fromPx, toPx, strokeColor, strokeSize, tool === "eraser" ? "eraser" : "pen");
-        socketRef.current?.emit("draw:segment", {
-          from: fromN, to: toN, color: strokeColor, size: strokeSize, mode: tool === "eraser" ? "eraser" : "pen",
-        });
+        const mode = tool === "eraser" ? "eraser" : "pen";
+        drawSegmentLocal(fromPx, toPx, strokeColor, strokeSize, mode);
+
+        // push to history for repainting
+        const stroke: Stroke = { from: fromN, to: toN, color: strokeColor, size: strokeSize, mode };
+        wbRef.current.strokes.push(stroke);
+
+        // broadcast
+        socketRef.current?.emit("draw:segment", stroke);
       }
     };
 
@@ -183,18 +260,30 @@ export default function LiveSessionPage() {
       el.removeEventListener("pointerdown", onPointerDown);
       el.removeEventListener("pointermove", onPointerMove as any);
       window.removeEventListener("pointerup", endStroke);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
     };
   }, [me, tool, strokeColor, strokeSize]);
 
-  // --- canvas sizing ---
+  // ---------- canvas sizing & repaint on resize ----------
   useEffect(() => {
     ensureCanvasSize();
-    const ro = new ResizeObserver(ensureCanvasSize);
+    repaintFromHistory();
+    const ro = new ResizeObserver(() => {
+      ensureCanvasSize();
+      repaintFromHistory();
+    });
     if (boardRef.current) ro.observe(boardRef.current);
-    window.addEventListener("resize", ensureCanvasSize);
+    window.addEventListener("resize", () => {
+      ensureCanvasSize();
+      repaintFromHistory();
+    });
     return () => {
       ro.disconnect();
-      window.removeEventListener("resize", ensureCanvasSize);
+      window.removeEventListener("resize", () => {
+        ensureCanvasSize();
+        repaintFromHistory();
+      });
     };
   }, []);
 
@@ -205,11 +294,13 @@ export default function LiveSessionPage() {
       const r = el.getBoundingClientRect();
       ctx.clearRect(0, 0, r.width, r.height);
     }
+    wbRef.current.strokes = [];
+    wbRef.current.images = [];
     setImages([]);
     socketRef.current?.emit("draw:clear");
   };
 
-  // --- handle paste/drop images ---
+  // ---------- paste / drop images ----------
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       const item = e.clipboardData?.items[0];
@@ -220,6 +311,7 @@ export default function LiveSessionPage() {
         reader.onload = () => {
           const src = reader.result as string;
           const imgObj = { src, x: me?.x || 0.5, y: me?.y || 0.5, id: crypto.randomUUID() };
+          wbRef.current.images.push(imgObj);
           setImages((prev) => [...prev, imgObj]);
           socketRef.current?.emit("image:add", imgObj);
         };
@@ -234,6 +326,7 @@ export default function LiveSessionPage() {
         reader.onload = () => {
           const src = reader.result as string;
           const imgObj = { src, x: 0.5, y: 0.5, id: crypto.randomUUID() };
+          wbRef.current.images.push(imgObj);
           setImages((prev) => [...prev, imgObj]);
           socketRef.current?.emit("image:add", imgObj);
         };
@@ -261,8 +354,13 @@ export default function LiveSessionPage() {
         <button onClick={clearBoard} className="px-2 py-1 text-xs rounded bg-red-500/80 text-black">Clear</button>
       </div>
 
-      <div ref={boardRef} className="relative w-full h-[calc(100vh-var(--topbar-height))] bg-white overflow-hidden touch-none" style={{ WebkitUserSelect: "none", userSelect: "none" }}>
+      <div
+        ref={boardRef}
+        className="relative w-full h-[calc(100vh-var(--topbar-height))] bg-white overflow-hidden touch-none"
+        style={{ WebkitUserSelect: "none", userSelect: "none" }}
+      >
         <canvas ref={canvasRef} className="absolute inset-0 block" />
+
         {/* pasted images */}
         {images.map((img) => (
           <img
@@ -282,8 +380,7 @@ export default function LiveSessionPage() {
         {/* live cursors */}
         <div className="absolute inset-0 pointer-events-none">
           {Object.values(cursors).map((c) => {
-            const left = `${c.x * 100}%`,
-              top = `${c.y * 100}%`;
+            const left = `${c.x * 100}%`, top = `${c.y * 100}%`;
             return (
               <div key={c.id} className="absolute" style={{ left, top, transform: "translate(-20%, -60%)" }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill={c.color}>
