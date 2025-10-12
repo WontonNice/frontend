@@ -248,13 +248,13 @@ export default function LiveSessionPage() {
       setCursors((prev) => ({ ...prev, [c.id]: { ...c, color: colorFromId(c.id) } }));
     });
 
-    // Initial state (strokes now should be grouped per user on the server; if not, they won't be erasable retroactively)
+    // Initial state
     socket.on("session:state", (payload: { sessionId: number; strokes: (Stroke & { userId?: string })[]; images: NetImage[] }) => {
       // Reset local
       strokesByUserRef.current.clear();
       // Bucket strokes by user
       for (const s of payload.strokes || []) {
-        const uid = s && (s as any).userId ? (s as any).userId as string : "_unknown";
+        const uid = s && (s as any).userId ? ((s as any).userId as string) : "_unknown";
         if (!strokesByUserRef.current.has(uid)) strokesByUserRef.current.set(uid, []);
         strokesByUserRef.current.get(uid)!.push({ from: s.from, to: s.to, color: s.color, size: s.size, mode: s.mode });
         ensureLayerCanvas(uid);
@@ -293,10 +293,8 @@ export default function LiveSessionPage() {
       strokesByUserRef.current.set(userId, []);
     });
 
-    // Legacy/global clear (if still emitted by old servers) — do nothing OR handle images only
+    // Legacy/global clear — ignore drawings; clear images only
     socket.on("draw:clear", () => {
-      // Ignore clearing others' drawings to satisfy the requirement.
-      // Still clear images so board resets when a teacher intentionally ends a session.
       setImages([]);
     });
 
@@ -622,30 +620,53 @@ export default function LiveSessionPage() {
         {/* hit/interaction canvas (for rect/DPR; we don't draw on it) */}
         <canvas
           ref={hitCanvasRef}
-          className={`absolute z-10 ${tool === "cursor" ? "pointer-events-none" : ""}`}
+          className={`absolute z-20 ${tool === "cursor" ? "pointer-events-none" : ""}`}
           style={{ inset: "auto" }} // positioned by ensureCanvasesSize()
         />
 
-        {/* live cursors (same as before) */}
-        <div className="absolute inset-0 pointer-events-none z-20">
+        {/* live cursors with precise hotspot */}
+        <div className="absolute inset-0 pointer-events-none z-30">
           {Object.values(cursors).map((c) => {
             const posW = normToWorld(c.x, c.y);
             const posS = worldToScreen(posW.x, posW.y);
-            const isMe = me && c.id === me.id;
-            const transform =
-              isMe && tool === "cursor" ? "translate(1px, 1px)" : "translate(-50%, -50%)";
+
+            const isPointerMode = tool === "cursor";
+            // Tuned offsets so the arrow tip sits exactly on the world pixel.
+            // (SVG path tip is near the top-left; these shifts align the hotspot.)
+            const ARROW_TX = -20; // %
+            const ARROW_TY = -60; // %
+
             return (
-              <div key={c.id} className="absolute" style={{ left: `${posS.x}px`, top: `${posS.y}px`, transform }}>
+              <div
+                key={c.id}
+                className="absolute"
+                style={{
+                  left: `${posS.x}px`,
+                  top: `${posS.y}px`,
+                  transform: isPointerMode ? `translate(${ARROW_TX}%, ${ARROW_TY}%)` : "translate(-50%, -50%)",
+                }}
+              >
+                {isPointerMode ? (
+                  // Arrow cursor marker — hotspot = tip
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill={c.color}>
+                    <path d="M3 2l7 18 2-7 7-2L3 2z" />
+                  </svg>
+                ) : (
+                  // Centered dot for draw/erase — hotspot = center
+                  <div
+                    className="rounded-full"
+                    style={{
+                      width: 8,
+                      height: 8,
+                      background: c.color,
+                      boxShadow: "0 0 0 2px #fff, 0 0 0 4px rgba(0,0,0,.15)",
+                    }}
+                  />
+                )}
                 <div
-                  className="rounded-full"
-                  style={{
-                    width: 8,
-                    height: 8,
-                    background: c.color,
-                    boxShadow: "0 0 0 2px #fff, 0 0 0 4px rgba(0,0,0,.15)",
-                  }}
-                />
-                <div className="mt-1 px-2 py-0.5 text-xs font-medium rounded" style={{ background: c.color, color: "#0b0d12" }}>
+                  className="mt-1 px-2 py-0.5 text-xs font-medium rounded"
+                  style={{ background: c.color, color: "#0b0d12" }}
+                >
                   {c.name}
                 </div>
               </div>
