@@ -1,5 +1,6 @@
 // src/components/TeacherDashboard.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { io, Socket } from "socket.io-client";
 import {
   getEffectiveSatMathBank,
   deleteQuestion,
@@ -8,10 +9,74 @@ import {
 } from "../data/satMathStore";
 import type { SatMathQuestion } from "../data/satMathBank";
 
-// ✅ Use your realtime server base (same as SOCKET_URL elsewhere)
+// Reuse your realtime server base
 const API_BASE = (import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3001").replace(/\/$/, "");
+const SOCKET_URL = API_BASE;
+const ROOM = "global";
 
 export default function TeacherDashboard() {
+  // ---------- Socket state ----------
+  const socketRef = useRef<Socket | null>(null);
+  const [participants, setParticipants] = useState<number>(0);
+  const [drawingDisabled, setDrawingDisabled] = useState<boolean>(false);
+
+  // Connect socket for live controls
+  useEffect(() => {
+    const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      const name = (JSON.parse(localStorage.getItem("user") || "{}")?.username || "Teacher")
+        .toString()
+        .slice(0, 64);
+      socket.emit("join", { name, room: ROOM });
+      // Announce initial move position (optional)
+      socket.emit("move", { x: 0.5, y: 0.5 });
+    });
+
+    // Track presence to show a count
+    socket.on("presence", (snapshot: Array<{ id: string; name: string; x: number; y: number }>) => {
+      setParticipants(snapshot?.length ?? 0);
+    });
+
+    return () => {
+      socket.emit?.("leave");
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, []);
+
+  // ---------- Live session controls ----------
+  const clearBoardForAll = () => {
+    if (!confirm("Clear the entire board for everyone?")) return;
+    socketRef.current?.emit("draw:clear");
+  };
+
+  const toggleStudentDrawing = () => {
+    const next = !drawingDisabled;
+    setDrawingDisabled(next);
+    // Emit an admin directive. Your LiveSessionPage should listen for this to enforce on clients.
+    // Event payload kept simple; extend as needed.
+    socketRef.current?.emit("admin:drawing:set", { room: ROOM, disabled: next });
+  };
+
+  const endSession = async () => {
+    if (!confirm("End the current live session for everyone? This will clear the whiteboard.")) return;
+    try {
+      const res = await fetch(`${API_BASE}/session/end`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room: ROOM }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      alert("Session ended. Students’ boards were cleared.");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to end session. Check your server URL and try again.");
+    }
+  };
+
+  // ---------- SAT Bank (unchanged) ----------
   const [bank, setBank] = useState<SatMathQuestion[]>([]);
   const [search, setSearch] = useState("");
   const [importText, setImportText] = useState("");
@@ -60,34 +125,59 @@ export default function TeacherDashboard() {
     }
   };
 
-  // 🔴 End live whiteboard session for the room
-  const endSession = async () => {
-    if (!confirm("End the current live session for everyone? This will clear the whiteboard.")) return;
-    try {
-      const res = await fetch(`${API_BASE}/session/end`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ room: "global" }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      alert("Session ended. Students’ boards were cleared.");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to end session. Check your server URL and try again.");
-    }
-  };
-
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">Teacher — SAT Math Bank</h2>
+          <h2 className="text-2xl font-semibold">Teacher Dashboard</h2>
           <p className="text-white/60 text-sm">
             Welcome, <span className="font-semibold">{user?.username || "Teacher"}</span>
           </p>
         </div>
+        <div className="text-sm text-white/70">
+          Participants: <span className="font-semibold">{participants}</span>
+        </div>
+      </header>
+
+      {/* Live Session Controls */}
+      <div className="rounded-2xl bg-[#111318] ring-1 ring-white/10 p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-base font-semibold">Live Session Controls</div>
+            <div className="text-xs text-white/60">Manage the whiteboard in the current room</div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={clearBoardForAll}
+              className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold"
+              title="Clear all drawings and images for everyone (keeps the session open)"
+            >
+              Clear Board
+            </button>
+            <button
+              onClick={toggleStudentDrawing}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold ${drawingDisabled ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-white/10 hover:bg-white/20"}`}
+              title="Toggle whether students can draw"
+            >
+              {drawingDisabled ? "Enable Student Drawing" : "Disable Student Drawing"}
+            </button>
+            <button
+              onClick={endSession}
+              className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold"
+              title="End session and clear the board for everyone"
+            >
+              End Session
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* SAT Math Bank Header */}
+      <header className="flex items-center justify-between">
+        <h3 className="text-xl font-semibold">SAT Math Bank</h3>
         <div className="flex gap-2">
           <button
             onClick={doExport}
@@ -100,12 +190,6 @@ export default function TeacherDashboard() {
             className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold"
           >
             Import
-          </button>
-          <button
-            onClick={endSession}
-            className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold"
-          >
-            End Session
           </button>
         </div>
       </header>
