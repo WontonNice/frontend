@@ -144,8 +144,8 @@ export default function LiveSessionPage() {
     size: number,
     mode: "pen" | "eraser"
   ) => {
-    const ctx = ctxRef.current, el = boardRef.current;
-    if (!ctx || !el) return;
+    const ctx = ctxRef.current;
+    if (!ctx) return;
     const fromS = worldToScreen(fromW.x, fromW.y);
     const toS = worldToScreen(toW.x, toW.y);
 
@@ -161,8 +161,8 @@ export default function LiveSessionPage() {
   };
 
   const repaintFromHistory = () => {
-    const ctx = ctxRef.current, el = boardRef.current;
-    if (!ctx || !el) return;
+    const ctx = ctxRef.current;
+    if (!ctx) return;
     const v = viewRef.current;
     ctx.clearRect(0, 0, v.width, v.height);
     for (const s of wbRef.current.strokes) {
@@ -214,8 +214,8 @@ export default function LiveSessionPage() {
       wbRef.current.strokes = [];
       wbRef.current.images = [];
       setImages([]);
-      const ctx = ctxRef.current, el = boardRef.current;
-      if (ctx && el) {
+      const ctx = ctxRef.current;
+      if (ctx) {
         const v = viewRef.current;
         ctx.clearRect(0, 0, v.width, v.height);
       }
@@ -233,8 +233,8 @@ export default function LiveSessionPage() {
       wbRef.current.strokes = [];
       wbRef.current.images = [];
       setImages([]);
-      const ctx = ctxRef.current, el = boardRef.current;
-      if (ctx && el) {
+      const ctx = ctxRef.current;
+      if (ctx) {
         const v = viewRef.current;
         ctx.clearRect(0, 0, v.width, v.height);
       }
@@ -510,10 +510,8 @@ export default function LiveSessionPage() {
       >
         {/* images UNDER canvas, rendered from world -> screen */}
         {images.map((img) => {
-          const el = boardRef.current!;
-          const pos = el ? worldToScreen(img.x, img.y) : { x: 0, y: 0 };
-          const v = viewRef.current;
-          const pxWidth = (img.w ?? 0.2 * WORLD_W) * v.scale;
+          const pos = worldToScreen(img.x, img.y);
+          const pxWidth = (img.w ?? 0.2 * WORLD_W) * viewRef.current.scale;
           return (
             <div
               key={img.id}
@@ -552,9 +550,8 @@ export default function LiveSessionPage() {
         {/* live cursors (normalized -> world -> screen) */}
         <div className="absolute inset-0 pointer-events-none">
           {Object.values(cursors).map((c) => {
-            const el = boardRef.current!;
             const posW = normToWorld(c.x, c.y);
-            const posS = el ? worldToScreen(posW.x, posW.y) : { x: 0, y: 0 };
+            const posS = worldToScreen(posW.x, posW.y);
             return (
               <div key={c.id} className="absolute" style={{ left: `${posS.x}px`, top: `${posS.y}px`, transform: "translate(-20%, -60%)" }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill={c.color}><path d="M3 2l7 18 2-7 7-2L3 2z" /></svg>
