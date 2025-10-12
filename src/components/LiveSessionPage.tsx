@@ -1,9 +1,9 @@
-// src/components/LiveSessionPage.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 
 type ServerCursor = { id: string; name: string; x: number; y: number };
 type Cursor = ServerCursor & { color: string };
+type Tool = "cursor" | "pen" | "eraser";
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3001";
 const ROOM = "global";
@@ -14,37 +14,40 @@ const colorFromId = (id: string) => {
   return `hsl(${Math.abs(h) % 360} 80% 65%)`;
 };
 
-type Tool = "cursor" | "pen" | "eraser";
-
 export default function LiveSessionPage() {
   const boardRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
-
   const socketRef = useRef<Socket | null>(null);
   const rafRef = useRef<number | null>(null);
 
   const [me, setMe] = useState<Cursor | null>(null);
   const [cursors, setCursors] = useState<Record<string, Cursor>>({});
-
   const [tool, setTool] = useState<Tool>("cursor");
-  const [strokeColor, setStrokeColor] = useState<string>("#111827");
-  const [strokeSize, setStrokeSize] = useState<number>(3);
+  const [strokeColor, setStrokeColor] = useState("#111827");
+  const [strokeSize, setStrokeSize] = useState(3);
+  const [images, setImages] = useState<{ src: string; x: number; y: number; id: string }[]>([]);
+
   const drawingRef = useRef(false);
   const lastNormRef = useRef<{ x: number; y: number } | null>(null);
 
   const user = useMemo(() => {
-    try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {
+      return {};
+    }
   }, []);
 
+  // --- setup canvas ---
   const ensureCanvasSize = () => {
     const el = boardRef.current;
     const canvas = canvasRef.current;
     if (!el || !canvas) return;
     const dpr = window.devicePixelRatio || 1;
     const { width, height } = el.getBoundingClientRect();
-    canvas.width = Math.max(1, Math.floor(width * dpr));
-    canvas.height = Math.max(1, Math.floor(height * dpr));
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
     const ctx = canvas.getContext("2d");
@@ -62,13 +65,7 @@ export default function LiveSessionPage() {
     return { x: nx * rect.width, y: ny * rect.height };
   };
 
-  const drawSegmentLocal = (
-    from: { x: number; y: number },
-    to: { x: number; y: number },
-    color: string,
-    size: number,
-    mode: "pen" | "eraser"
-  ) => {
+  const drawSegmentLocal = (from: { x: number; y: number }, to: { x: number; y: number }, color: string, size: number, mode: "pen" | "eraser") => {
     const ctx = ctxRef.current;
     if (!ctx) return;
     const prev = ctx.globalCompositeOperation;
@@ -82,7 +79,7 @@ export default function LiveSessionPage() {
     ctx.globalCompositeOperation = prev;
   };
 
-  // socket connect + events
+  // --- socket connection ---
   useEffect(() => {
     const socket = io(SOCKET_URL, { transports: ["websocket"] });
     socketRef.current = socket;
@@ -104,7 +101,8 @@ export default function LiveSessionPage() {
       setCursors((prev) => ({ ...prev, [c.id]: { ...c, color: colorFromId(c.id) } }));
     });
 
-    socket.on("draw:segment", (p: { from: { x: number; y: number }; to: { x: number; y: number }; color: string; size: number; mode: "pen" | "eraser" }) => {
+    // draw events
+    socket.on("draw:segment", (p) => {
       const from = pxFromNorm(p.from.x, p.from.y);
       const to = pxFromNorm(p.to.x, p.to.y);
       drawSegmentLocal(from, to, p.color, p.size, p.mode);
@@ -117,6 +115,12 @@ export default function LiveSessionPage() {
         const r = el.getBoundingClientRect();
         ctx.clearRect(0, 0, r.width, r.height);
       }
+      setImages([]);
+    });
+
+    // --- image events ---
+    socket.on("image:add", (img) => {
+      setImages((prev) => [...prev, img]);
     });
 
     return () => {
@@ -126,7 +130,7 @@ export default function LiveSessionPage() {
     };
   }, [SOCKET_URL, user?.username]);
 
-  // pointer tracking + drawing
+  // --- pointer move + drawing ---
   useEffect(() => {
     const el = boardRef.current;
     if (!el || !me) return;
@@ -134,16 +138,17 @@ export default function LiveSessionPage() {
     const onPointerDown = (e: PointerEvent) => {
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
       const rect = el.getBoundingClientRect();
-      const nx = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-      const ny = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+      const nx = (e.clientX - rect.left) / rect.width;
+      const ny = (e.clientY - rect.top) / rect.height;
       lastNormRef.current = { x: nx, y: ny };
       if (tool !== "cursor") drawingRef.current = true;
     };
 
     const onPointerMove = (e: PointerEvent) => {
       const rect = el.getBoundingClientRect();
-      const nx = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-      const ny = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+      const nx = (e.clientX - rect.left) / rect.width;
+      const ny = (e.clientY - rect.top) / rect.height;
+
       setMe((prev) => (prev ? { ...prev, x: nx, y: ny } : prev));
       setCursors((prev) => (me ? { ...prev, [me.id]: { ...me, x: nx, y: ny } } : prev));
       if (rafRef.current == null) {
@@ -152,6 +157,7 @@ export default function LiveSessionPage() {
           socketRef.current?.emit("move", { x: nx, y: ny });
         });
       }
+
       if (drawingRef.current && lastNormRef.current) {
         const fromN = lastNormRef.current;
         const toN = { x: nx, y: ny };
@@ -177,11 +183,10 @@ export default function LiveSessionPage() {
       el.removeEventListener("pointerdown", onPointerDown);
       el.removeEventListener("pointermove", onPointerMove as any);
       window.removeEventListener("pointerup", endStroke);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
     };
   }, [me, tool, strokeColor, strokeSize]);
 
+  // --- canvas sizing ---
   useEffect(() => {
     ensureCanvasSize();
     const ro = new ResizeObserver(ensureCanvasSize);
@@ -200,59 +205,85 @@ export default function LiveSessionPage() {
       const r = el.getBoundingClientRect();
       ctx.clearRect(0, 0, r.width, r.height);
     }
+    setImages([]);
     socketRef.current?.emit("draw:clear");
   };
 
+  // --- handle paste/drop images ---
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const item = e.clipboardData?.items[0];
+      if (item && item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const src = reader.result as string;
+          const imgObj = { src, x: me?.x || 0.5, y: me?.y || 0.5, id: crypto.randomUUID() };
+          setImages((prev) => [...prev, imgObj]);
+          socketRef.current?.emit("image:add", imgObj);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      const file = e.dataTransfer?.files[0];
+      if (file && file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const src = reader.result as string;
+          const imgObj = { src, x: 0.5, y: 0.5, id: crypto.randomUUID() };
+          setImages((prev) => [...prev, imgObj]);
+          socketRef.current?.emit("image:add", imgObj);
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    window.addEventListener("paste", handlePaste);
+    window.addEventListener("drop", handleDrop);
+    window.addEventListener("dragover", (e) => e.preventDefault());
+    return () => {
+      window.removeEventListener("paste", handlePaste);
+      window.removeEventListener("drop", handleDrop);
+    };
+  }, [me]);
+
   return (
     <div className="w-full p-0 m-0">
-      {/* toolbar pinned top-right so it never sits under the sidebar */}
+      {/* toolbar top-right */}
       <div className="fixed z-[60] right-4 top-[calc(var(--topbar-height,56px)+8px)] flex items-center gap-2 bg-black/40 backdrop-blur px-3 py-2 rounded-lg ring-1 ring-white/10">
-        <button
-          onClick={() => setTool("cursor")}
-          className={`px-2 py-1 text-xs rounded ${tool === "cursor" ? "bg-emerald-500 text-black" : "bg-white/10"}`}
-          title="Pointer"
-        >Pointer</button>
-        <button
-          onClick={() => setTool("pen")}
-          className={`px-2 py-1 text-xs rounded ${tool === "pen" ? "bg-emerald-500 text-black" : "bg-white/10"}`}
-          title="Draw"
-        >Draw</button>
-        <button
-          onClick={() => setTool("eraser")}
-          className={`px-2 py-1 text-xs rounded ${tool === "eraser" ? "bg-emerald-500 text-black" : "bg-white/10"}`}
-          title="Erase"
-        >Erase</button>
-
-        <input
-          type="color"
-          value={strokeColor}
-          onChange={(e) => setStrokeColor(e.target.value)}
-          className="w-6 h-6 rounded overflow-hidden border-0 bg-transparent cursor-pointer"
-          title="Color"
-        />
-        <input
-          type="range"
-          min={1}
-          max={24}
-          value={strokeSize}
-          onChange={(e) => setStrokeSize(Number(e.target.value))}
-          className="w-24"
-          title="Size"
-        />
-        <button onClick={clearBoard} className="ml-1 px-2 py-1 text-xs rounded bg-red-500/80 text-black" title="Clear board">
-          Clear
-        </button>
+        <button onClick={() => setTool("cursor")} className={`px-2 py-1 text-xs rounded ${tool === "cursor" ? "bg-emerald-500 text-black" : "bg-white/10"}`}>Pointer</button>
+        <button onClick={() => setTool("pen")} className={`px-2 py-1 text-xs rounded ${tool === "pen" ? "bg-emerald-500 text-black" : "bg-white/10"}`}>Draw</button>
+        <button onClick={() => setTool("eraser")} className={`px-2 py-1 text-xs rounded ${tool === "eraser" ? "bg-emerald-500 text-black" : "bg-white/10"}`}>Erase</button>
+        <input type="color" value={strokeColor} onChange={(e) => setStrokeColor(e.target.value)} className="w-6 h-6 rounded border-0 bg-transparent cursor-pointer" />
+        <input type="range" min={1} max={24} value={strokeSize} onChange={(e) => setStrokeSize(Number(e.target.value))} className="w-24" />
+        <button onClick={clearBoard} className="px-2 py-1 text-xs rounded bg-red-500/80 text-black">Clear</button>
       </div>
 
-      <div
-        ref={boardRef}
-        className="relative w-full h-[calc(100vh-var(--topbar-height))] bg-white overflow-hidden touch-none"
-        style={{ WebkitUserSelect: "none", userSelect: "none" }}
-      >
+      <div ref={boardRef} className="relative w-full h-[calc(100vh-var(--topbar-height))] bg-white overflow-hidden touch-none" style={{ WebkitUserSelect: "none", userSelect: "none" }}>
         <canvas ref={canvasRef} className="absolute inset-0 block" />
+        {/* pasted images */}
+        {images.map((img) => (
+          <img
+            key={img.id}
+            src={img.src}
+            alt=""
+            className="absolute max-w-[200px] max-h-[200px] rounded shadow"
+            style={{
+              left: `${img.x * 100}%`,
+              top: `${img.y * 100}%`,
+              transform: "translate(-50%, -50%)",
+            }}
+            draggable={false}
+          />
+        ))}
+
+        {/* live cursors */}
         <div className="absolute inset-0 pointer-events-none">
           {Object.values(cursors).map((c) => {
-            const left = `${c.x * 100}%`, top = `${c.y * 100}%`;
+            const left = `${c.x * 100}%`,
+              top = `${c.y * 100}%`;
             return (
               <div key={c.id} className="absolute" style={{ left, top, transform: "translate(-20%, -60%)" }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill={c.color}>

@@ -85,6 +85,13 @@ socket.on("draw:clear", () => {
   socket.to(room).emit("draw:clear");
 });
 
+// receive & broadcast pasted images
+socket.on("image:add", (img) => {
+  const room = socket.data.room;
+  if (!room || !img?.src) return;
+  socket.to(room).emit("image:add", img);
+});
+
 });
 
 const PORT = process.env.PORT || 3001; // Render sets PORT automatically
