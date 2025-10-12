@@ -66,7 +66,7 @@ function Sidebar() {
         <SideLink to="#" icon={<Database size={18} />} label="Progress Report" open={open} />
         <SideLink to="/sat" icon={<BookOpen size={18} />} label="Advanced Questions" open={open} />
         <SideLink to="/live-activities" icon={<Boxes size={18} />} label="Live Activities" open={open} />
-        <SideLink to="#" icon={<Activity size={18} />} label="Exams" open={open} />
+        <SideLink to="/exams" icon={<Activity size={18} />} label="Exams" open={open} />
       </nav>
 
       {/* Footer */}
@@ -125,7 +125,38 @@ function SideLink({
 function TopBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLElement>(null); // ⬅️ for measuring height
+  const headerRef = useRef<HTMLElement>(null);
+
+  // ⏱️ Live countdown to SHSAT (Nov 12, 2025 08:00 AM ET; EST is UTC-05:00 after DST ends)
+  const target = new Date("2025-11-12T08:00:00-05:00");
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const msLeft = target.getTime() - now.getTime();
+
+  const formatTimeLeft = (ms: number) => {
+    if (ms <= 0) return "Good luck today!";
+    let totalSeconds = Math.floor(ms / 1000);
+
+    const weeks = Math.floor(totalSeconds / (7 * 24 * 60 * 60));
+    totalSeconds -= weeks * 7 * 24 * 60 * 60;
+
+    const days = Math.floor(totalSeconds / (24 * 60 * 60));
+    totalSeconds -= days * 24 * 60 * 60;
+
+    const hours = Math.floor(totalSeconds / (60 * 60));
+    totalSeconds -= hours * 60 * 60;
+
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds - minutes * 60;
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${weeks}w ${days}d ${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -137,7 +168,6 @@ function TopBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Keep --topbar-height synced to actual header height
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
@@ -154,11 +184,19 @@ function TopBar() {
   }, []);
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const initial = (user?.username?.trim?.()?.[0] ?? "?").toUpperCase();
 
   return (
-    <header ref={headerRef} className="sticky top-0 z-20 h-14 bg-[#0f1218]/90 backdrop-blur border-b border-white/10">
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-20 h-14 bg-[#0f1218]/90 backdrop-blur border-b border-white/10"
+    >
       <div className="mx-auto max-w-7xl h-full px-6 flex items-center justify-between">
-        <div className="text-sm text-white/60">Last 60 minutes</div>
+        {/* 🔁 Countdown replaces 'Last 60 minutes' */}
+        <div className="text-sm text-white/60">
+          <span className="text-white">Time Left Until SHSAT:</span>{" "}
+          {formatTimeLeft(msLeft)}
+        </div>
 
         <div className="flex items-center gap-3 relative" ref={menuRef}>
           <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300 ring-1 ring-emerald-500/30">
@@ -169,21 +207,28 @@ function TopBar() {
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="relative h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white text-sm font-semibold flex items-center justify-center hover:opacity-90"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-controls="user-menu"
           >
-            {user?.username?.[0]?.toUpperCase() || "?"}
+            {initial}
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-10 w-64 bg-[#1a1c22] border border-white/10 rounded-xl shadow-xl overflow-hidden">
+            <div
+              id="user-menu"
+              role="menu"
+              className="absolute right-0 top-10 w-64 bg-[#1a1c22] border border-white/10 rounded-xl shadow-xl overflow-hidden"
+            >
               <div className="px-4 py-3 border-b border-white/10">
                 <div className="text-sm font-semibold text-white">{user?.username || "User"}</div>
                 <div className="text-xs text-white/50">{user?.email || "user@example.com"}</div>
               </div>
 
               <ul className="py-1 text-sm text-white/80">
-                <li className="px-4 py-2 hover:bg:white/5 cursor-pointer">Account preferences</li>
-                <li className="px-4 py-2 hover:bg:white/5 cursor-pointer">Feature previews</li>
-                <li className="px-4 py-2 hover:bg:white/5 cursor-pointer">Command menu</li>
+                <li className="px-4 py-2 hover:bg-white/5 cursor-pointer">Account preferences</li>
+                <li className="px-4 py-2 hover:bg-white/5 cursor-pointer">Feature previews</li>
+                <li className="px-4 py-2 hover:bg-white/5 cursor-pointer">Command menu</li>
               </ul>
 
               <div className="border-t border-white/10 py-1">
