@@ -386,7 +386,7 @@ export default function LiveSessionPage() {
               {/* resize handle (bottom-right) */}
               <div
                 onPointerDown={(e) => beginResize(e, img)}
-                className="absolute right-0 bottom-0 translate-x-1/2 translate-y-1/2 w-3 h-3 rounded-full bg-black/60 ring-2 ring-white opacity-0 group-hover:opacity-100 cursor-nwse-resize"
+                  className="absolute right-0 bottom-0 translate-x-1/2 translate-y-1/2 w-4 h-4 rounded-full bg-black/60 ring-2 ring-white opacity-0 group-hover:opacity-100 cursor-nwse-resize"
               />
             </div>
           );
