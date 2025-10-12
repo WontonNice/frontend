@@ -14,10 +14,8 @@ type Stroke = {
   mode: "pen" | "eraser";
 };
 
-// Incoming draw message (server should attach userId)
 type StrokeMsg = Stroke & { userId: string };
 
-// Network image payload (normalized, as server expects)
 type NetImage = {
   id: string;
   src: string;
@@ -26,7 +24,6 @@ type NetImage = {
   w?: number; // width fraction (0..1)
 };
 
-// Local image for rendering (world units)
 type LocalImage = {
   id: string;
   src: string;
@@ -36,6 +33,7 @@ type LocalImage = {
 };
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3001";
+const API_BASE = (SOCKET_URL as string).replace(/\/$/, ""); // for REST /session/end
 const ROOM = "global";
 
 // ===== Fixed virtual canvas ("world") =====
@@ -87,7 +85,7 @@ const colorFromId = (id: string) => {
 
 export default function LiveSessionPage() {
   const boardRef = useRef<HTMLDivElement>(null);
-  const hitCanvasRef = useRef<HTMLCanvasElement | null>(null); // interaction canvas for pointer rect/DPR
+  const hitCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -103,7 +101,7 @@ export default function LiveSessionPage() {
   const [strokeColor, setStrokeColor] = useState("#111827");
   const [strokeSize, setStrokeSize] = useState(3);
   const [images, setImages] = useState<LocalImage[]>([]);
-  const [drawingDisabled, setDrawingDisabled] = useState<boolean>(false); // 👈 NEW
+  const [drawingDisabled, setDrawingDisabled] = useState<boolean>(false);
 
   const dragRef = useRef<{
     id: string | null;
@@ -123,6 +121,7 @@ export default function LiveSessionPage() {
       return {};
     }
   }, []);
+  const isTeacher = !!(user?.role === "teacher" || user?.isTeacher === true);
 
   // ----- Layer helpers -----
   const ensureLayerCanvas = (userId: string) => {
@@ -130,7 +129,7 @@ export default function LiveSessionPage() {
     if (!c) {
       c = document.createElement("canvas");
       c.className = "absolute top-0 left-0";
-      c.style.pointerEvents = "none"; // layers don't eat pointer events
+      c.style.pointerEvents = "none";
       layersHostRef.current?.appendChild(c);
       layerMapRef.current.set(userId, c);
     }
@@ -144,7 +143,6 @@ export default function LiveSessionPage() {
     c.width = Math.max(1, Math.floor(v.width * dpr));
     c.height = Math.max(1, Math.floor(v.height * dpr));
 
-    // ctx config
     const ctx = c.getContext("2d")!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.lineCap = "round";
@@ -175,7 +173,6 @@ export default function LiveSessionPage() {
     for (const userId of layerMapRef.current.keys()) replayUser(userId);
   };
 
-  // ----- drawing on a specific context (user layer) -----
   const drawOnCtx = (
     ctx: CanvasRenderingContext2D,
     fromW: { x: number; y: number },
@@ -197,7 +194,6 @@ export default function LiveSessionPage() {
     ctx.globalCompositeOperation = prev;
   };
 
-  // ----- size hit-canvas + all layers -----
   const ensureCanvasesSize = () => {
     const board = boardRef.current, hit = hitCanvasRef.current;
     if (!board || !hit) return;
@@ -216,7 +212,6 @@ export default function LiveSessionPage() {
     const hctx = hit.getContext("2d");
     hctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // resize all user layers and replay their strokes
     for (const userId of layerMapRef.current.keys()) ensureLayerCanvas(userId);
     replayAll();
   };
@@ -232,7 +227,6 @@ export default function LiveSessionPage() {
       setMe(mine);
       socket.emit("join", { name, room: ROOM });
       socket.emit("move", { x: 0.5, y: 0.5 });
-      // ensure my layer exists
       ensureLayerCanvas(socket.id!);
     });
 
@@ -240,19 +234,16 @@ export default function LiveSessionPage() {
       const next: Record<string, Cursor> = {};
       snapshot.forEach((c) => (next[c.id] = { ...c, color: colorFromId(c.id) }));
       setCursors(next);
-      // Ensure canvases for known users (lazy create on first stroke anyway)
       snapshot.forEach((c) => ensureLayerCanvas(c.id));
     });
 
-    // Cursor moves unchanged
     socket.on("move", (c: ServerCursor) => {
       setCursors((prev) => ({ ...prev, [c.id]: { ...c, color: colorFromId(c.id) } }));
     });
 
-    // 🔒 Admin drawing lock
+    // Admin drawing lock
     socket.on("admin:drawing:set", ({ disabled }: { disabled: boolean }) => {
       setDrawingDisabled(!!disabled);
-      // If drawing was in progress and we get disabled, stop it
       if (disabled) {
         drawingRef.current = false;
         lastNormRef.current = null;
@@ -261,16 +252,13 @@ export default function LiveSessionPage() {
 
     // Initial state
     socket.on("session:state", (payload: { sessionId: number; strokes: (Stroke & { userId?: string })[]; images: NetImage[] }) => {
-      // Reset local
       strokesByUserRef.current.clear();
-      // Bucket strokes by user
       for (const s of payload.strokes || []) {
         const uid = s && (s as any).userId ? ((s as any).userId as string) : "_unknown";
         if (!strokesByUserRef.current.has(uid)) strokesByUserRef.current.set(uid, []);
         strokesByUserRef.current.get(uid)!.push({ from: s.from, to: s.to, color: s.color, size: s.size, mode: s.mode });
         ensureLayerCanvas(uid);
       }
-      // Images
       const imgs = (payload.images || []).map((img) => ({
         id: img.id,
         src: img.src,
@@ -284,7 +272,7 @@ export default function LiveSessionPage() {
       replayAll();
     });
 
-    // Per-stroke updates — draw onto the author's layer only
+    // Per-stroke updates
     socket.on("draw:segment", (p: StrokeMsg) => {
       const uid = p.userId || "_unknown";
       if (!strokesByUserRef.current.has(uid)) strokesByUserRef.current.set(uid, []);
@@ -304,12 +292,16 @@ export default function LiveSessionPage() {
       strokesByUserRef.current.set(userId, []);
     });
 
-    // Legacy/global clear — ignore drawings; clear images only
+    // Global clear (used by teacher "Clear Board")
     socket.on("draw:clear", () => {
+      // wipe all layers + images
+      const v = viewRef.current;
+      for (const ctx of layerCtxRef.current.values()) ctx.clearRect(0, 0, v.width, v.height);
+      strokesByUserRef.current.clear();
       setImages([]);
     });
 
-    // Session ended: wipe layers and histories, but keep canvases allocated
+    // Session ended: wipe everything
     socket.on("session:ended", () => {
       const v = viewRef.current;
       for (const ctx of layerCtxRef.current.values()) ctx.clearRect(0, 0, v.width, v.height);
@@ -350,6 +342,8 @@ export default function LiveSessionPage() {
     const hit = hitCanvasRef.current;
     if (!board || !hit || !me) return;
 
+    const drawingLockedForMe = drawingDisabled && !isTeacher;
+
     const onPointerDown = (e: PointerEvent) => {
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
       const crect = hit.getBoundingClientRect();
@@ -358,14 +352,7 @@ export default function LiveSessionPage() {
       const { x: wx, y: wy } = canvasToWorld(cx, cy);
       const clampedW = { x: Math.min(Math.max(wx, 0), WORLD_W), y: Math.min(Math.max(wy, 0), WORLD_H) };
       lastNormRef.current = worldToNorm(clampedW.x, clampedW.y);
-
-      // 👇 Block drawing if admin disabled it
-      if (tool !== "cursor" && drawingDisabled) {
-        drawingRef.current = false;
-        return;
-      }
-
-      if (tool !== "cursor") drawingRef.current = true;
+      if (tool !== "cursor" && !drawingLockedForMe) drawingRef.current = true;
     };
 
     const onPointerMove = (e: PointerEvent) => {
@@ -387,8 +374,7 @@ export default function LiveSessionPage() {
       }
 
       if (drawingRef.current && lastNormRef.current) {
-        // Safety: if it became disabled mid-stroke, stop now.
-        if (drawingDisabled) {
+        if (drawingLockedForMe) {
           drawingRef.current = false;
           lastNormRef.current = null;
           return;
@@ -405,22 +391,19 @@ export default function LiveSessionPage() {
           mode: tool === "eraser" ? "eraser" : "pen",
         };
 
-        // Draw locally on MY layer only
         const myId = me.id;
         const ctx = getCtxForUser(myId);
         const fromW = normToWorld(stroke.from.x, stroke.from.y);
         const toW = normToWorld(stroke.to.x, stroke.to.y);
         drawOnCtx(ctx, fromW, toW, stroke.color, stroke.size, stroke.mode);
 
-        // Record in my history
         if (!strokesByUserRef.current.has(myId)) strokesByUserRef.current.set(myId, []);
         strokesByUserRef.current.get(myId)!.push(stroke);
 
-        // Broadcast (server attaches userId)
         socketRef.current?.emit("draw:segment", stroke);
       }
 
-      // dragging/resizing images (world-based) — unchanged
+      // dragging/resizing images
       const active = dragRef.current;
       if (active.id && active.mode && active.startImg) {
         const dxW = wx - active.startX;
@@ -465,16 +448,14 @@ export default function LiveSessionPage() {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [me, tool, strokeColor, strokeSize, drawingDisabled]);
+  }, [me, tool, strokeColor, strokeSize, drawingDisabled, isTeacher]);
 
   // ---------- sizing & DPR ----------
   useEffect(() => {
     ensureCanvasesSize();
 
     const ro = typeof ResizeObserver !== "undefined"
-      ? new ResizeObserver(() => {
-          ensureCanvasesSize();
-        })
+      ? new ResizeObserver(() => { ensureCanvasesSize(); })
       : null;
     if (boardRef.current && ro) ro.observe(boardRef.current);
 
@@ -485,7 +466,6 @@ export default function LiveSessionPage() {
     const onDpr = () => ensureCanvasesSize();
     mq?.addEventListener?.("change", onDpr);
 
-    // prevent scroll while drawing
     const el = boardRef.current;
     const onWheel = (e: WheelEvent) => { if (drawingRef.current) e.preventDefault(); };
     el?.addEventListener("wheel", onWheel, { passive: false });
@@ -502,13 +482,39 @@ export default function LiveSessionPage() {
   const clearMine = () => {
     if (!me) return;
     const myId = me.id;
-    // local
     strokesByUserRef.current.set(myId, []);
     const ctx = getCtxForUser(myId);
     const v = viewRef.current;
     ctx.clearRect(0, 0, v.width, v.height);
-    // notify server
     socketRef.current?.emit("draw:clear:user");
+  };
+
+  // ---------- Teacher controls ----------
+  const teacherClearBoard = () => {
+    // Emits legacy room-wide clear; all clients now wipe layers + images in draw:clear handler.
+    socketRef.current?.emit("draw:clear");
+  };
+
+  const teacherToggleDrawing = () => {
+    const next = !drawingDisabled;
+    setDrawingDisabled(next); // optimistic
+    socketRef.current?.emit("admin:drawing:set", { disabled: next });
+  };
+
+  const teacherEndSession = async () => {
+    if (!confirm("End the current live session for everyone? This will clear the whiteboard.")) return;
+    try {
+      const res = await fetch(`${API_BASE}/session/end`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room: ROOM }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      // server emits "session:ended" which we handle to wipe all layers+images
+    } catch (e) {
+      console.error(e);
+      alert("Failed to end session. Check your server URL and try again.");
+    }
   };
 
   // ---------- paste / drop images ----------
@@ -565,7 +571,6 @@ export default function LiveSessionPage() {
     };
   }, [me]);
 
-  // ---------- image pointer handlers ----------
   const beginMove = (e: React.PointerEvent, img: LocalImage) => {
     if (tool !== "cursor") return;
     e.stopPropagation();
@@ -586,9 +591,11 @@ export default function LiveSessionPage() {
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
 
+  const drawingLockedForMe = drawingDisabled && !isTeacher;
+
   return (
     <div className="w-full p-0 m-0">
-      {/* toolbar */}
+      {/* top-right toolbar (everyone) */}
       <div className="fixed z-[60] right-4 top-[calc(var(--topbar-height,56px)+8px)] flex items-center gap-2 bg-black/40 backdrop-blur px-3 py-2 rounded-lg ring-1 ring-white/10">
         <button
           onClick={() => setTool("cursor")}
@@ -597,22 +604,22 @@ export default function LiveSessionPage() {
           Pointer
         </button>
         <button
-          onClick={() => !drawingDisabled && setTool("pen")}
-          disabled={drawingDisabled}
-          title={drawingDisabled ? "Drawing disabled by teacher" : "Draw"}
+          onClick={() => !drawingLockedForMe && setTool("pen")}
+          disabled={drawingLockedForMe}
+          title={drawingLockedForMe ? "Drawing disabled by teacher" : "Draw"}
           className={`px-2 py-1 text-xs rounded ${
             tool === "pen" ? "bg-emerald-500 text-black" : "bg-white/10"
-          } ${drawingDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+          } ${drawingLockedForMe ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           Draw
         </button>
         <button
-          onClick={() => !drawingDisabled && setTool("eraser")}
-          disabled={drawingDisabled}
-          title={drawingDisabled ? "Drawing disabled by teacher" : "Erase"}
+          onClick={() => !drawingLockedForMe && setTool("eraser")}
+          disabled={drawingLockedForMe}
+          title={drawingLockedForMe ? "Drawing disabled by teacher" : "Erase"}
           className={`px-2 py-1 text-xs rounded ${
             tool === "eraser" ? "bg-emerald-500 text-black" : "bg-white/10"
-          } ${drawingDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+          } ${drawingLockedForMe ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           Erase
         </button>
@@ -621,8 +628,8 @@ export default function LiveSessionPage() {
           value={strokeColor}
           onChange={(e) => setStrokeColor(e.target.value)}
           className="w-6 h-6 rounded border-0 bg-transparent cursor-pointer"
-          disabled={drawingDisabled}
-          title={drawingDisabled ? "Drawing disabled by teacher" : "Pick color"}
+          disabled={drawingLockedForMe}
+          title={drawingLockedForMe ? "Drawing disabled by teacher" : "Pick color"}
         />
         <input
           type="range"
@@ -631,16 +638,47 @@ export default function LiveSessionPage() {
           value={strokeSize}
           onChange={(e) => setStrokeSize(Number(e.target.value))}
           className="w-24"
-          disabled={drawingDisabled}
-          title={drawingDisabled ? "Drawing disabled by teacher" : "Brush size"}
+          disabled={drawingLockedForMe}
+          title={drawingLockedForMe ? "Drawing disabled by teacher" : "Brush size"}
         />
         <button onClick={clearMine} className="px-2 py-1 text-xs rounded bg-red-500/80 text-black">
           Clear Mine
         </button>
       </div>
 
-      {/* banner when disabled */}
-      {drawingDisabled && (
+      {/* teacher control panel on the whiteboard page */}
+      {isTeacher && (
+        <div className="fixed z-[60] left-4 top-[calc(var(--topbar-height,56px)+8px)] bg-black/40 backdrop-blur px-4 py-3 rounded-2xl ring-1 ring-white/10 space-x-2">
+          <button
+            onClick={teacherClearBoard}
+            className="px-3 py-1.5 rounded-lg border border-emerald-500/60 text-emerald-300 hover:bg-emerald-500/10 text-sm font-semibold"
+            title="Clears drawings and images for everyone"
+          >
+            Clear Board
+          </button>
+          <button
+            onClick={teacherToggleDrawing}
+            className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${
+              drawingDisabled
+                ? "bg-white/10 hover:bg-white/20"
+                : "bg-white/10 hover:bg-white/20"
+            }`}
+            title="Toggle whether students can draw"
+          >
+            {drawingDisabled ? "Enable Student Drawing" : "Disable Student Drawing"}
+          </button>
+          <button
+            onClick={teacherEndSession}
+            className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold"
+            title="Ends session and clears the board for everyone"
+          >
+            End Session
+          </button>
+        </div>
+      )}
+
+      {/* banner when disabled for students */}
+      {drawingLockedForMe && (
         <div className="fixed left-1/2 -translate-x-1/2 top-[calc(var(--topbar-height,56px)+8px)] z-[65]">
           <div className="px-3 py-1 rounded-md bg-amber-500 text-black text-xs font-semibold shadow">
             Drawing disabled by teacher
@@ -657,7 +695,7 @@ export default function LiveSessionPage() {
           cursor:
             tool === "cursor"
               ? "default"
-              : drawingDisabled
+              : drawingLockedForMe
               ? "not-allowed"
               : "crosshair",
         }}
@@ -697,22 +735,21 @@ export default function LiveSessionPage() {
         {/* per-user layer canvases */}
         <div ref={layersHostRef} className="absolute inset-0 z-10 pointer-events-none" />
 
-        {/* hit/interaction canvas (for rect/DPR; we don't draw on it) */}
+        {/* hit/interaction canvas */}
         <canvas
           ref={hitCanvasRef}
           className={`absolute z-20 ${tool === "cursor" ? "pointer-events-none" : ""}`}
-          style={{ inset: "auto" }} // positioned by ensureCanvasesSize()
+          style={{ inset: "auto" }}
         />
 
-        {/* live cursors with precise hotspot */}
+        {/* cursors */}
         <div className="absolute inset-0 pointer-events-none z-30">
           {Object.values(cursors).map((c) => {
             const posW = normToWorld(c.x, c.y);
             const posS = worldToScreen(posW.x, posW.y);
-
             const isPointerMode = tool === "cursor";
-            const ARROW_TX = -20; // %  (align svg tip to hotspot)
-            const ARROW_TY = -60; // %
+            const ARROW_TX = -20;
+            const ARROW_TY = -60;
 
             return (
               <div
