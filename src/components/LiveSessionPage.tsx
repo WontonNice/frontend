@@ -370,27 +370,40 @@ export default function LiveSessionPage() {
       >
         <canvas ref={canvasRef} className="absolute inset-0 block" />
 
-        {/* images (draggable + resizable) */}
-        {images.map((img) => {
-          const left = `${img.x * 100}%`;
-          const top = `${img.y * 100}%`;
-          const widthPercent = `${(img.w ?? 0.2) * 100}%`;
-          return (
-            <div
-              key={img.id}
-              className="absolute pointer-events-auto group"
-              style={{ left, top, transform: "translate(-50%, -50%)", width: widthPercent }}
-              onPointerDown={(e) => beginMove(e, img)}
-            >
-              <img src={img.src} alt="" className="w-full h-auto rounded shadow select-none pointer-events-none" draggable={false} />
-              {/* resize handle (bottom-right) */}
-              <div
-                onPointerDown={(e) => beginResize(e, img)}
-                  className="absolute right-0 bottom-0 translate-x-1/2 translate-y-1/2 w-4 h-4 rounded-full bg-black/60 ring-2 ring-white opacity-0 group-hover:opacity-100 cursor-nwse-resize"
-              />
-            </div>
-          );
-        })}
+{/* images (draggable + resizable) */}
+{images.map((img) => {
+  const left = `${img.x * 100}%`;
+  const top = `${img.y * 100}%`;
+  const widthPercent = `${(img.w ?? 0.2) * 100}%`;
+  return (
+    <div
+      key={img.id}
+      className="absolute pointer-events-auto group z-0" // keep below canvas
+      style={{ left, top, transform: "translate(-50%, -50%)", width: widthPercent }}
+      onPointerDown={(e) => beginMove(e, img)}
+    >
+      <img
+        src={img.src}
+        alt=""
+        className="w-full h-auto rounded shadow select-none pointer-events-none"
+        draggable={false}
+      />
+      {/* resize handle (bottom-right) */}
+      <div
+        onPointerDown={(e) => beginResize(e, img)}
+        className="absolute right-0 bottom-0 translate-x-1/2 translate-y-1/2
+                   w-4 h-4 rounded-full bg-black/60 ring-2 ring-white
+                   opacity-0 group-hover:opacity-100 cursor-nwse-resize"
+      />
+    </div>
+  );
+})}
+
+{/* draw layer ABOVE images; allow passthrough in cursor mode */}
+<canvas
+  ref={canvasRef}
+  className={`absolute inset-0 block z-10 ${tool === "cursor" ? "pointer-events-none" : ""}`}
+/>
 
         {/* live cursors */}
         <div className="absolute inset-0 pointer-events-none">

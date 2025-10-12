@@ -2,14 +2,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   getEffectiveSatMathBank,
-  upsertQuestion,
   deleteQuestion,
   exportOverrides,
   importOverrides,
 } from "../data/satMathStore";
-import type { SatMathQuestion, SatMathTopic } from "../data/satMathBank";
-
-type Draft = Omit<SatMathQuestion, "id"> & { id?: string };
+import type { SatMathQuestion } from "../data/satMathBank";
 
 // ✅ Use your realtime server base (same as SOCKET_URL elsewhere)
 const API_BASE = (import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3001").replace(/\/$/, "");
@@ -17,7 +14,6 @@ const API_BASE = (import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3001").re
 export default function TeacherDashboard() {
   const [bank, setBank] = useState<SatMathQuestion[]>([]);
   const [search, setSearch] = useState("");
-  const [editing, setEditing] = useState<Draft | null>(null);
   const [importText, setImportText] = useState("");
   const [showImport, setShowImport] = useState(false);
 
@@ -34,40 +30,6 @@ export default function TeacherDashboard() {
       q.topic.toLowerCase().includes(s)
     );
   }, [bank, search]);
-
-  const startNew = () =>
-    setEditing({
-      prompt: "",
-      choices: ["", "", "", ""],
-      correctIndex: 0,
-      explanation: "",
-      source: "",
-      topic: "algebra",
-    });
-
-  const startEdit = (q: SatMathQuestion) => setEditing({ ...q });
-
-  const save = () => {
-    if (!editing) return;
-    const id = editing.id?.trim() || slugify(editing.prompt).slice(0, 40) || `q-${Date.now()}`;
-    if (!editing.prompt.trim()) return alert("Prompt is required.");
-    if (editing.choices.some(c => !c.trim())) return alert("All choices must be filled.");
-    if (editing.correctIndex < 0 || editing.correctIndex >= editing.choices.length) {
-      return alert("Correct index out of range.");
-    }
-    const q: SatMathQuestion = {
-      id,
-      prompt: editing.prompt.trim(),
-      choices: editing.choices.map(c => c.trim()),
-      correctIndex: editing.correctIndex,
-      explanation: editing.explanation.trim(),
-      source: editing.source.trim() || "Unknown",
-      topic: editing.topic as SatMathTopic,
-    };
-    upsertQuestion(q);
-    setEditing(null);
-    refresh();
-  };
 
   const remove = (id: string) => {
     if (!confirm("Delete this question?")) return;
@@ -128,12 +90,6 @@ export default function TeacherDashboard() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={startNew}
-            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold"
-          >
-            Add Question
-          </button>
-          <button
             onClick={doExport}
             className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold"
           >
@@ -145,7 +101,6 @@ export default function TeacherDashboard() {
           >
             Import
           </button>
-          {/* 🔴 End Session button */}
           <button
             onClick={endSession}
             className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold"
@@ -185,12 +140,6 @@ export default function TeacherDashboard() {
                 <td className="px-4 py-3 text-white/60">{q.source}</td>
                 <td className="px-4 py-3 text-white/60">{q.choices[q.correctIndex]}</td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => startEdit(q)}
-                    className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20"
-                  >
-                    Edit
-                  </button>
                   <button
                     onClick={() => remove(q.id)}
                     className="ml-2 px-3 py-1 rounded-lg bg-red-600/80 hover:bg-red-600 text-white"
@@ -238,17 +187,6 @@ export default function TeacherDashboard() {
           </div>
         </div>
       )}
-
-      {/* Editor Modal (inline card) */}
-      {editing && (
-        <div className="rounded-2xl bg-[#111318] ring-1 ring-white/10 p-5 space-y-4">
-          {/* ... keep your editor code as-is ... */}
-        </div>
-      )}
     </div>
   );
-}
-
-function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
 }
