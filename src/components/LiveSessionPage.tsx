@@ -52,7 +52,7 @@ function computeView(el: HTMLElement): View {
   return { scale, offsetX, offsetY, width, height };
 }
 
-function worldToScreen(wx: number, wy: number, el: HTMLElement) {
+function worldToScreen(wx: number, wy: number) {
   const v = viewRef.current;
   return { x: v.offsetX + wx * v.scale, y: v.offsetY + wy * v.scale };
 }
@@ -146,8 +146,8 @@ export default function LiveSessionPage() {
   ) => {
     const ctx = ctxRef.current, el = boardRef.current;
     if (!ctx || !el) return;
-    const fromS = worldToScreen(fromW.x, fromW.y, el);
-    const toS = worldToScreen(toW.x, toW.y, el);
+    const fromS = worldToScreen(fromW.x, fromW.y);
+    const toS = worldToScreen(toW.x, toW.y);
 
     const prev = ctx.globalCompositeOperation;
     ctx.globalCompositeOperation = mode === "eraser" ? "destination-out" : "source-over";
@@ -511,7 +511,7 @@ export default function LiveSessionPage() {
         {/* images UNDER canvas, rendered from world -> screen */}
         {images.map((img) => {
           const el = boardRef.current!;
-          const pos = el ? worldToScreen(img.x, img.y, el) : { x: 0, y: 0 };
+          const pos = el ? worldToScreen(img.x, img.y) : { x: 0, y: 0 };
           const v = viewRef.current;
           const pxWidth = (img.w ?? 0.2 * WORLD_W) * v.scale;
           return (
@@ -554,7 +554,7 @@ export default function LiveSessionPage() {
           {Object.values(cursors).map((c) => {
             const el = boardRef.current!;
             const posW = normToWorld(c.x, c.y);
-            const posS = el ? worldToScreen(posW.x, posW.y, el) : { x: 0, y: 0 };
+            const posS = el ? worldToScreen(posW.x, posW.y) : { x: 0, y: 0 };
             return (
               <div key={c.id} className="absolute" style={{ left: `${posS.x}px`, top: `${posS.y}px`, transform: "translate(-20%, -60%)" }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill={c.color}><path d="M3 2l7 18 2-7 7-2L3 2z" /></svg>
