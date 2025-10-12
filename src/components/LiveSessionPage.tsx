@@ -57,7 +57,7 @@ function worldToScreen(wx: number, wy: number) {
   return { x: v.offsetX + wx * v.scale, y: v.offsetY + wy * v.scale };
 }
 
-function screenToWorld(sx: number, sy: number, el: HTMLElement) {
+function screenToWorld(sx: number, sy: number) {
   const v = viewRef.current;
   return { x: (sx - v.offsetX) / v.scale, y: (sy - v.offsetY) / v.scale };
 }
@@ -281,7 +281,7 @@ export default function LiveSessionPage() {
       const rect = el.getBoundingClientRect();
       const sx = e.clientX - rect.left;
       const sy = e.clientY - rect.top;
-      const { x: wx, y: wy } = screenToWorld(sx, sy, el);
+      const { x: wx, y: wy } = screenToWorld(sx, sy);
       const clampedW = { x: Math.min(Math.max(wx, 0), WORLD_W), y: Math.min(Math.max(wy, 0), WORLD_H) };
       lastNormRef.current = worldToNorm(clampedW.x, clampedW.y);
       if (tool !== "cursor") drawingRef.current = true;
@@ -291,7 +291,7 @@ export default function LiveSessionPage() {
       const rect = el.getBoundingClientRect();
       const sx = e.clientX - rect.left;
       const sy = e.clientY - rect.top;
-      const { x: wx, y: wy } = screenToWorld(sx, sy, el);
+      const { x: wx, y: wy } = screenToWorld(sx, sy);
       const clampedW = { x: Math.min(Math.max(wx, 0), WORLD_W), y: Math.min(Math.max(wy, 0), WORLD_H) };
       const n = worldToNorm(clampedW.x, clampedW.y);
 
@@ -476,7 +476,7 @@ export default function LiveSessionPage() {
     e.stopPropagation();
     const rect = boardRef.current!.getBoundingClientRect();
     const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
-    const { x: wx, y: wy } = screenToWorld(sx, sy, boardRef.current!);
+    const { x: wx, y: wy } = screenToWorld(sx, sy);
     dragRef.current = { id: img.id, mode: "move", startX: wx, startY: wy, startImg: { ...img } };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
@@ -486,7 +486,7 @@ export default function LiveSessionPage() {
     e.stopPropagation();
     const rect = boardRef.current!.getBoundingClientRect();
     const sx = e.clientX - rect.left;
-    const { x: wx } = screenToWorld(sx, 0, boardRef.current!);
+    const { x: wx } = screenToWorld(sx, 0);
     dragRef.current = { id: img.id, mode: "resize", startX: wx, startY: 0, startImg: { ...img } };
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
