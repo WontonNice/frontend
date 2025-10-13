@@ -798,7 +798,7 @@ export default function LiveSessionPage() {
           const pxWidth = (t.w ?? 0.25 * WORLD_W) * viewRef.current.scale;
           return (
             <div key={t.id}
-                 className="absolute pointer-events-auto group z-0"
+                 className={`absolute pointer-events-auto group z-0 ${tool === "cursor" && editingTextId !== t.id ? "cursor-move" : ""}`}
                  style={{ left: `${pos.x}px`, top: `${pos.y}px`, transform: "translate(-50%, -50%)", width: `${pxWidth}px` }}
                  onPointerDown={(e) => beginMoveText(e, t)}>
               <div
@@ -810,8 +810,8 @@ export default function LiveSessionPage() {
                 contentEditable={editingTextId === t.id}
                 suppressContentEditableWarning
                 tabIndex={0}
-                onPointerDown={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => { if (editingTextId === t.id) e.stopPropagation(); }}
+                onMouseDown={(e) => { if (editingTextId === t.id) e.stopPropagation(); }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
                   setEditingTextId(t.id);
