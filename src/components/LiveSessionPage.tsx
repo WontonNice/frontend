@@ -813,6 +813,7 @@ export default function LiveSessionPage() {
                        const el = document.getElementById(`tx-${t.id}`) as HTMLElement | null;
                        if (el) {
                          // place caret at the end
+                         el.textContent = textDraftRef.current[t.id] ?? t.text ?? "";
                          const sel = window.getSelection?.();
                          const range = document.createRange();
                          range.selectNodeContents(el);
@@ -860,7 +861,7 @@ export default function LiveSessionPage() {
                 }}
               >
                 {/* IMPORTANT: do not rerender text while editing to avoid caret jumps */}
-                {t.text || ""}
+                {editingTextId === t.id ? null : (t.text || "")}
               </div>
 
               {/* resize handle */}
