@@ -60,7 +60,7 @@ const httpServer = createServer(app);
 const allowed = process.env.CORS_ORIGIN?.split(",") || "*";
 const io = new Server(httpServer, {
   cors: { origin: allowed },
-  maxHttpBufferSize: 6 * 1024 * 1024,
+  maxHttpBufferSize: 12 * 1024 * 1024, // ↑ was 6MB
   perMessageDeflate: { threshold: 1024 },
 });
 
@@ -229,7 +229,11 @@ io.on("connection", (socket) => {
     if (!room || !img?.src) return;
 
     const approxBytes = Math.floor((img.src.length || 0) * 0.75);
-    if (approxBytes > 5 * 1024 * 1024) return;
+    const MAX_MB = 10; // ↑ was 5
+    if (approxBytes > MAX_MB * 1024 * 1024) {
+      socket.emit("image:error", { reason: "too_large", maxMB: MAX_MB });
+      return;
+    }
 
     const state =
       roomState.get(room) ||
