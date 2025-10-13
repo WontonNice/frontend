@@ -1,0 +1,22 @@
+{
+  "id": "shsat-practice-a",
+  "title": "SHSAT Practice A",
+  "subject": "shsat",
+  "version": 1,
+  "sections": [
+    {
+      "title": "ELA",
+      "questions": [
+        { "id": "ELA-1", "type": "mcq", "prompt": "Which choice best ... ?", "choices": ["A","B","C","D"], "answer": 1, "explanation": "Because ..." }
+
+      ]
+    },
+    {
+      "title": "Math",
+      "questions": [
+        { "id": "M-1", "type": "mcq", "prompt": "Solve x ...", "choices": ["A","B","C","D"], "answer": 2 }
+
+      ]
+    }
+  ]
+}
