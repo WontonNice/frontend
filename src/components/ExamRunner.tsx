@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { ExamDetail } from "../types/exam";
 
-const API = (import.meta as any)?.env?.VITE_API_URL ?? "https://backend-3wuq.onrender.com";
+const DEV_API = (import.meta as any)?.env?.VITE_API_URL ?? "http://localhost:3001";
+const API = import.meta.env.PROD ? "" : DEV_API;
 
 export default function ExamRunner() {
   const { id } = useParams();
