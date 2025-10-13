@@ -798,9 +798,32 @@ export default function LiveSessionPage() {
           const pxWidth = (t.w ?? 0.25 * WORLD_W) * viewRef.current.scale;
           return (
             <div key={t.id}
-                 className={`absolute pointer-events-auto group z-0 ${tool === "cursor" && editingTextId !== t.id ? "cursor-move" : ""}`}
-                 style={{ left: `${pos.x}px`, top: `${pos.y}px`, transform: "translate(-50%, -50%)", width: `${pxWidth}px` }}
-                 onPointerDown={(e) => beginMoveText(e, t)}>
+  className={`absolute pointer-events-auto group z-0 ${
+    tool === "cursor" && editingTextId !== t.id ? "cursor-move" : tool === "text" ? "cursor-text" : ""
+  }`}                 style={{ left: `${pos.x}px`, top: `${pos.y}px`, transform: "translate(-50%, -50%)", width: `${pxWidth}px` }}
+                                  onPointerDown={(e) => {
+                   if (tool === "text") {
+                     // Clicking a textbox while in Text mode should edit it, not create a new one
+                     e.stopPropagation(); // prevent board from creating a new box
+                     setEditingTextId(t.id);
+                     setTimeout(() => {
+                       const el = document.getElementById(`tx-${t.id}`) as HTMLElement | null;
+                       if (el) {
+                         // place caret at the end
+                         const sel = window.getSelection?.();
+                         const range = document.createRange();
+                         range.selectNodeContents(el);
+                         range.collapse(false);
+                         sel?.removeAllRanges();
+                         sel?.addRange(range);
+                        el.focus();
+                       }
+                     }, 0);
+                   } else {
+                     // Pointer tool: allow dragging
+                     beginMoveText(e, t);
+                   }
+                 }}>
               <div
                 id={`tx-${t.id}`}
                 dir="ltr"
