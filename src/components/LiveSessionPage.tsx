@@ -188,6 +188,10 @@ export default function LiveSessionPage() {
   };
 
   // ---------- socket ----------
+  // Keep a live ref of the current editing id so socket listeners can read it
+  const editingRef = useRef<string | null>(null);
+  useEffect(() => { editingRef.current = editingTextId; }, [editingTextId]);
+
   useEffect(() => {
     const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
     socketRef.current = socket;
@@ -330,8 +334,10 @@ export default function LiveSessionPage() {
       };
       setTexts((prev) => (prev.some((i) => i.id === withW.id) ? prev : [...prev, withW]));
     });
+
     socket.on("text:update", (patch: Partial<NetText> & { id: string }) => {
-      if (patch.id && editingTextId === patch.id && patch.text != null) {
+      // 👇 ignore echo while *this* client is actively editing that id
+      if (patch.id && editingRef.current === patch.id && patch.text != null) {
         return;
       }
       const worldPatch: Partial<LocalText> & { id: string } = { id: patch.id };
@@ -341,6 +347,7 @@ export default function LiveSessionPage() {
       if (patch.w != null) worldPatch.w = patch.w * WORLD_W;
       setTexts((prev) => prev.map((tx) => (tx.id === patch.id ? { ...tx, ...worldPatch } : tx)));
     });
+
     socket.on("text:remove", ({ ids }: { ids: string[] }) => {
       if (!Array.isArray(ids) || !ids.length) return;
       setTexts((prev) => prev.filter((tx) => !ids.includes(tx.id)));
@@ -758,7 +765,7 @@ export default function LiveSessionPage() {
       {isTeacher && (
         <div className="fixed z-[60] left-4 top-[calc(var(--topbar-height,56px)+8px)] bg-black/40 backdrop-blur px-4 py-3 rounded-2xl ring-1 ring-white/10 space-x-2">
           <button onClick={teacherClearBoard} className="px-3 py-1.5 rounded-lg border border-emerald-500/60 text-emerald-300 hover:bg-emerald-500/10 text-sm font-semibold" title="Clears drawings and images for everyone">Clear Board</button>
-          <button onClick={teacherToggleDrawing} className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold" title="Toggle whether students can draw">{drawingDisabled ? "Enable Student Drawing" : "Disable Student Drawing"}</button>
+          <button onClick={teacherToggleDrawing} className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold" title="Toggle whether students can draw">{drawingLockedForMe ? "Enable Student Drawing" : "Disable Student Drawing"}</button>
           <button onClick={teacherEndSession} className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold" title="Ends session and clears the board for everyone">End Session</button>
         </div>
       )}
@@ -774,10 +781,11 @@ export default function LiveSessionPage() {
 
       <div
         ref={boardRef}
-        className="relative w-full h-[calc(100vh-var(--topbar-height))] bg-white overflow-hidden touch-none"
+        className="relative w-full h-[calc(100vh-var(--topbar-height))] bg-white overflow-hidden"
         style={{
           WebkitUserSelect: (editingTextId || tool === "text") ? "text" as const : "none" as const,
           userSelect: (editingTextId || tool === "text") ? "text" as const : "none" as const,
+          touchAction: (editingTextId || tool === "text") ? "auto" as const : "none" as const,
           cursor: tool === "text" ? "text" : (tool === "cursor" ? "default" : (drawingLockedForMe ? "not-allowed" : "crosshair")),
         }}
       >
@@ -801,33 +809,34 @@ export default function LiveSessionPage() {
           const pxWidth = (t.w ?? 0.25 * WORLD_W) * viewRef.current.scale;
           return (
             <div key={t.id}
-  className={`absolute pointer-events-auto group z-0 ${
-    tool === "cursor" && editingTextId !== t.id ? "cursor-move" : tool === "text" ? "cursor-text" : ""
-  }`}                 style={{ left: `${pos.x}px`, top: `${pos.y}px`, transform: "translate(-50%, -50%)", width: `${pxWidth}px` }}
-                                  onPointerDown={(e) => {
-                   if (tool === "text") {
-                     // Clicking a textbox while in Text mode should edit it, not create a new one
-                     e.stopPropagation(); // prevent board from creating a new box
-                     setEditingTextId(t.id);
-                     setTimeout(() => {
-                       const el = document.getElementById(`tx-${t.id}`) as HTMLElement | null;
-                       if (el) {
-                         // place caret at the end
-                         el.textContent = textDraftRef.current[t.id] ?? t.text ?? "";
-                         const sel = window.getSelection?.();
-                         const range = document.createRange();
-                         range.selectNodeContents(el);
-                         range.collapse(false);
-                         sel?.removeAllRanges();
-                         sel?.addRange(range);
-                        el.focus();
-                       }
-                     }, 0);
-                   } else {
-                     // Pointer tool: allow dragging
-                     beginMoveText(e, t);
-                   }
-                 }}>
+              className={`absolute pointer-events-auto group z-0 ${
+                tool === "cursor" && editingTextId !== t.id ? "cursor-move" : tool === "text" ? "cursor-text" : ""
+              }`}
+              style={{ left: `${pos.x}px`, top: `${pos.y}px`, transform: "translate(-50%, -50%)", width: `${pxWidth}px` }}
+              onPointerDown={(e) => {
+                if (tool === "text") {
+                  // Clicking a textbox while in Text mode should edit it, not create a new one
+                  e.stopPropagation(); // prevent board from creating a new box
+                  setEditingTextId(t.id);
+                  setTimeout(() => {
+                    const el = document.getElementById(`tx-${t.id}`) as HTMLElement | null;
+                    if (el) {
+                      // seed with current text and place caret at end
+                      el.textContent = textDraftRef.current[t.id] ?? t.text ?? "";
+                      const sel = window.getSelection?.();
+                      const range = document.createRange();
+                      range.selectNodeContents(el);
+                      range.collapse(false);
+                      sel?.removeAllRanges();
+                      sel?.addRange(range);
+                      el.focus();
+                    }
+                  }, 0);
+                } else {
+                  // Pointer tool: allow dragging
+                  beginMoveText(e, t);
+                }
+              }}>
               <div
                 id={`tx-${t.id}`}
                 dir="ltr"
@@ -837,14 +846,15 @@ export default function LiveSessionPage() {
                 contentEditable={editingTextId === t.id}
                 suppressContentEditableWarning
                 tabIndex={0}
-                onPointerDown={(e) => { if (editingTextId === t.id) e.stopPropagation(); }}
-                onMouseDown={(e) => { if (editingTextId === t.id) e.stopPropagation(); }}
+                onPointerDown={(e) => { if (editingRef.current === t.id) e.stopPropagation(); }}
+                onMouseDown={(e) => { if (editingRef.current === t.id) e.stopPropagation(); }}
                 onClick={(e) => {
-                  if (editingTextId === t.id) {
+                  if (editingRef.current === t.id) {
                     e.stopPropagation();
                     (e.currentTarget as HTMLElement).focus();
                   }
                 }}
+                onKeyDown={(e) => { if (editingRef.current === t.id) e.stopPropagation(); }}
                 onBlur={(e) => commitText(t.id, e.currentTarget as HTMLElement)}
                 onInput={(e) => onEditTextInput(t.id, e.currentTarget as HTMLElement)}
                 style={{
@@ -860,7 +870,7 @@ export default function LiveSessionPage() {
                   textAlign: "left",
                 }}
               >
-                {/* IMPORTANT: do not rerender text while editing to avoid caret jumps */}
+                {/* IMPORTANT: avoid rerender jumps while editing */}
                 {editingTextId === t.id ? null : (t.text || "")}
               </div>
 
