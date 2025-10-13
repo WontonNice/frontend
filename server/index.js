@@ -54,6 +54,9 @@ if (STATIC_DIR) {
   app.use(express.static(STATIC_DIR, { maxAge: "1h", index: false }));
 }
 
+// 👉 Create the HTTP server BEFORE using it in Socket.IO
+const httpServer = createServer(app);
+
 const allowed = process.env.CORS_ORIGIN?.split(",") || "*";
 const io = new Server(httpServer, {
   cors: { origin: allowed },
