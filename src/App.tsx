@@ -13,7 +13,6 @@ import SATMathPanel1 from "./components/SATMathPanel1";
 import LiveActivitiesPage from "./components/LiveActivitiesPage"; 
 import LiveSessionPage from "./components/LiveSessionPage";
 import ExamsPage from "./components/ExamsPage";
-import ExamRunner from "./components/ExamRunner";
 
 export default function App() {
   return (
@@ -59,7 +58,6 @@ export default function App() {
 
         {/* ✅ Exams route */}
         <Route path="/exams" element={<ExamsPage />} />
-        <Route path="/exam/:id" element={<ExamRunner />} />
 
       </Route>
 
