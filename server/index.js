@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // If you build with Vite to "dist" at project root:
-const DIST_DIR = process.env.STATIC_DIR || path.resolve(__dirname, "../dist");
+const DIST_DIR = process.env.STATIC_DIR || path.resolve(__dirname);
 const INDEX_FILE = path.join(DIST_DIR, "index.html");
 
 const app = express();
