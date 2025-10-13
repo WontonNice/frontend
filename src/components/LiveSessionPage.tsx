@@ -343,6 +343,9 @@ export default function LiveSessionPage() {
     const drawingLockedForMe = drawingDisabled && !isTeacher;
 
     const onPointerDown = (e: PointerEvent) => {
+      // don't capture/paint while editing a text box
+      if (editingTextId) return;
+
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
       const { left, top } = hit.getBoundingClientRect();
       const cx = e.clientX - left, cy = e.clientY - top;
@@ -465,7 +468,7 @@ export default function LiveSessionPage() {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [me, tool, strokeColor, strokeSize, drawingDisabled, isTeacher]);
+  }, [me, tool, strokeColor, strokeSize, drawingDisabled, isTeacher, editingTextId]);
 
   // ---------- sizing & DPR ----------
   useEffect(() => {
@@ -550,6 +553,13 @@ export default function LiveSessionPage() {
       window.removeEventListener("dragover", onDragOver as any);
     };
   }, [me]);
+
+  // Auto-focus newly edited text boxes (safety net)
+  useEffect(() => {
+    if (!editingTextId) return;
+    const el = document.getElementById(`tx-${editingTextId}`) as HTMLElement | null;
+    el?.focus();
+  }, [editingTextId]);
 
   // ---------- Undo / Redo (drawings) ----------
   const syncMyStrokesToServer = () => {
@@ -670,7 +680,8 @@ export default function LiveSessionPage() {
   };
 
   const beginMoveText = (e: React.PointerEvent, t: LocalText) => {
-    if (tool !== "cursor") return;
+    // don't start drag if currently editing a text box
+    if (tool !== "cursor" || editingTextId) return;
     e.stopPropagation();
     const crect = hitCanvasRef.current!.getBoundingClientRect();
     const cx = e.clientX - crect.left, cy = e.clientY - crect.top;
@@ -679,7 +690,7 @@ export default function LiveSessionPage() {
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
   const beginResizeText = (e: React.PointerEvent, t: LocalText) => {
-    if (tool !== "cursor") return;
+    if (tool !== "cursor" || editingTextId) return;
     e.stopPropagation();
     const crect = hitCanvasRef.current!.getBoundingClientRect();
     const cx = e.clientX - crect.left;
@@ -731,7 +742,11 @@ export default function LiveSessionPage() {
       <div
         ref={boardRef}
         className="relative w-full h-[calc(100vh-var(--topbar-height))] bg-white overflow-hidden touch-none"
-        style={{ WebkitUserSelect: "none", userSelect: "none", cursor: tool === "cursor" ? "default" : drawingLockedForMe ? "not-allowed" : "crosshair" }}
+        style={{
+          WebkitUserSelect: (editingTextId || tool === "text") ? "text" as const : "none" as const,
+          userSelect: (editingTextId || tool === "text") ? "text" as const : "none" as const,
+          cursor: tool === "text" ? "text" : (tool === "cursor" ? "default" : (drawingLockedForMe ? "not-allowed" : "crosshair")),
+        }}
       >
         {/* Images under layers */}
         {images.map((img) => {
@@ -758,10 +773,20 @@ export default function LiveSessionPage() {
                  style={{ left: `${pos.x}px`, top: `${pos.y}px`, transform: "translate(-50%, -50%)", width: `${pxWidth}px` }}
                  onPointerDown={(e) => beginMoveText(e, t)}>
               <div
+                id={`tx-${t.id}`}
                 className={`w-full min-h-[1.5rem] rounded bg-white/80 ring-1 ring-black/10 shadow-sm px-2 py-1 outline-none ${editingTextId === t.id ? "ring-2 ring-emerald-400" : ""}`}
                 contentEditable={editingTextId === t.id}
                 suppressContentEditableWarning
-                onDoubleClick={() => setEditingTextId(t.id)}
+                tabIndex={0}
+                onPointerDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  setEditingTextId(t.id);
+                  setTimeout(() => {
+                    const el = document.getElementById(`tx-${t.id}`);
+                    (el as HTMLElement | null)?.focus();
+                  }, 0);
+                }}
                 onBlur={() => setEditingTextId((prev) => (prev === t.id ? null : prev))}
                 onInput={(e) => onEditText(t.id, (e.target as HTMLElement).innerText)}
                 style={{ fontSize, lineHeight: 1.2, whiteSpace: "pre-wrap", wordBreak: "break-word" }}
@@ -775,8 +800,12 @@ export default function LiveSessionPage() {
         {/* per-user canvases */}
         <div ref={layersHostRef} className="absolute inset-0 z-10 pointer-events-none" />
 
-        {/* hit canvas */}
-        <canvas ref={hitCanvasRef} className={`absolute z-20 ${tool === "cursor" ? "pointer-events-none" : ""}`} style={{ inset: "auto" }} />
+        {/* hit canvas (only active for pen/eraser) */}
+        <canvas
+          ref={hitCanvasRef}
+          className={`absolute z-20 ${tool === "pen" || tool === "eraser" ? "" : "pointer-events-none"}`}
+          style={{ inset: "auto" }}
+        />
 
         {/* cursors */}
         <div className="absolute inset-0 pointer-events-none z-30">
