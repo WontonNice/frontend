@@ -12,9 +12,12 @@ type ExamSummary = {
 
 type User = { id?: string; username?: string; role?: "student" | "teacher" | string } | null;
 
-const API = (import.meta as any)?.env?.VITE_API_URL ?? "http://localhost:3001";
+// ---------- API base ----------
+// In dev, hit your local server; in prod (served by the same server), use relative paths.
+const DEV_API = (import.meta as any)?.env?.VITE_API_URL ?? "http://localhost:3001";
+const API_BASE = import.meta.env.PROD ? "" : DEV_API;
 
-// --- tiny auth helpers (headers are always strings) ---
+// ---------- tiny auth helpers ----------
 function getUser(): User {
   try {
     return JSON.parse(localStorage.getItem("user") || "null");
@@ -46,15 +49,25 @@ export default function ExamsPage() {
     setMsg("");
     try {
       const qs = isTeacher ? "?all=1" : "";
-      const res = await fetch(`${API}/api/exams${qs}`, {
+      const url = `${API_BASE}/api/exams${qs}`;
+      const res = await fetch(url, {
         headers: { ...authHeaders() },
-        // credentials: "include", // uncomment if your server uses cookies
+        // credentials: "include", // only if your server uses cookies + proper CORS
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || res.statusText);
-      setExams(data as ExamSummary[]);
+      if (!res.ok) {
+        // Try to parse error body; if not JSON, show status text
+        let errText = res.statusText;
+        try {
+          const data = await res.json();
+          errText = data?.error || errText;
+        } catch {}
+        throw new Error(`${res.status} ${errText}`);
+      }
+      const data = (await res.json()) as ExamSummary[];
+      setExams(data);
     } catch (e: any) {
-      setMsg(`❌ ${e.message || "Failed to load exams"}`);
+      // e.message is "Failed to fetch" for network/CORS/mixed-content
+      setMsg(`❌ ${e?.message || "Failed to load exams"}`);
     } finally {
       setLoading(false);
     }
@@ -63,25 +76,32 @@ export default function ExamsPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTeacher]); // reload if role changes
+  }, [isTeacher]);
 
   async function setStatus(id: string, next: "open" | "closed") {
     if (!isTeacher) return;
     setMsg("");
     try {
       const path = next === "open" ? "open" : "close";
-      const res = await fetch(`${API}/api/exams/${id}/${path}`, {
+      const url = `${API_BASE}/api/exams/${id}/${path}`;
+      const res = await fetch(url, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           ...authHeaders(),
         },
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || res.statusText);
+      if (!res.ok) {
+        let errText = res.statusText;
+        try {
+          const data = await res.json();
+          errText = data?.error || errText;
+        } catch {}
+        throw new Error(`${res.status} ${errText}`);
+      }
       await load();
     } catch (e: any) {
-      setMsg(`❌ ${e.message || "Update failed"}`);
+      setMsg(`❌ ${e?.message || "Update failed"}`);
     }
   }
 
@@ -112,7 +132,6 @@ export default function ExamsPage() {
       {msg && <div className="text-sm p-2 bg-gray-800 rounded">{msg}</div>}
 
       {isTeacher ? (
-        // Teacher table (all exams with open/close controls)
         exams.length === 0 ? (
           <p className="text-white/70">No exams found. Import one from your teacher tools.</p>
         ) : (
@@ -173,31 +192,24 @@ export default function ExamsPage() {
             </table>
           </div>
         )
+      ) : exams.length === 0 ? (
+        <p className="text-white/70">No exams are open yet. Please check back later.</p>
       ) : (
-        // Student grid (server already filters to OPEN exams)
-        <>
-          {exams.length === 0 ? (
-            <p className="text-white/70">No exams are open yet. Please check back later.</p>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {exams.map((ex) => (
-                <button
-                  key={ex.id}
-                  onClick={() => navigate(`/exam/${ex.id}`)}
-                  className="text-left p-4 rounded-xl bg-gray-800 hover:bg-gray-700 transition text-white shadow"
-                >
-                  <div className="text-lg font-semibold">{ex.title}</div>
-                  <div className="text-white/80 text-sm mt-1">
-                    {ex.subject.toUpperCase()} • v{ex.version}
-                  </div>
-                  <div className="mt-3 text-xs px-2 py-1 rounded bg-emerald-700 inline-block">
-                    OPEN
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {exams.map((ex) => (
+            <button
+              key={ex.id}
+              onClick={() => navigate(`/exam/${ex.id}`)}
+              className="text-left p-4 rounded-xl bg-gray-800 hover:bg-gray-700 transition text-white shadow"
+            >
+              <div className="text-lg font-semibold">{ex.title}</div>
+              <div className="text-white/80 text-sm mt-1">
+                {ex.subject.toUpperCase()} • v{ex.version}
+              </div>
+              <div className="mt-3 text-xs px-2 py-1 rounded bg-emerald-700 inline-block">OPEN</div>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
