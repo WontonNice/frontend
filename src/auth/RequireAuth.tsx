@@ -34,3 +34,5 @@ function safeGetUser():
     return null;
   }
 }
+
+console.debug("[RequireAuth]", { user: !!safeGetUser() });

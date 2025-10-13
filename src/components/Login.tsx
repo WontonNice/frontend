@@ -85,6 +85,11 @@ export default function Login() {
       const fallback = user.role === "teacher" ? "/teacher-dashboard" : "/student-dashboard";
       const dest = safeStored ?? safeFrom ?? fallback;
 
+console.debug("[Login] dest deciding", {
+  stored: sessionStorage.getItem("redirect"),
+  stateFrom: (useLocation().state as any)?.from,
+});
+
       // Use replace so login isn't left in history
       setTimeout(() => navigate(dest, { replace: true }), 0);
     } catch (err: any) {

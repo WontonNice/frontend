@@ -29,6 +29,11 @@ export default function HomeGate() {
   const role = user.role === "teacher" ? "teacher" : "student";
   const defaultDest = role === "teacher" ? "/teacher-dashboard" : "/student-dashboard";
 
+  console.debug("[HomeGate]", {
+  stored: sessionStorage.getItem("redirect"),
+  stateFrom: (useLocation().state as any)?.from,
+});
+
   return <Navigate to={safeStored ?? safeFrom ?? defaultDest} replace />;
 }
 
