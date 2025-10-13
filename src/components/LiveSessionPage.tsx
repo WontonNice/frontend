@@ -784,7 +784,7 @@ export default function LiveSessionPage() {
         {texts.map((t) => {
           const pos = worldToScreen(t.x, t.y);
           const pxWidth = (t.w ?? 0.25 * WORLD_W) * viewRef.current.scale;
-          const fontSize = Math.max(12, Math.floor(16 * viewRef.current.scale));
+          //const fontSize = Math.max(12, Math.floor(16 * viewRef.current.scale));
           return (
             <div key={t.id}
                  className="absolute pointer-events-auto group z-0"
