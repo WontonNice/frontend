@@ -4,15 +4,43 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
-// --- resolve paths ---
+// ---------- path resolution ----------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const ROOT = path.resolve(__dirname, ".."); // project root (one level up from /server)
 
-// If you build with Vite to "dist" at project root:
-const DIST_DIR = process.env.STATIC_DIR || path.resolve(__dirname);
-const INDEX_FILE = path.join(DIST_DIR, "index.html");
+// allow STATIC_DIR to be relative to project root (e.g., "dist" or "client/dist")
+const STATIC_DIR_ENV = process.env.STATIC_DIR
+  ? path.resolve(ROOT, process.env.STATIC_DIR)
+  : null;
+
+// pick the first candidate that contains index.html
+const CANDIDATES = [
+  STATIC_DIR_ENV,                    // env override first
+  path.join(ROOT, "dist"),           // vite build output (recommended)
+  ROOT,                              // fallback: serve project root (dev-ish)
+].filter(Boolean);
+
+let STATIC_DIR = "";
+let INDEX_FILE = "";
+for (const dir of CANDIDATES) {
+  const idx = path.join(dir, "index.html");
+  if (fs.existsSync(idx)) {
+    STATIC_DIR = dir;
+    INDEX_FILE = idx;
+    break;
+  }
+}
+
+if (!INDEX_FILE) {
+  console.error("❌ index.html not found. Checked:", CANDIDATES);
+} else {
+  console.log("✅ Static base directory:", STATIC_DIR);
+  console.log("✅ index.html:", INDEX_FILE);
+}
 
 const app = express();
 app.use(
@@ -22,18 +50,20 @@ app.use(
 );
 app.use(express.json());
 
-// Health check (Render pings this)
+// Health check
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
 
-// --- serve static frontend assets ---
-app.use(express.static(DIST_DIR, { maxAge: "1h", index: false }));
+// --- serve static frontend assets (only if found) ---
+if (STATIC_DIR) {
+  app.use(express.static(STATIC_DIR, { maxAge: "1h", index: false }));
+}
 
 const httpServer = createServer(app);
 
 const allowed = process.env.CORS_ORIGIN?.split(",") || "*";
 const io = new Server(httpServer, {
   cors: { origin: allowed },
-  maxHttpBufferSize: 6 * 1024 * 1024, // 6MB
+  maxHttpBufferSize: 6 * 1024 * 1024,
   perMessageDeflate: { threshold: 1024 },
 });
 
@@ -257,10 +287,12 @@ app.post("/session/end", (req, res) => {
 });
 
 // ===============================
-//  SPA fallback (must be AFTER APIs/static, BEFORE listen)
+//  SPA fallback (after APIs/static, before listen)
 // ===============================
-// Any GET that isn't a file and isn't Socket.IO should serve index.html
-app.get(/^\/(?!socket\.io\/).*/, (req, res) => {
+app.get(/^\/(?!socket\.io\/).*/, (_req, res) => {
+  if (!INDEX_FILE) {
+    return res.status(500).send("index.html not found. Did the build run?");
+  }
   res.sendFile(INDEX_FILE);
 });
 
@@ -269,5 +301,5 @@ app.get(/^\/(?!socket\.io\/).*/, (req, res) => {
 // ===============================
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Realtime server + SPA on ${PORT} (serving ${DIST_DIR})`);
+  console.log(`✅ Realtime server + SPA on ${PORT}`);
 });
