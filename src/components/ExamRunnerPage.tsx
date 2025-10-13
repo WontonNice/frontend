@@ -12,49 +12,56 @@ export default function ExamRunnerPage() {
   const exam = slug ? getExamBySlug(slug) : undefined;
 
   // Flatten sections -> linear list of questions for navigation
-const items = useMemo(() => {
-  if (!exam) return [];
-  const out: {
-    globalId: string;
-    sectionId: string;
-    sectionTitle: string;
-    sectionType: "reading" | "math" | string;
-    sectionPassageMarkdown?: string;
-    sectionPassageImages?: string[];
-    qIndexInSection: number;
-    qTotalInSection: number;
-    stemMarkdown?: string;
-    image?: string;
-    choices?: string[];
-  }[] = [];
+  const items = useMemo(() => {
+    if (!exam) return [];
+    const out: {
+      globalId: string;
+      sectionId: string;
+      sectionTitle: string;
+      sectionType: "reading" | "math" | string;
+      sectionPassageMarkdown?: string;
+      sectionPassageImages?: string[];
+      /** NEW: optional external passage URL or filename (from `passageMd`/`passageUrl`) */
+      sectionPassageUrl?: string;
+      qIndexInSection: number;
+      qTotalInSection: number;
+      stemMarkdown?: string;
+      image?: string;
+      choices?: string[];
+    }[] = [];
 
-  exam.sections.forEach((sec) => {
-    sec.questions.forEach((q, i) => {
-      out.push({
-        globalId: `${sec.id}:${q.id}`,
-        sectionId: sec.id,
-        sectionTitle: sec.title,
-        sectionType: sec.type,
-        // ✅ make sure these two lines are here
-        sectionPassageMarkdown: sec.passageMarkdown,
-        sectionPassageImages: sec.passageImages,
+    exam.sections.forEach((sec) => {
+      sec.questions.forEach((q, i) => {
+        out.push({
+          globalId: `${sec.id}:${q.id}`,
+          sectionId: sec.id,
+          sectionTitle: sec.title,
+          sectionType: sec.type,
+          // Keep existing inline markdown/images
+          sectionPassageMarkdown: (sec as any).passageMarkdown,
+          sectionPassageImages: (sec as any).passageImages,
+          // NEW: allow a path or filename via `passageMd` (or `passageUrl`)
+          sectionPassageUrl: (sec as any).passageMd ?? (sec as any).passageUrl,
 
-        qIndexInSection: i,
-        qTotalInSection: sec.questions.length,
-        stemMarkdown: (q as any).stemMarkdown ?? (q as any).promptMarkdown,
-        image: q.image,
-        choices: q.choices,
+          qIndexInSection: i,
+          qTotalInSection: sec.questions.length,
+          stemMarkdown: (q as any).stemMarkdown ?? (q as any).promptMarkdown,
+          image: (q as any).image,
+          choices: (q as any).choices,
+        });
       });
     });
-  });
 
-  return out;
-}, [exam]);
+    return out;
+  }, [exam]);
 
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [reviewOpen, setReviewOpen] = useState(false);
   const reviewWrapRef = useRef<HTMLDivElement>(null);
+
+  // NEW: fetched passage content (if section provides `passageMd`)
+  const [fetchedPassage, setFetchedPassage] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     setIdx(0);
@@ -83,6 +90,26 @@ const items = useMemo(() => {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
+  // ===== NEW: fetch external passage if section provides a `passageMd`/`passageUrl` =====
+  const current = items[idx];
+  useEffect(() => {
+    setFetchedPassage(undefined);
+
+    // read the URL/filename for the current section
+    let url = (current as any)?.sectionPassageUrl as string | undefined;
+    if (!url) return;
+
+    // If a short filename is provided, auto-prefix with the public folder path
+    if (!url.startsWith("/")) {
+      url = `/exams/readingpassages/${url}`;
+    }
+
+    fetch(url)
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((txt) => setFetchedPassage(txt))
+      .catch(() => setFetchedPassage(undefined));
+  }, [current?.sectionId, (current as any)?.sectionPassageUrl]);
+
   if (!exam) {
     return (
       <div className="mx-auto max-w-2xl">
@@ -92,12 +119,17 @@ const items = useMemo(() => {
     );
   }
 
-  const current = items[idx];
   const sectionForCurrent = exam.sections.find((s) => s.id === current?.sectionId);
-const effectivePassage =
-  current?.sectionPassageMarkdown ?? sectionForCurrent?.passageMarkdown;
-const effectivePassageImages =
-  current?.sectionPassageImages ?? sectionForCurrent?.passageImages;
+
+  // Prefer fetched content (from .md), then fall back to inline JSON passage
+  const effectivePassage =
+    fetchedPassage ??
+    current?.sectionPassageMarkdown ??
+    (sectionForCurrent as any)?.passageMarkdown;
+
+  const effectivePassageImages =
+    current?.sectionPassageImages ?? (sectionForCurrent as any)?.passageImages;
+
   const total = items.length;
   const progressPct = total ? Math.round(((idx + 1) / total) * 100) : 0;
 
@@ -289,58 +321,58 @@ const effectivePassageImages =
       <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-    {/* Left: shared section passage (scrollable) */}
-<div className="rounded-lg border border-gray-200 shadow-sm p-4">
-  <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
-    <div className="border rounded-md p-6 bg-white">
-      {effectivePassage ? (
-        <div className="prose max-w-none">
-          <ReactMarkdown>{effectivePassage}</ReactMarkdown>
-        </div>
-      ) : current.image || current.stemMarkdown ? (
-        <>
-          {current.stemMarkdown && (
-            <div className="prose max-w-none">
-              <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
-            </div>
-          )}
-          {current.image && (
-            <img
-              src={current.image}
-              alt="question"
-              className="mt-4 max-w-full rounded border border-gray-200"
-            />
-          )}
-        </>
-      ) : (
-        <p className="text-gray-500">No passage for this item.</p>
-      )}
+          {/* Left: shared section passage (scrollable) */}
+          <div className="rounded-lg border border-gray-200 shadow-sm p-4">
+            <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
+              <div className="border rounded-md p-6 bg-white">
+                {effectivePassage ? (
+                  <div className="prose max-w-none">
+                    <ReactMarkdown>{effectivePassage}</ReactMarkdown>
+                  </div>
+                ) : current?.image || current?.stemMarkdown ? (
+                  <>
+                    {current.stemMarkdown && (
+                      <div className="prose max-w-none">
+                        <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
+                      </div>
+                    )}
+                    {current.image && (
+                      <img
+                        src={current.image}
+                        alt="question"
+                        className="mt-4 max-w-full rounded border border-gray-200"
+                      />
+                    )}
+                  </>
+                ) : (
+                  <p className="text-gray-500">No passage for this item.</p>
+                )}
 
-      {effectivePassageImages?.length ? (
-        <div className="mt-4 space-y-3">
-          {effectivePassageImages.map((src, i) => (
-            <img
-              key={i}
-              src={src}
-              alt={`passage-figure-${i + 1}`}
-              className="max-w-full rounded border border-gray-200"
-            />
-          ))}
-        </div>
-      ) : null}
-    </div>
-  </div>
-</div>
+                {effectivePassageImages?.length ? (
+                  <div className="mt-4 space-y-3">
+                    {effectivePassageImages.map((src: string, i: number) => (
+                      <img
+                        key={i}
+                        src={src}
+                        alt={`passage-figure-${i + 1}`}
+                        className="max-w-full rounded border border-gray-200"
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
 
           {/* Right: question stem + choices */}
           <div className="rounded-lg border border-gray-200 shadow-sm p-4">
-            {current.stemMarkdown ? (
+            {current?.stemMarkdown ? (
               <div className="prose max-w-none mb-4">
                 <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
               </div>
             ) : null}
 
-            {current.choices ? (
+            {current?.choices ? (
               <ul className="space-y-4">
                 {current.choices.map((choice, i) => {
                   const selected = answers[current.globalId] === i;
