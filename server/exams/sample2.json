@@ -1,74 +1,62 @@
 {
   "slug": "shsat-2025-b",
   "title": "SHSAT Practice B",
-  "description": "Full-length SHSAT practice test with reading and math sections.",
+  "description": "Full-length practice with reading & math.",
   "sections": [
     {
       "id": "reading-1",
       "title": "Reading Passage 1",
       "type": "reading",
-      "passageMarkdown": "### Excerpt from *“The Science of Sleep”*\n\nby Dana Lee\n\n1) Most people underestimate the importance of sleep. It is not merely a time of rest, but an active state during which the brain organizes memories, clears toxins, and restores energy for the day ahead.\n\n2) In one experiment, participants who slept less than six hours per night for a week performed as poorly on attention tests as those who had gone two nights without sleep. Their reaction times slowed, and they made more mistakes.\n\n3) Sleep deprivation doesn’t just affect the brain—it also affects the body. Hormones that regulate appetite and metabolism are disrupted, which can lead to overeating and weight gain. Chronic sleep loss has even been linked to heart disease and diabetes.\n\n4) Scientists now believe that quality sleep is one of the best predictors of long-term health. It’s not a luxury—it’s a biological necessity.",
+      "passageMd": "/exams/readingpassages/its-time-to-stop-thinking-all-non-native-species-are-evil-excerpt.md",
       "passageImages": [
-        "/exams/shsat-2025-b/reading-1/figure-1.png"
+        "/exams/shsat-2025-a/reading-1/figure-1.png"
       ],
       "questions": [
         {
           "id": "q1",
-          "stemMarkdown": "Which sentence best expresses the main idea of the passage?",
+          "stemMarkdown": "Which sentence from the excerpt supports the conclusion that Elton’s 'militaristic invasion' metaphor influenced science?",
           "choices": [
-            "A. Sleep is a luxury that people can do without.",
-            "B. Getting enough sleep is essential for both mental and physical health.",
-            "C. Sleep deprivation only affects concentration.",
-            "D. Most people sleep more than they need to."
+            "A. 'Among [Olden’s] findings: a substantial number of them said they would immediately eradicate a hypothetical non-native forest plant, even if it were shown to have no effect on the forest.' (paragraph 5)",
+            "B. 'Regardless of what we label them, conservationists will be reluctant to remove them from their new environs—to do so would stymie their chances of adapting to the warmer future we’re creating.' (paragraph 8)",
+            "C. 'A project to rip out and poison the spartina—which grows in dense swaths that exclude many other shorebirds—saw clapper rail numbers go tumbling downward.' (paragraph 10)",
+            "D. 'In some cases we can best serve biodiversity by leaving the non-natives alone or even—brace yourself, now—introducing them on purpose.' (paragraph 14)"
           ],
-          "answerIndex": 1
+          "answerIndex": 0
         },
         {
           "id": "q2",
-          "stemMarkdown": "Which statement from the passage provides evidence that sleep affects more than the brain?",
+          "stemMarkdown": "Which choice best states the main idea of the excerpt?",
           "choices": [
-            "A. 'It is not merely a time of rest, but an active state during which the brain organizes memories.'",
-            "B. 'In one experiment, participants who slept less than six hours performed poorly on attention tests.'",
-            "C. 'Hormones that regulate appetite and metabolism are disrupted, which can lead to overeating and weight gain.'",
-            "D. 'Scientists now believe that quality sleep is one of the best predictors of long-term health.'"
+            "A. Invasive species always pose a severe threat to biodiversity.",
+            "B. Scientists must completely eradicate all non-native species to preserve ecosystems.",
+            "C. The view that all non-native species are harmful oversimplifies a more complex reality.",
+            "D. Human activity has little effect on ecological balance."
           ],
           "answerIndex": 2
-        },
-        {
-          "id": "q3",
-          "stemMarkdown": "What is the tone of the passage?",
-          "choices": [
-            "A. Cautionary and informative",
-            "B. Sarcastic and humorous",
-            "C. Angry and emotional",
-            "D. Uncertain and speculative"
-          ],
-          "answerIndex": 0
         }
       ]
     },
-
     {
       "id": "math-1",
       "title": "Math Set 1",
       "type": "math",
       "questions": [
         {
-          "id": "q4",
-          "stemMarkdown": "A rectangular field is 20 meters long and 10 meters wide. What is its area?",
-          "choices": ["100", "150", "200", "300"],
+          "id": "q3",
+          "stemMarkdown": "Find the area of the triangle shown below.",
+          "image": "/exams/shsat-2025-a/math-1/q3.png",
+          "choices": ["10", "12", "15", "18"],
           "answerIndex": 2
         },
         {
-          "id": "q5",
-          "stemMarkdown": "If a triangle has a base of 8 cm and a height of 5 cm, what is its area?",
-          "choices": ["10", "20", "25", "40"],
-          "answerIndex": 1
-        },
-        {
-          "id": "q6",
-          "stemMarkdown": "What is the value of x if 3x + 9 = 18?",
-          "choices": ["2", "3", "4", "5"],
+          "id": "q4",
+          "stemMarkdown": "If the length of one side of a square is doubled, how does its area change?",
+          "choices": [
+            "A. It doubles",
+            "B. It triples",
+            "C. It quadruples",
+            "D. It stays the same"
+          ],
           "answerIndex": 2
         }
       ]
