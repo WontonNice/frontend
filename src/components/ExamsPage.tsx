@@ -1,6 +1,7 @@
 // src/components/ExamsPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { BASE_URL } from "../lib/api"; // <- single source of truth
 
 type ExamSummary = {
   id: string;
@@ -10,12 +11,9 @@ type ExamSummary = {
   status: "open" | "closed";
 };
 
-type User = { id?: string; username?: string; role?: "student" | "teacher" | string } | null;
-
-// ---------- API base ----------
-// In dev, hit your local server; in prod (served by the same server), use relative paths.
-const DEV_API = (import.meta as any)?.env?.VITE_API_URL ?? "http://localhost:3001";
-const API_BASE = import.meta.env.PROD ? "" : DEV_API;
+type User =
+  | { id?: string; username?: string; role?: "student" | "teacher" | string }
+  | null;
 
 // ---------- tiny auth helpers ----------
 function getUser(): User {
@@ -35,6 +33,18 @@ function authHeaders(): Record<string, string> {
   };
 }
 
+// be strict about expecting JSON to avoid parsing index.html
+async function jsonOrThrow<T>(res: Response): Promise<T> {
+  const ct = res.headers.get("content-type") || "";
+  if (!res.ok || !ct.includes("application/json")) {
+    const text = await res.text();
+    throw new Error(
+      `Expected JSON. Got ${res.status} ${ct || "(no content-type)"}: ${text.slice(0, 180)}…`
+    );
+  }
+  return (await res.json()) as T;
+}
+
 export default function ExamsPage() {
   const [exams, setExams] = useState<ExamSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,24 +59,14 @@ export default function ExamsPage() {
     setMsg("");
     try {
       const qs = isTeacher ? "?all=1" : "";
-      const url = `${API_BASE}/api/exams${qs}`;
+      const url = `${BASE_URL}/api/exams${qs}`;
       const res = await fetch(url, {
         headers: { ...authHeaders() },
-        // credentials: "include", // only if your server uses cookies + proper CORS
+        // credentials: "include", // enable only if your server sets cookies + CORS
       });
-      if (!res.ok) {
-        // Try to parse error body; if not JSON, show status text
-        let errText = res.statusText;
-        try {
-          const data = await res.json();
-          errText = data?.error || errText;
-        } catch {}
-        throw new Error(`${res.status} ${errText}`);
-      }
-      const data = (await res.json()) as ExamSummary[];
+      const data = await jsonOrThrow<ExamSummary[]>(res);
       setExams(data);
     } catch (e: any) {
-      // e.message is "Failed to fetch" for network/CORS/mixed-content
       setMsg(`❌ ${e?.message || "Failed to load exams"}`);
     } finally {
       setLoading(false);
@@ -83,7 +83,7 @@ export default function ExamsPage() {
     setMsg("");
     try {
       const path = next === "open" ? "open" : "close";
-      const url = `${API_BASE}/api/exams/${id}/${path}`;
+      const url = `${BASE_URL}/api/exams/${id}/${path}`;
       const res = await fetch(url, {
         method: "PATCH",
         headers: {
@@ -91,14 +91,7 @@ export default function ExamsPage() {
           ...authHeaders(),
         },
       });
-      if (!res.ok) {
-        let errText = res.statusText;
-        try {
-          const data = await res.json();
-          errText = data?.error || errText;
-        } catch {}
-        throw new Error(`${res.status} ${errText}`);
-      }
+      await jsonOrThrow(res);
       await load();
     } catch (e: any) {
       setMsg(`❌ ${e?.message || "Update failed"}`);
