@@ -94,6 +94,12 @@ const getState = (room) =>
     .set(room, { sessionId: Date.now(), strokes: [], images: [], texts: [] })
     .get(room);
 
+// --- text safety helpers: strip bidi/zero-width controls & normalize ---
+const stripBidi = (s = "") =>
+  s.replace(/[\u202A-\u202E\u2066-\u2069\u200E\u200F\u200B-\u200D\uFEFF]/g, "");
+const normalizeText = (s = "") =>
+  stripBidi(String(s)).normalize("NFC").slice(0, 5000); // cap to 5k chars
+
 // ===============================
 //  Socket.io
 // ===============================
@@ -296,47 +302,47 @@ io.on("connection", (socket) => {
   // ===============================
   // Text boxes (PERSISTED)
   // ===============================
-  socket.on("text:add", (t = {}) => {
-    const room = socket.data.room;
-    if (!room) return;
-    const state = getState(room);
+socket.on("text:add", (t = {}) => {
+  const room = socket.data.room;
+  if (!room) return;
+  const state = getState(room);
 
-    const safe = {
-      id: t.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      text: typeof t.text === "string" ? t.text : "",
-      x: clamp01(+t.x || 0.5),
-      y: clamp01(+t.y || 0.5),
-      w: Math.min(1, Math.max(0.1, Number.isFinite(+t.w) ? +t.w : 0.25)),
-      ownerId: socket.id,
-    };
-    state.texts.push(safe);
-    const { ownerId, ...pub } = safe;
-    io.to(room).emit("text:add", pub);
-  });
+  const safe = {
+    id: t.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    text: normalizeText(t.text),            // ⬅️ sanitize here
+    x: clamp01(+t.x || 0.5),
+    y: clamp01(+t.y || 0.5),
+    w: Math.min(1, Math.max(0.1, Number.isFinite(+t.w) ? +t.w : 0.25)),
+    ownerId: socket.id,
+  };
+  state.texts.push(safe);
+  const { ownerId, ...pub } = safe;
+  io.to(room).emit("text:add", pub);
+});
 
-  socket.on("text:update", (patch = {}) => {
-    const room = socket.data.room;
-    if (!room || !patch.id) return;
-    const state = roomState.get(room);
-    if (!state) return;
+socket.on("text:update", (patch = {}) => {
+  const room = socket.data.room;
+  if (!room || !patch.id) return;
+  const state = roomState.get(room);
+  if (!state) return;
 
-    const idx = state.texts.findIndex((i) => i.id === patch.id);
-    if (idx === -1) return;
+  const idx = state.texts.findIndex((i) => i.id === patch.id);
+  if (idx === -1) return;
 
-    const cur = state.texts[idx];
-    const next = {
-      ...cur,
-      ...(typeof patch.text === "string" ? { text: patch.text } : {}),
-      ...(patch.x != null ? { x: clamp01(+patch.x) } : {}),
-      ...(patch.y != null ? { y: clamp01(+patch.y) } : {}),
-      ...(patch.w != null ? { w: Math.min(1, Math.max(0.1, +patch.w)) } : {}),
-    };
-    state.texts[idx] = next;
+  const cur = state.texts[idx];
+  const next = {
+    ...cur,
+    ...(typeof patch.text === "string" ? { text: normalizeText(patch.text) } : {}),
+    ...(patch.x != null ? { x: clamp01(+patch.x) } : {}),
+    ...(patch.y != null ? { y: clamp01(+patch.y) } : {}),
+    ...(patch.w != null ? { w: Math.min(1, Math.max(0.1, +patch.w)) } : {}),
+  };
+  state.texts[idx] = next;
 
-    const out = { id: next.id, text: next.text, x: next.x, y: next.y, w: next.w };
-    socket.to(room).emit("text:update", out);
-    socket.emit("text:update", out);
-  });
+  const out = { id: next.id, text: next.text, x: next.x, y: next.y, w: next.w };
+  socket.to(room).emit("text:update", out);
+  socket.emit("text:update", out);
+});
 
   // Remove this user's text boxes
   socket.on("text:clear:mine", () => {
