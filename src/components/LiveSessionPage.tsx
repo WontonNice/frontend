@@ -873,7 +873,7 @@ export default function LiveSessionPage() {
               const ringStyle: React.CSSProperties = {
                 position: "absolute", left: `${posS.x}px`, top: `${posS.y}px`, width: `${sizePx}px`, height: `${sizePx}px`,
                 transform: "translate(-50%, -50%)", borderRadius: "9999px", background: "transparent",
-                boxShadow: "0 0 0 1px #fff, 0 0 0 3px rgba(0,0,0,.35)`,
+                boxShadow: "0 0 0 1px #fff, 0 0 0 3px rgba(0,0,0,.35)",
                 border: `1px solid ${tool === "eraser" ? "rgba(0,0,0,.6)" : strokeColor}`,
               };
               return <div style={ringStyle} />;
