@@ -245,9 +245,28 @@ io.on("connection", (socket) => {
       x: clamp01(+img?.x || 0.5),
       y: clamp01(+img?.y || 0.5),
       w: Math.min(1, Math.max(0.05, Number.isFinite(+img?.w) ? +img.w : 0.2)),
+      ownerId: socket.id,
     };
     state.images.push(safe);
-    io.to(room).emit("image:add", safe);
+    const { ownerId, ...publicImg } = safe;
+    io.to(room).emit("image:add", publicImg);
+  });
+
+  +  // Per-user image clear: remove only images added by this socket
+  socket.on("image:clear:mine", () => {
+    const room = socket.data.room;
+    if (!room) return;
+    const state =
+      roomState.get(room) ||
+      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+
+    const removedIds = (state.images || [])
+      .filter((im) => im.ownerId === socket.id)
+      .map((im) => im.id);
+    if (!removedIds.length) return;
+
+    state.images = state.images.filter((im) => im.ownerId !== socket.id);
+    io.to(room).emit("image:remove", { ids: removedIds });
   });
 
   socket.on("image:update", (patch) => {

@@ -266,6 +266,12 @@ export default function LiveSessionPage() {
       setImages((prev) => prev.map((im) => (im.id === patch.id ? { ...im, ...worldPatch } : im)));
     });
 
+        // remove images by id (used when a user clears their own images)
+    socket.on("image:remove", ({ ids }: { ids: string[] }) => {
+      if (!Array.isArray(ids) || !ids.length) return;
+      setImages((prev) => prev.filter((im) => !ids.includes(im.id)));
+    });
+
     // Optional: show a friendly message if the server rejects a large image
     socket.on("image:error", (p: { reason: string; maxMB?: number }) => {
       if (p?.reason === "too_large") {
@@ -473,6 +479,7 @@ export default function LiveSessionPage() {
     const v = viewRef.current;
     ctx.clearRect(0, 0, v.width, v.height);
     socketRef.current?.emit("draw:clear:user");
+    socketRef.current?.emit("image:clear:mine");
   };
 
   // ---------- Teacher controls ----------
