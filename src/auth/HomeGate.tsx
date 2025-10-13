@@ -9,16 +9,27 @@ export default function HomeGate() {
   // Not logged in → show login page
   if (!user) return <Login />;
 
-  // Prefer the route the user originally tried to visit
+  // 1) Prefer redirect saved by RequireAuth
+  let stored = undefined as string | undefined;
+  try {
+    stored = sessionStorage.getItem("redirect") || undefined;
+    if (stored) sessionStorage.removeItem("redirect");
+  } catch {
+    // ignore storage errors
+  }
+  const safeStored =
+    typeof stored === "string" && stored.startsWith("/") ? stored : undefined;
+
+  // 2) Then prefer state.from (if present and safe)
   const rawFrom = (loc.state as any)?.from as string | undefined;
-  const from =
+  const safeFrom =
     typeof rawFrom === "string" && rawFrom.startsWith("/") ? rawFrom : undefined;
 
-  // Fallback: role-based default
+  // 3) Fallback: role-based default
   const role = user.role === "teacher" ? "teacher" : "student";
   const defaultDest = role === "teacher" ? "/teacher-dashboard" : "/student-dashboard";
 
-  return <Navigate to={from ?? defaultDest} replace />;
+  return <Navigate to={safeStored ?? safeFrom ?? defaultDest} replace />;
 }
 
 // Helper: be permissive; treat any parsed object as "logged in"

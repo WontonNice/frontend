@@ -9,16 +9,22 @@ export default function RequireRole({
   const location = useLocation();
   const user = safeGetUser();
 
-  // Not logged in → go to login page
+  // Not logged in → persist intended path and go to "/"
   if (!user) {
-    return <Navigate to="/" replace state={{ from: location.pathname }} />;
+    try {
+      const intended = location.pathname + location.search + location.hash;
+      sessionStorage.setItem("redirect", intended);
+    } catch {
+      // ignore storage errors
+    }
+    return <Navigate to="/" replace />;
   }
 
   // Default role fallback (treat missing as "student")
   const userRole: "teacher" | "student" =
     user.role === "teacher" ? "teacher" : "student";
 
-  // If user tries to open the wrong dashboard → redirect them
+  // If user tries to open the wrong dashboard → redirect them to their own
   if (userRole !== role) {
     return (
       <Navigate
@@ -33,13 +39,14 @@ export default function RequireRole({
   return children as ReactNode;
 }
 
-function safeGetUser(): { id?: string; username?: string; role?: string } | null {
+function safeGetUser():
+  | { id?: string; username?: string; role?: "teacher" | "student"; [k: string]: unknown }
+  | null {
   try {
     const raw = localStorage.getItem("user");
     if (!raw) return null;
     const u = JSON.parse(raw);
-    if (u && typeof u.username === "string") return u;
-    return null;
+    return u && typeof u === "object" ? u : null;
   } catch {
     return null;
   }

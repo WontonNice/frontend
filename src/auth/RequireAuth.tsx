@@ -7,13 +7,24 @@ export default function RequireAuth({ children }: PropsWithChildren): ReactNode 
   const user = safeGetUser();
 
   if (!user) {
-    // Not logged in → go to "/" (your Login) and remember where they tried to go
-    return <Navigate to="/" replace state={{ from: loc.pathname }} />;
+    // Persist the intended destination so HomeGate/Login can restore it
+    const intended = loc.pathname + loc.search + loc.hash;
+    try {
+      sessionStorage.setItem("redirect", intended);
+    } catch {
+      // ignore storage failures
+    }
+
+    // Redirect to login/root (no need to also pass state; we prefer sessionStorage)
+    return <Navigate to="/" replace />;
   }
+
   return children as ReactNode;
 }
 
-function safeGetUser() {
+function safeGetUser():
+  | { id?: string; username?: string; role?: "student" | "teacher"; [k: string]: unknown }
+  | null {
   try {
     const raw = localStorage.getItem("user");
     if (!raw) return null;
@@ -23,4 +34,3 @@ function safeGetUser() {
     return null;
   }
 }
-

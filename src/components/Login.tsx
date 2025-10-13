@@ -1,3 +1,4 @@
+// src/components/Login.tsx
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -41,8 +42,9 @@ export default function Login() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const loc = useLocation(); // ⬅️ get the pending redirect
+  const loc = useLocation();
 
+  // Warm the backend to avoid cold-start lag
   useEffect(() => {
     fetch(`${API}/healthz`).catch(() => {});
   }, []);
@@ -65,16 +67,26 @@ export default function Login() {
       localStorage.setItem("user", JSON.stringify(user));
       setMsg(`✅ Logged in as "${user.username}" (${user.role})`);
 
-      // ✅ Respect the original destination (from RequireAuth → HomeGate)
-      // Only allow safe internal paths
+      // Read persisted redirect (set by RequireAuth), then state.from, then fallback by role
+      let stored: string | undefined;
+      try {
+        stored = sessionStorage.getItem("redirect") || undefined;
+        if (stored) sessionStorage.removeItem("redirect");
+      } catch {
+        // ignore storage errors
+      }
+      const safeStored =
+        typeof stored === "string" && stored.startsWith("/") ? stored : undefined;
+
       const rawFrom = (loc.state as any)?.from as string | undefined;
-      const safeFrom = typeof rawFrom === "string" && rawFrom.startsWith("/") ? rawFrom : undefined;
+      const safeFrom =
+        typeof rawFrom === "string" && rawFrom.startsWith("/") ? rawFrom : undefined;
 
-      // Fallback by role
       const fallback = user.role === "teacher" ? "/teacher-dashboard" : "/student-dashboard";
+      const dest = safeStored ?? safeFrom ?? fallback;
 
-      // Use replace: true so we don't leave login in history
-      setTimeout(() => navigate(safeFrom ?? fallback, { replace: true }), 0);
+      // Use replace so login isn't left in history
+      setTimeout(() => navigate(dest, { replace: true }), 0);
     } catch (err: any) {
       setMsg(`❌ ${err.message || "Login failed"}`);
     } finally {
