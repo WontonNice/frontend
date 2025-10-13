@@ -491,7 +491,7 @@ app.post("/api/exams/import", requireRole("teacher"), async (req, res) => {
 // ===============================
 //  SPA fallback (after APIs/static, before listen)
 // ===============================
-app.get(/^\/(?!socket\.io\/).*/, (_req, res) => {
+app.get(/^\/(?!socket\.io\/|api\/).*/, (_req, res) => {
   if (!INDEX_FILE) {
     return res.status(500).send("index.html not found. Did the build run?");
   }
