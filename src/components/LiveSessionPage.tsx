@@ -84,6 +84,9 @@ export default function LiveSessionPage() {
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [drawingDisabled, setDrawingDisabled] = useState<boolean>(false);
 
+  // live text being edited (avoid React updates each keystroke)
+  const textDraftRef = useRef<Record<string, string>>({});
+
   const dragRef = useRef<{ id: string | null; mode: "move" | "resize" | null; startX: number; startY: number; startImg: LocalImage | null; }>(
     { id: null, mode: null, startX: 0, startY: 0, startImg: null }
   );
@@ -111,7 +114,7 @@ export default function LiveSessionPage() {
     if (!sel) return;
     const range = document.createRange();
     range.selectNodeContents(el);
-    range.collapse(false); // place caret at end
+    range.collapse(false);
     sel.removeAllRanges();
     sel.addRange(range);
   }
@@ -371,6 +374,7 @@ export default function LiveSessionPage() {
         const local: LocalText = { id, text: "", x: clampedW.x, y: clampedW.y, w: 0.25 * WORLD_W };
         setTexts((prev) => [...prev, local]);
         setEditingTextId(id);
+        textDraftRef.current[id] = "";
         socketRef.current?.emit("text:add", { id, text: "", x: local.x / WORLD_W, y: local.y / WORLD_H, w: local.w / WORLD_W });
 
         // focus newly created textbox and put caret at the end
@@ -579,6 +583,18 @@ export default function LiveSessionPage() {
     focusAtEnd(el);
   }, [editingTextId]);
 
+  // ---- text helpers: live input & commit on blur (no React churn) ----
+  const onEditTextInput = (id: string, el: HTMLElement) => {
+    const val = el.innerText;
+    textDraftRef.current[id] = val;
+    socketRef.current?.emit("text:update", { id, text: val });
+  };
+  const commitText = (id: string, el?: HTMLElement | null) => {
+    const val = el?.innerText ?? textDraftRef.current[id] ?? "";
+    setTexts((prev) => prev.map((tx) => (tx.id === id ? { ...tx, text: val } : tx)));
+    setEditingTextId((prev) => (prev === id ? null : prev));
+  };
+
   // ---------- Undo / Redo (drawings) ----------
   const syncMyStrokesToServer = () => {
     if (!me || !socketRef.current) return;
@@ -717,11 +733,7 @@ export default function LiveSessionPage() {
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
 
-  const onEditText = (id: string, text: string) => {
-    setTexts((prev) => prev.map((tx) => (tx.id === id ? { ...tx, text } : tx)));
-    socketRef.current?.emit("text:update", { id, text });
-  };
-
+  // ---------- render ----------
   const drawingLockedForMe = drawingDisabled && !isTeacher;
 
   return (
@@ -784,51 +796,59 @@ export default function LiveSessionPage() {
         {texts.map((t) => {
           const pos = worldToScreen(t.x, t.y);
           const pxWidth = (t.w ?? 0.25 * WORLD_W) * viewRef.current.scale;
-          //const fontSize = Math.max(12, Math.floor(16 * viewRef.current.scale));
           return (
             <div key={t.id}
                  className="absolute pointer-events-auto group z-0"
                  style={{ left: `${pos.x}px`, top: `${pos.y}px`, transform: "translate(-50%, -50%)", width: `${pxWidth}px` }}
                  onPointerDown={(e) => beginMoveText(e, t)}>
-
-<div
-  id={`tx-${t.id}`}
-  dir="ltr"                          // ⬅️ force left-to-right
-  className={`w-full min-h-[1.5rem] rounded bg-white/80 ring-1 ring-black/10 shadow-sm px-2 py-1 outline-none
-    ${editingTextId === t.id ? "ring-2 ring-emerald-400" : ""} !text-black caret-black`}
-  contentEditable={editingTextId === t.id}
-  suppressContentEditableWarning
-  tabIndex={0}
-  onPointerDown={(e) => e.stopPropagation()}
-  onMouseDown={(e) => e.stopPropagation()}
-  onDoubleClick={(e) => {
-    e.stopPropagation();
-    setEditingTextId(t.id);
-    setTimeout(() => document.getElementById(`tx-${t.id}`)?.focus(), 0);
-  }}
-  onClick={(e) => {
-    if (editingTextId === t.id) {
-      e.stopPropagation();
-      (e.currentTarget as HTMLElement).focus();
-    }
-  }}
-  onBlur={() => setEditingTextId((prev) => (prev === t.id ? null : prev))}
-  onInput={(e) => onEditText(t.id, (e.currentTarget.textContent ?? ""))}  // ⬅️ use textContent
-  style={{
-    fontSize: Math.max(12, Math.floor(16 * viewRef.current.scale)),
-    lineHeight: 1.2,
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-    color: "#111827",
-    caretColor: "#111827",
-    WebkitTextFillColor: "#111827",
-    direction: "ltr",                 // ⬅️ explicit LTR
-    unicodeBidi: "plaintext",         // ⬅️ prevent RTL override
-    textAlign: "left",                // ⬅️ align left to feel natural
-  }}
->
-  {t.text || ""}
-</div>
+              <div
+                id={`tx-${t.id}`}
+                dir="ltr"
+                className={`w-full min-h-[1.5rem] rounded bg-white/80 ring-1 ring-black/10 shadow-sm px-2 py-1 outline-none ${
+                  editingTextId === t.id ? "ring-2 ring-emerald-400" : ""
+                } !text-black caret-black`}
+                contentEditable={editingTextId === t.id}
+                suppressContentEditableWarning
+                tabIndex={0}
+                onPointerDown={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  setEditingTextId(t.id);
+                  // ensure DOM content matches state, seed draft, and focus
+                  setTimeout(() => {
+                    const el = document.getElementById(`tx-${t.id}`) as HTMLElement | null;
+                    if (!el) return;
+                    const current = t.text || "";
+                    textDraftRef.current[t.id] = current;
+                    if (el.innerText !== current) el.innerText = current;
+                    focusAtEnd(el);
+                  }, 0);
+                }}
+                onClick={(e) => {
+                  if (editingTextId === t.id) {
+                    e.stopPropagation();
+                    (e.currentTarget as HTMLElement).focus();
+                  }
+                }}
+                onBlur={(e) => commitText(t.id, e.currentTarget as HTMLElement)}
+                onInput={(e) => onEditTextInput(t.id, e.currentTarget as HTMLElement)}
+                style={{
+                  fontSize: Math.max(12, Math.floor(16 * viewRef.current.scale)),
+                  lineHeight: 1.2,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  color: "#111827",
+                  caretColor: "#111827",
+                  WebkitTextFillColor: "#111827",
+                  direction: "ltr",
+                  unicodeBidi: "plaintext",
+                  textAlign: "left",
+                }}
+              >
+                {/* IMPORTANT: do not rerender text while editing to avoid caret jumps */}
+                {editingTextId === t.id ? null : (t.text || "")}
+              </div>
 
               {/* resize handle */}
               <div onPointerDown={(e) => beginResizeText(e, t)} className="absolute right-0 bottom-0 translate-x-1/2 translate-y-1/2 w-3 h-3 rounded-full bg-black/60 ring-2 ring-white opacity-0 group-hover:opacity-100 cursor-ew-resize" />
