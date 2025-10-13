@@ -5,8 +5,6 @@ import { Server } from "socket.io";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
-import { promises as fsp } from "fs";          // ⬅️ added
-import crypto from "crypto";                   // ⬅️ added
 import { fileURLToPath } from "url";
 
 // ---------- path resolution ----------
@@ -67,7 +65,7 @@ const io = new Server(httpServer, {
 });
 
 // ===============================
-//  Data stores (whiteboard)
+//  Data stores
 // ===============================
 /** roomCursors: Map<room, Map<socketId, {id,name,x,y}>> */
 const roomCursors = new Map();
@@ -285,213 +283,10 @@ app.post("/session/end", (req, res) => {
   res.json({ ok: true });
 });
 
-// ======================================
-//  ⬇️ File-backed Exams: helpers & API
-// ======================================
-const EXAMS_DIR = path.join(__dirname, "exams");        // JSON exam packs (with answers)
-const STATE_DIR = path.join(__dirname, "exam_state");   // {status:"open"|"closed"}
-const ATTEMPTS_DIR = path.join(__dirname, "attempts");  // per-user attempts
-
-async function ensureDirs() {
-  for (const d of [EXAMS_DIR, STATE_DIR, ATTEMPTS_DIR]) {
-    await fsp.mkdir(d, { recursive: true });
-  }
-}
-ensureDirs().catch(console.error);
-
-async function readJson(file) {
-  const txt = await fsp.readFile(file, "utf8");
-  return JSON.parse(txt);
-}
-async function writeJson(file, data) {
-  await fsp.mkdir(path.dirname(file), { recursive: true });
-  await fsp.writeFile(file, JSON.stringify(data, null, 2), "utf8");
-}
-async function listExamFiles() {
-  const all = await fsp.readdir(EXAMS_DIR);
-  return all.filter((f) => f.endsWith(".json")).map((f) => path.join(EXAMS_DIR, f));
-}
-async function loadExamById(id) {
-  try { return await readJson(path.join(EXAMS_DIR, `${id}.json`)); }
-  catch { return null; }
-}
-async function getExamState(id) {
-  try {
-    const s = await readJson(path.join(STATE_DIR, `${id}.state.json`));
-    return (s && s.status) === "open" ? "open" : "closed";
-  } catch {
-    return "closed";
-  }
-}
-function stripAnswers(exam) {
-  return {
-    id: exam.id,
-    title: exam.title,
-    subject: exam.subject,
-    version: exam.version,
-    sections: exam.sections.map((s) => ({
-      title: s.title,
-      questions: s.questions.map(({ answer, explanation, ...rest }) => rest),
-    })),
-  };
-}
-// Tiny auth shim for API role checks (replace with your real auth if you want)
-function getUser(req) {
-  const id = req.header("x-user-id") || "1";
-  const username = req.header("x-user-name") || "demo";
-  const role = req.header("x-user-role") === "teacher" ? "teacher" : "student";
-  return { id, username, role };
-}
-function requireRole(role) {
-  return (req, res, next) => {
-    const user = getUser(req);
-    if (user.role !== role) return res.status(403).json({ error: "Forbidden" });
-    req.user = user;
-    next();
-  };
-}
-
-// List exams (students see only OPEN unless ?all=1)
-app.get("/api/exams", async (req, res) => {
-  try {
-    const user = getUser(req);
-    const files = await listExamFiles();
-    const summaries = [];
-    for (const file of files) {
-      const exam = await readJson(file);
-      const status = await getExamState(exam.id);
-      summaries.push({
-        id: exam.id,
-        title: exam.title,
-        subject: exam.subject,
-        version: exam.version ?? 1,
-        status,
-      });
-    }
-    if (user.role === "student" && !("all" in req.query)) {
-      return res.json(summaries.filter((x) => x.status === "open"));
-    }
-    res.json(summaries);
-  } catch (e) {
-    res.status(500).json({ error: e?.message || "Failed to list exams" });
-  }
-});
-
-// Get a single exam (student-safe; blocked if closed)
-app.get("/api/exams/:id", async (req, res) => {
-  const user = getUser(req);
-  const { id } = req.params;
-  const exam = await loadExamById(id);
-  if (!exam) return res.status(404).json({ error: "Exam not found" });
-
-  const status = await getExamState(id);
-  if (user.role === "student" && status !== "open") {
-    return res.status(403).json({ error: "Exam is not open" });
-  }
-  res.json(user.role === "student" ? stripAnswers(exam) : exam);
-});
-
-// Create attempt
-app.post("/api/exams/:id/attempts", async (req, res) => {
-  const user = getUser(req);
-  const { id } = req.params;
-  const exam = await loadExamById(id);
-  if (!exam) return res.status(404).json({ error: "Exam not found" });
-
-  const status = await getExamState(id);
-  if (user.role === "student" && status !== "open") {
-    return res.status(403).json({ error: "Exam is not open" });
-  }
-
-  const attemptId = crypto.randomBytes(8).toString("hex");
-  const file = {
-    attemptId,
-    examId: id,
-    userId: user.id,
-    status: "active",
-    startedAt: new Date().toISOString(),
-    answers: {},
-  };
-  await writeJson(path.join(ATTEMPTS_DIR, user.id, `${attemptId}.json`), file);
-  res.json({ id: attemptId });
-});
-
-// Save attempt progress
-app.patch("/api/attempts/:attemptId/progress", async (req, res) => {
-  const user = getUser(req);
-  const fp = path.join(ATTEMPTS_DIR, user.id, `${req.params.attemptId}.json`);
-  try {
-    const cur = await readJson(fp);
-    if (cur.status !== "active") return res.status(400).json({ error: "Attempt locked" });
-    const incoming = req.body?.answers || {};
-    cur.answers = { ...cur.answers, ...incoming };
-    await writeJson(fp, cur);
-    res.json({ ok: true });
-  } catch {
-    res.status(404).json({ error: "Attempt not found" });
-  }
-});
-
-// Submit attempt (grade & lock)
-app.post("/api/attempts/:attemptId/submit", async (req, res) => {
-  const user = getUser(req);
-  const fp = path.join(ATTEMPTS_DIR, user.id, `${req.params.attemptId}.json`);
-  try {
-    const attempt = await readJson(fp);
-    if (attempt.status !== "active") return res.status(400).json({ error: "Already submitted" });
-
-    const exam = await loadExamById(attempt.examId);
-    if (!exam) return res.status(404).json({ error: "Exam not found" });
-
-    // build answer key
-    const key = new Map();
-    for (const s of exam.sections) {
-      for (const q of s.questions) {
-        if (typeof q.answer === "number") key.set(q.id, q.answer);
-      }
-    }
-
-    let correct = 0;
-    for (const [qid, choice] of Object.entries(attempt.answers || {})) {
-      if (choice != null && key.get(qid) === choice) correct++;
-    }
-
-    attempt.status = "submitted";
-    attempt.submittedAt = new Date().toISOString();
-    attempt.score = correct;
-    await writeJson(fp, attempt);
-
-    res.json({ score: correct, total: key.size });
-  } catch {
-    res.status(404).json({ error: "Attempt not found" });
-  }
-});
-
-// Teacher: open/close exam
-app.patch("/api/exams/:id/open", requireRole("teacher"), async (req, res) => {
-  await writeJson(path.join(STATE_DIR, `${req.params.id}.state.json`), { status: "open" });
-  res.json({ ok: true });
-});
-app.patch("/api/exams/:id/close", requireRole("teacher"), async (req, res) => {
-  await writeJson(path.join(STATE_DIR, `${req.params.id}.state.json`), { status: "closed" });
-  res.json({ ok: true });
-});
-
-// Teacher: import exam pack (JSON body)
-app.post("/api/exams/import", requireRole("teacher"), async (req, res) => {
-  const pack = req.body || {};
-  if (!pack.id || !pack.title || !Array.isArray(pack.sections)) {
-    return res.status(400).json({ error: "Invalid exam pack" });
-  }
-  await writeJson(path.join(EXAMS_DIR, `${pack.id}.json`), pack);
-  await writeJson(path.join(STATE_DIR, `${pack.id}.state.json`), { status: "closed" });
-  res.json({ ok: true, id: pack.id });
-});
-
 // ===============================
 //  SPA fallback (after APIs/static, before listen)
 // ===============================
-app.get(/^\/(?!socket\.io\/|api\/).*/, (_req, res) => {
+app.get(/^\/(?!socket\.io\/).*/, (_req, res) => {
   if (!INDEX_FILE) {
     return res.status(500).send("index.html not found. Did the build run?");
   }
