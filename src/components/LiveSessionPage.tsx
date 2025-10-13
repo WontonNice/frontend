@@ -774,28 +774,45 @@ export default function LiveSessionPage() {
                  onPointerDown={(e) => beginMoveText(e, t)}>
 <div
   id={`tx-${t.id}`}
-  className={`w-full min-h-[1.5rem] rounded bg-white/80 ring-1 ring-black/10 shadow-sm px-2 py-1 outline-none ${editingTextId === t.id ? "ring-2 ring-emerald-400" : ""} text-black caret-black`}
+  className={`w-full min-h-[1.5rem] rounded bg-white/80 ring-1 ring-black/10 shadow-sm px-2 py-1 outline-none
+    ${editingTextId === t.id ? "ring-2 ring-emerald-400" : ""} !text-black caret-black`}
   contentEditable={editingTextId === t.id}
   suppressContentEditableWarning
   tabIndex={0}
+  // prevent dragging when clicking to edit
   onPointerDown={(e) => e.stopPropagation()}
+  onMouseDown={(e) => e.stopPropagation()}
   onDoubleClick={(e) => {
     e.stopPropagation();
     setEditingTextId(t.id);
+    // focus after enabling contentEditable
     setTimeout(() => {
       const el = document.getElementById(`tx-${t.id}`);
       (el as HTMLElement | null)?.focus();
     }, 0);
   }}
-  onBlur={() => setEditingTextId((prev) => (prev === t.id ? null : prev))}
-  onInput={(e) => onEditText(t.id, (e.target as HTMLElement).innerText)}
+  onClick={(e) => {
+    // if already in edit mode, keep focus on click
+    if (editingTextId === t.id) {
+      e.stopPropagation();
+      (e.currentTarget as HTMLElement).focus();
+    }
+  }}
+  onBlur={() =>
+    setEditingTextId((prev) => (prev === t.id ? null : prev))
+  }
+  onInput={(e) =>
+    onEditText(t.id, (e.target as HTMLElement).innerText)
+  }
   style={{
     fontSize,
     lineHeight: 1.2,
     whiteSpace: "pre-wrap",
     wordBreak: "break-word",
-    color: "#111827",            // <- hard fallback in case utilities get overridden
+    // hard overrides in case a global rule uses !important
+    color: "#111827",
     caretColor: "#111827",
+    WebkitTextFillColor: "#111827",
   }}
 >
   {t.text || ""}
