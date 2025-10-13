@@ -58,6 +58,7 @@ export default function App() {
 
         {/* ✅ Exams route */}
         <Route path="/exams" element={<ExamsPage />} />
+        <Route path="/exam/:slug" element={<ExamsPage />} />
 
       </Route>
 
