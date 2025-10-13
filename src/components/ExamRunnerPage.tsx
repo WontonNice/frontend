@@ -102,7 +102,7 @@ export default function ExamRunnerPage() {
       {/* ======= Compact Toolbar + Status Bar ======= */}
       <div className="sticky top-14 z-30">
         {/* Toolbar */}
-        <div className="mx-auto max-w-5xl flex items-center gap-2 bg-white border border-gray-300 rounded-md px-2 py-1.5 shadow-sm">
+        <div className="w-full flex items-center gap-2 bg-white border-b border-gray-300 px-4 py-1.5 shadow-sm">
           {/* Joined blue arrows */}
           <div className="inline-flex overflow-hidden rounded-md">
             <button
@@ -253,8 +253,8 @@ export default function ExamRunnerPage() {
 
         {/* Cyan hairline + Dark status bar */}
         <div className="h-[3px] bg-sky-500" />
-        <div className="bg-[#5e5e5e] text-white text-[13px]">
-          <div className="mx-auto max-w-5xl flex items-center gap-2 px-3 py-1">
+        <div className="w-full bg-[#5e5e5e] text-white text-[13px]">
+          <div className="flex items-center gap-2 px-6 py-1">
             <span className="font-semibold">{exam.title.toUpperCase()}</span>
             <span>/</span>
             <span>SECTION {current?.sectionTitle ?? "-"}</span>
