@@ -266,17 +266,17 @@ export default function LiveSessionPage() {
       setImages((prev) => prev.map((im) => (im.id === patch.id ? { ...im, ...worldPatch } : im)));
     });
 
-        // remove images by id (used when a user clears their own images)
+    // Server may emit image:error (optional server change)
+    socket.on("image:error", (p: { reason: string; maxMB?: number }) => {
+      if (p?.reason === "too_large") {
+        alert(`That image is too large. Max allowed is ~${p.maxMB ?? 5} MB.`);
+      }
+    });
+
+    // Remove images by id (used when a user clears their images)
     socket.on("image:remove", ({ ids }: { ids: string[] }) => {
       if (!Array.isArray(ids) || !ids.length) return;
       setImages((prev) => prev.filter((im) => !ids.includes(im.id)));
-    });
-
-    // Optional: show a friendly message if the server rejects a large image
-    socket.on("image:error", (p: { reason: string; maxMB?: number }) => {
-      if (p?.reason === "too_large") {
-        alert(`That image is too large. Max allowed is ~${p.maxMB ?? 5} MB. I’ll try compressing more next time.`);
-      }
     });
 
     return () => {
@@ -470,7 +470,7 @@ export default function LiveSessionPage() {
     };
   }, [me]);
 
-  // ---------- Clear mine ----------
+  // ---------- Clear mine (now clears images I added too) ----------
   const clearMine = () => {
     if (!me) return;
     const myId = me.id;
@@ -479,6 +479,7 @@ export default function LiveSessionPage() {
     const v = viewRef.current;
     ctx.clearRect(0, 0, v.width, v.height);
     socketRef.current?.emit("draw:clear:user");
+    // also clear any images I added (server must support image:clear:mine)
     socketRef.current?.emit("image:clear:mine");
   };
 
@@ -557,7 +558,7 @@ export default function LiveSessionPage() {
 
       <div
         ref={boardRef}
-        className="relative w-full h:[calc(100vh-var(--topbar-height))] h-[calc(100vh-var(--topbar-height))] bg-white overflow-hidden touch-none"
+        className="relative w-full h-[calc(100vh-var(--topbar-height))] bg-white overflow-hidden touch-none"
         style={{ WebkitUserSelect: "none", userSelect: "none", cursor: tool === "cursor" ? "default" : drawingLockedForMe ? "not-allowed" : "crosshair" }}
       >
         {/* Images under layers */}
@@ -580,64 +581,43 @@ export default function LiveSessionPage() {
         {/* hit canvas */}
         <canvas ref={hitCanvasRef} className={`absolute z-20 ${tool === "cursor" ? "pointer-events-none" : ""}`} style={{ inset: "auto" }} />
 
-{/* cursors */}
-<div className="absolute inset-0 pointer-events-none z-30">
-  {Object.values(cursors).map((c) => {
-    const posW = normToWorld(c.x, c.y);
-    const posS = worldToScreen(posW.x, posW.y);
-
-    return (
-      <div
-        key={c.id}
-        className="absolute"
-        style={{
-          left: `${posS.x}px`,
-          top: `${posS.y}px`,
-          transform: "translate(-3px, -2px)", // arrow tip to exact position
-        }}
-      >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill={c.color}>
-          <path d="M3 2l7 18 2-7 7-2L3 2z" />
-        </svg>
-        <div
-          className="mt-1 px-2 py-0.5 text-xs font-medium rounded"
-          style={{ background: c.color, color: "#0b0d12" }}
-        >
-          {c.name}
+        {/* cursors (global arrow; tip aligned to exact position) */}
+        <div className="absolute inset-0 pointer-events-none z-30">
+          {Object.values(cursors).map((c) => {
+            const posW = normToWorld(c.x, c.y);
+            const posS = worldToScreen(posW.x, posW.y);
+            return (
+              <div key={c.id} className="absolute" style={{ left: `${posS.x}px`, top: `${posS.y}px`, transform: "translate(-3px, -2px)" }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill={c.color}><path d="M3 2l7 18 2-7 7-2L3 2z" /></svg>
+                <div className="mt-1 px-2 py-0.5 text-xs font-medium rounded" style={{ background: c.color, color: "#0b0d12" }}>{c.name}</div>
+              </div>
+            );
+          })}
         </div>
-      </div>
-    );
-  })}
-</div>
 
-{/* local brush/eraser size indicator */}
-{tool !== "cursor" && !drawingLockedForMe && me && (
-  <div className="absolute inset-0 pointer-events-none z-40">
-    {(() => {
-      const posW = normToWorld(me.x, me.y);
-      const posS = worldToScreen(posW.x, posW.y);
-      const sizePx = Math.max(1, strokeSize); // stroke size is already in screen px
-
-      // Style: ring with white/black outline for contrast
-      const ringStyle: React.CSSProperties = {
-        position: "absolute",
-        left: `${posS.x}px`,
-        top: `${posS.y}px`,
-        width: `${sizePx}px`,
-        height: `${sizePx}px`,
-        transform: "translate(-50%, -50%)",
-        borderRadius: "9999px",
-        background: "transparent",
-        boxShadow: "0 0 0 1px #fff, 0 0 0 3px rgba(0,0,0,.35)",
-        // Color edge hint (pen uses strokeColor; eraser uses darker hint)
-        border: `1px solid ${tool === "eraser" ? "rgba(0,0,0,.6)" : strokeColor}`,
-      };
-
-      return <div style={ringStyle} />;
-    })()}
-  </div>
-)}
-
+        {/* local brush/eraser size indicator (exact strokeSize in screen px) */}
+        {tool !== "cursor" && !drawingLockedForMe && me && (
+          <div className="absolute inset-0 pointer-events-none z-40">
+            {(() => {
+              const posW = normToWorld(me.x, me.y);
+              const posS = worldToScreen(posW.x, posW.y);
+              const sizePx = Math.max(1, strokeSize);
+              const ringStyle: React.CSSProperties = {
+                position: "absolute",
+                left: `${posS.x}px`,
+                top: `${posS.y}px`,
+                width: `${sizePx}px`,
+                height: `${sizePx}px`,
+                transform: "translate(-50%, -50%)",
+                borderRadius: "9999px",
+                background: tool === "eraser" ? "rgba(0,0,0,0.05)" : "transparent",
+                boxShadow: "0 0 0 1px #fff, 0 0 0 3px rgba(0,0,0,.35)",
+                border: `1px solid ${tool === "eraser" ? "rgba(0,0,0,.6)" : strokeColor}`,
+              };
+              return <div style={ringStyle} />;
+            })()}
+          </div>
+        )}
       </div>
     </div>
   );
