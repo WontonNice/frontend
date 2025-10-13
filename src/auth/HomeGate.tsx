@@ -1,33 +1,35 @@
 // src/auth/HomeGate.tsx
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import Login from "../components/Login";
 
 export default function HomeGate() {
+  const loc = useLocation();
   const user = safeGetUser();
 
-  // If not logged in → show login page
+  // Not logged in → show login page
   if (!user) return <Login />;
 
-  // Fallback: if role missing, treat as student
-  const role = user.role === "teacher" ? "teacher" : "student";
+  // Prefer the route the user originally tried to visit
+  const rawFrom = (loc.state as any)?.from as string | undefined;
+  const from =
+    typeof rawFrom === "string" && rawFrom.startsWith("/") ? rawFrom : undefined;
 
-  // Redirect based on role
-  return (
-    <Navigate
-      to={role === "teacher" ? "/teacher-dashboard" : "/student-dashboard"}
-      replace
-    />
-  );
+  // Fallback: role-based default
+  const role = user.role === "teacher" ? "teacher" : "student";
+  const defaultDest = role === "teacher" ? "/teacher-dashboard" : "/student-dashboard";
+
+  return <Navigate to={from ?? defaultDest} replace />;
 }
 
-// Helper function: avoids crashes from bad JSON
-function safeGetUser() {
+// Helper: be permissive; treat any parsed object as "logged in"
+function safeGetUser():
+  | { id?: string; username?: string; role?: "student" | "teacher"; [k: string]: unknown }
+  | null {
   try {
     const raw = localStorage.getItem("user");
     if (!raw) return null;
     const u = JSON.parse(raw);
-    if (!u || !u.id || !u.username) return null;
-    return u;
+    return u && typeof u === "object" ? u : null;
   } catch {
     return null;
   }
