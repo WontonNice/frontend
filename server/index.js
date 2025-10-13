@@ -44,7 +44,7 @@ if (!INDEX_FILE) {
 
 const app = express();
 app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") || "*" }));
-app.use(express.json());
+app.use(express.json({ limit: "12mb" }));
 
 // health check
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
@@ -73,7 +73,8 @@ const roomCursors = new Map();
  * roomState: Map<room, {
  *   sessionId:number,
  *   strokes: Array<Stroke & { userId: string }>,
- *   images: Array<WbImage>
+ *   images: Array<WbImage>,
+ *   texts: Array<WbText>
  * }>
  */
 const roomState = new Map();
@@ -86,6 +87,12 @@ const serialize = (room) => Array.from(getRoomMap(room).values());
 const clamp01 = (n) => Math.min(1, Math.max(0, Number.isFinite(n) ? n : 0.5));
 const getFlags = (room) =>
   roomFlags.get(room) || roomFlags.set(room, { drawingDisabled: false }).get(room);
+
+const getState = (room) =>
+  roomState.get(room) ||
+  roomState
+    .set(room, { sessionId: Date.now(), strokes: [], images: [], texts: [] })
+    .get(room);
 
 // ===============================
 //  Socket.io
@@ -102,16 +109,15 @@ io.on("connection", (socket) => {
     cursors.set(socket.id, { id: socket.id, name: socket.data.name, x: 0.5, y: 0.5 });
     io.to(room).emit("presence", serialize(room));
 
-    const state =
-      roomState.get(room) ||
-      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+    const state = getState(room);
     const flags = getFlags(room);
 
     const MAX_BOOTSTRAP_STROKES = 1000;
     socket.emit("session:state", {
       sessionId: state.sessionId,
       strokes: state.strokes.slice(-MAX_BOOTSTRAP_STROKES),
-      images: state.images,
+      images: state.images.map(({ ownerId, ...pub }) => pub),
+      texts: state.texts.map(({ ownerId, ...pub }) => pub),
       admin: { drawingDisabled: !!flags.drawingDisabled },
     });
   });
@@ -170,7 +176,9 @@ io.on("connection", (socket) => {
     io.to(room).emit("admin:drawing:set", { disabled: !!disabled });
   });
 
-  // Drawing + images (PERSISTED)
+  // ===============================
+  // Drawing (PERSISTED)
+  // ===============================
   socket.on("draw:segment", (p = {}) => {
     const room = socket.data.room;
     if (!room) return;
@@ -181,9 +189,7 @@ io.on("connection", (socket) => {
     const { from, to, color, size, mode } = p;
     if (!from || !to) return;
 
-    const state =
-      roomState.get(room) ||
-      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+    const state = getState(room);
 
     const stroke = {
       from: { x: clamp01(+from.x), y: clamp01(+from.y) },
@@ -202,9 +208,7 @@ io.on("connection", (socket) => {
     const room = socket.data.room;
     if (!room) return;
 
-    const state =
-      roomState.get(room) ||
-      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+    const state = getState(room);
 
     state.strokes = (state.strokes || []).filter((s) => s.userId !== socket.id);
     io.to(room).emit("draw:clear:user", { userId: socket.id });
@@ -215,15 +219,17 @@ io.on("connection", (socket) => {
     if (!room) return;
     if (socket.data.role !== "teacher") return;
 
-    const state =
-      roomState.get(room) ||
-      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+    const state = getState(room);
 
     state.strokes = [];
     state.images = [];
+    state.texts = [];
     io.to(room).emit("draw:clear");
   });
 
+  // ===============================
+  // Images (PERSISTED)
+  // ===============================
   socket.on("image:add", (img) => {
     const room = socket.data.room;
     if (!room || !img?.src) return;
@@ -235,9 +241,7 @@ io.on("connection", (socket) => {
       return;
     }
 
-    const state =
-      roomState.get(room) ||
-      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+    const state = getState(room);
 
     const safe = {
       id: img.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -252,13 +256,11 @@ io.on("connection", (socket) => {
     io.to(room).emit("image:add", publicImg);
   });
 
-  +  // Per-user image clear: remove only images added by this socket
+  // Per-user image clear: remove only images added by this socket
   socket.on("image:clear:mine", () => {
     const room = socket.data.room;
     if (!room) return;
-    const state =
-      roomState.get(room) ||
-      roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
+    const state = getState(room);
 
     const removedIds = (state.images || [])
       .filter((im) => im.ownerId === socket.id)
@@ -290,6 +292,66 @@ io.on("connection", (socket) => {
     socket.to(room).emit("image:update", { id: next.id, x: next.x, y: next.y, w: next.w });
     socket.emit("image:update", { id: next.id, x: next.x, y: next.y, w: next.w });
   });
+
+  // ===============================
+  // Text boxes (PERSISTED)
+  // ===============================
+  socket.on("text:add", (t = {}) => {
+    const room = socket.data.room;
+    if (!room) return;
+    const state = getState(room);
+
+    const safe = {
+      id: t.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      text: typeof t.text === "string" ? t.text : "",
+      x: clamp01(+t.x || 0.5),
+      y: clamp01(+t.y || 0.5),
+      w: Math.min(1, Math.max(0.1, Number.isFinite(+t.w) ? +t.w : 0.25)),
+      ownerId: socket.id,
+    };
+    state.texts.push(safe);
+    const { ownerId, ...pub } = safe;
+    io.to(room).emit("text:add", pub);
+  });
+
+  socket.on("text:update", (patch = {}) => {
+    const room = socket.data.room;
+    if (!room || !patch.id) return;
+    const state = roomState.get(room);
+    if (!state) return;
+
+    const idx = state.texts.findIndex((i) => i.id === patch.id);
+    if (idx === -1) return;
+
+    const cur = state.texts[idx];
+    const next = {
+      ...cur,
+      ...(typeof patch.text === "string" ? { text: patch.text } : {}),
+      ...(patch.x != null ? { x: clamp01(+patch.x) } : {}),
+      ...(patch.y != null ? { y: clamp01(+patch.y) } : {}),
+      ...(patch.w != null ? { w: Math.min(1, Math.max(0.1, +patch.w)) } : {}),
+    };
+    state.texts[idx] = next;
+
+    const out = { id: next.id, text: next.text, x: next.x, y: next.y, w: next.w };
+    socket.to(room).emit("text:update", out);
+    socket.emit("text:update", out);
+  });
+
+  // Remove this user's text boxes
+  socket.on("text:clear:mine", () => {
+    const room = socket.data.room;
+    if (!room) return;
+    const state = getState(room);
+
+    const removedIds = (state.texts || [])
+      .filter((tx) => tx.ownerId === socket.id)
+      .map((tx) => tx.id);
+    if (!removedIds.length) return;
+
+    state.texts = state.texts.filter((tx) => tx.ownerId !== socket.id);
+    io.to(room).emit("text:remove", { ids: removedIds });
+  });
 });
 
 // ===============================
@@ -299,7 +361,7 @@ app.post("/session/end", (req, res) => {
   const { room } = req.body || {};
   if (!room) return res.status(400).json({ error: "Missing room" });
 
-  roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] });
+  roomState.set(room, { sessionId: Date.now(), strokes: [], images: [], texts: [] });
   roomFlags.set(room, { drawingDisabled: false });
   io.to(room).emit("session:ended");
 
