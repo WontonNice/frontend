@@ -4,7 +4,7 @@ import { io, Socket } from "socket.io-client";
 
 type ServerCursor = { id: string; name: string; x: number; y: number };
 type Cursor = ServerCursor & { color: string };
-type Tool = "cursor" | "pen" | "eraser";
+type Tool = "cursor" | "pen" | "eraser" | "text";
 
 type Stroke = {
   from: { x: number; y: number }; // normalized
@@ -17,6 +17,9 @@ type StrokeMsg = Stroke & { userId: string };
 
 type NetImage = { id: string; src: string; x: number; y: number; w?: number };
 type LocalImage = { id: string; src: string; x: number; y: number; w: number };
+
+type NetText = { id: string; text: string; x: number; y: number; w?: number };
+type LocalText = { id: string; text: string; x: number; y: number; w: number };
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3001";
 const API_BASE = (SOCKET_URL as string).replace(/\/$/, "");
@@ -70,10 +73,6 @@ export default function LiveSessionPage() {
   const layerMapRef = useRef<Map<string, HTMLCanvasElement>>(new Map());
   const layerCtxRef = useRef<Map<string, CanvasRenderingContext2D>>(new Map());
   const strokesByUserRef = useRef<Map<string, Stroke[]>>(new Map());
-  // Undo/Redo (per user, local boundaries; server resynced by replaying)
-  const myStrokeEndsRef = useRef<number[]>([]); // cumulative segment counts after each finished stroke
-  const myRedoStackRef = useRef<Stroke[][]>([]);
-  const currentStrokeStartCountRef = useRef<number>(0);
 
   const [me, setMe] = useState<Cursor | null>(null);
   const [cursors, setCursors] = useState<Record<string, Cursor>>({});
@@ -81,11 +80,23 @@ export default function LiveSessionPage() {
   const [strokeColor, setStrokeColor] = useState("#111827");
   const [strokeSize, setStrokeSize] = useState(3);
   const [images, setImages] = useState<LocalImage[]>([]);
+  const [texts, setTexts] = useState<LocalText[]>([]);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [drawingDisabled, setDrawingDisabled] = useState<boolean>(false);
 
-  const dragRef = useRef<{ id: string | null; mode: "move" | "resize" | null; startX: number; startY: number; startImg: LocalImage | null; }>({ id: null, mode: null, startX: 0, startY: 0, startImg: null });
+  const dragRef = useRef<{ id: string | null; mode: "move" | "resize" | null; startX: number; startY: number; startImg: LocalImage | null; }>(
+    { id: null, mode: null, startX: 0, startY: 0, startImg: null }
+  );
+  const textDragRef = useRef<{ id: string | null; mode: "move" | "resize" | null; startX: number; startY: number; startText: LocalText | null; }>(
+    { id: null, mode: null, startX: 0, startY: 0, startText: null }
+  );
   const drawingRef = useRef(false);
   const lastNormRef = useRef<{ x: number; y: number } | null>(null);
+
+  // undo/redo for drawings
+  const myStrokeEndsRef = useRef<number[]>([]);
+  const myRedoStackRef = useRef<Stroke[][]>([]);
+  const currentStrokeStartCountRef = useRef<number>(0);
 
   const user = useMemo(() => {
     try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
@@ -169,7 +180,6 @@ export default function LiveSessionPage() {
       const name = (user?.username || (isTeacher ? "Teacher" : "Student")).toString().slice(0, 64);
       const mine: Cursor = { id: socket.id!, name, x: 0.5, y: 0.5, color: colorFromId(socket.id!) };
       setMe(mine);
-      // ✅ send role so server can gate admin actions
       socket.emit("join", { name, room: ROOM, role: isTeacher ? "teacher" : "student" });
       socket.emit("move", { x: 0.5, y: 0.5 });
       ensureLayerCanvas(socket.id!);
@@ -197,6 +207,7 @@ export default function LiveSessionPage() {
       sessionId: number;
       strokes: (Stroke & { userId?: string })[];
       images: NetImage[];
+      texts?: NetText[];
       admin?: { drawingDisabled?: boolean };
     }) => {
       strokesByUserRef.current.clear();
@@ -213,6 +224,13 @@ export default function LiveSessionPage() {
       }));
       setImages(imgs);
 
+      const txs = (payload.texts || []).map((t) => ({
+        id: t.id, text: t.text,
+        x: (t.x ?? 0.5) * WORLD_W, y: (t.y ?? 0.5) * WORLD_H,
+        w: (t.w ?? 0.25) * WORLD_W,
+      }));
+      setTexts(txs);
+
       // pick up admin flag on join
       setDrawingDisabled(!!payload.admin?.drawingDisabled);
 
@@ -223,15 +241,9 @@ export default function LiveSessionPage() {
     socket.on("draw:segment", (p: StrokeMsg) => {
       const myId = socketRef.current?.id;
       const uid = p.userId || "_unknown";
-
-      // Ignore server echo of my own segments — already drawn & stored locally
-      if (uid === myId) return;
-
+      if (uid === myId) return; // ignore self-echo
       if (!strokesByUserRef.current.has(uid)) strokesByUserRef.current.set(uid, []);
-      strokesByUserRef.current.get(uid)!.push({
-        from: p.from, to: p.to, color: p.color, size: p.size, mode: p.mode
-      });
-
+      strokesByUserRef.current.get(uid)!.push({ from: p.from, to: p.to, color: p.color, size: p.size, mode: p.mode });
       const ctx = getCtxForUser(uid);
       const fromW = normToWorld(p.from.x, p.from.y);
       const toW = normToWorld(p.to.x, p.to.y);
@@ -240,10 +252,7 @@ export default function LiveSessionPage() {
 
     socket.on("draw:clear:user", ({ userId }: { userId: string }) => {
       const myId = socketRef.current?.id;
-
-      // Ignore my own clear echo (used during undo/redo resync)
-      if (userId === myId) return;
-
+      if (userId === myId) return; // ignore self-echo during resync
       const ctx = getCtxForUser(userId);
       const v = viewRef.current;
       ctx.clearRect(0, 0, v.width, v.height);
@@ -256,6 +265,7 @@ export default function LiveSessionPage() {
       for (const ctx of layerCtxRef.current.values()) ctx.clearRect(0, 0, v.width, v.height);
       strokesByUserRef.current.clear();
       setImages([]);
+      setTexts([]);
     });
 
     socket.on("session:ended", () => {
@@ -263,6 +273,7 @@ export default function LiveSessionPage() {
       for (const ctx of layerCtxRef.current.values()) ctx.clearRect(0, 0, v.width, v.height);
       strokesByUserRef.current.clear();
       setImages([]);
+      setTexts([]);
       setDrawingDisabled(false);
     });
 
@@ -283,17 +294,37 @@ export default function LiveSessionPage() {
       setImages((prev) => prev.map((im) => (im.id === patch.id ? { ...im, ...worldPatch } : im)));
     });
 
-    // Server may emit image:error (optional server change)
+    socket.on("image:remove", ({ ids }: { ids: string[] }) => {
+      if (!Array.isArray(ids) || !ids.length) return;
+      setImages((prev) => prev.filter((im) => !ids.includes(im.id)));
+    });
+
     socket.on("image:error", (p: { reason: string; maxMB?: number }) => {
       if (p?.reason === "too_large") {
         alert(`That image is too large. Max allowed is ~${p.maxMB ?? 5} MB.`);
       }
     });
 
-    // Remove images by id (used when a user clears their images)
-    socket.on("image:remove", ({ ids }: { ids: string[] }) => {
+    // TEXT events
+    socket.on("text:add", (t: NetText) => {
+      const withW: LocalText = {
+        id: t.id, text: t.text || "",
+        x: (t.x ?? 0.5) * WORLD_W, y: (t.y ?? 0.5) * WORLD_H,
+        w: (t.w ?? 0.25) * WORLD_W,
+      };
+      setTexts((prev) => (prev.some((i) => i.id === withW.id) ? prev : [...prev, withW]));
+    });
+    socket.on("text:update", (patch: Partial<NetText> & { id: string }) => {
+      const worldPatch: Partial<LocalText> & { id: string } = { id: patch.id };
+      if (patch.text != null) (worldPatch as any).text = patch.text;
+      if (patch.x != null) worldPatch.x = patch.x * WORLD_W;
+      if (patch.y != null) worldPatch.y = patch.y * WORLD_H;
+      if (patch.w != null) worldPatch.w = patch.w * WORLD_W;
+      setTexts((prev) => prev.map((tx) => (tx.id === patch.id ? { ...tx, ...worldPatch } : tx)));
+    });
+    socket.on("text:remove", ({ ids }: { ids: string[] }) => {
       if (!Array.isArray(ids) || !ids.length) return;
-      setImages((prev) => prev.filter((im) => !ids.includes(im.id)));
+      setTexts((prev) => prev.filter((tx) => !ids.includes(tx.id)));
     });
 
     return () => {
@@ -318,13 +349,21 @@ export default function LiveSessionPage() {
       const { x: wx, y: wy } = canvasToWorld(cx, cy);
       const clampedW = { x: Math.min(Math.max(wx, 0), WORLD_W), y: Math.min(Math.max(wy, 0), WORLD_H) };
       lastNormRef.current = worldToNorm(clampedW.x, clampedW.y);
+
+      if (tool === "text" && !drawingLockedForMe) {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const local: LocalText = { id, text: "", x: clampedW.x, y: clampedW.y, w: 0.25 * WORLD_W };
+        setTexts((prev) => [...prev, local]);
+        setEditingTextId(id);
+        socketRef.current?.emit("text:add", { id, text: "", x: local.x / WORLD_W, y: local.y / WORLD_H, w: local.w / WORLD_W });
+        return;
+      }
+
       if (tool !== "cursor" && !drawingLockedForMe) {
         drawingRef.current = true;
-        if (me) {
-          const myId = me.id;
-          const arr = strokesByUserRef.current.get(myId) || [];
-          currentStrokeStartCountRef.current = arr.length;
-        }
+        const myId = me.id;
+        const arr = strokesByUserRef.current.get(myId) || [];
+        currentStrokeStartCountRef.current = arr.length;
       }
     };
 
@@ -349,7 +388,6 @@ export default function LiveSessionPage() {
         if (drawingDisabled && !isTeacher) { drawingRef.current = false; lastNormRef.current = null; return; }
         const fromN = lastNormRef.current, toN = n;
         lastNormRef.current = toN;
-
         const stroke: Stroke = { from: fromN, to: toN, color: strokeColor, size: strokeSize, mode: tool === "eraser" ? "eraser" : "pen" };
         const myId = me.id;
         const ctx = getCtxForUser(myId);
@@ -379,10 +417,29 @@ export default function LiveSessionPage() {
           socketRef.current?.emit("image:update", { id: active.id, w: newWWorld / WORLD_W });
         }
       }
+
+      // text dragging
+      const tActive = textDragRef.current;
+      if (tActive.id && tActive.mode && tActive.startText) {
+        const dxW = wx - tActive.startX, dyW = wy - tActive.startY;
+        if (tActive.mode === "move") {
+          const patchWorld = {
+            id: tActive.id,
+            x: Math.min(WORLD_W, Math.max(0, (tActive.startText.x ?? WORLD_W / 2) + dxW)),
+            y: Math.min(WORLD_H, Math.max(0, (tActive.startText.y ?? WORLD_H / 2) + dyW)),
+          };
+          setTexts((prev) => prev.map((tx) => (tx.id === patchWorld.id ? { ...tx, ...patchWorld } : tx)));
+          socketRef.current?.emit("text:update", { id: patchWorld.id, x: patchWorld.x / WORLD_W, y: patchWorld.y / WORLD_H });
+        } else if (tActive.mode === "resize") {
+          const newWWorld = Math.min(WORLD_W, Math.max(0.1 * WORLD_W, (tActive.startText.w ?? 0.25 * WORLD_W) + dxW));
+          setTexts((prev) => prev.map((tx) => (tx.id === tActive.id ? { ...tx, w: newWWorld } : tx)));
+          socketRef.current?.emit("text:update", { id: tActive.id, w: newWWorld / WORLD_W });
+        }
+      }
     };
 
     const endStroke = () => {
-      // record a stroke boundary if we added any segments since pointerdown
+      // Close a stroke: record boundary for undo if any segments were added
       if (me && drawingRef.current) {
         const myId = me.id;
         const arr = strokesByUserRef.current.get(myId) || [];
@@ -395,6 +452,7 @@ export default function LiveSessionPage() {
       drawingRef.current = false;
       lastNormRef.current = null;
       dragRef.current = { id: null, mode: null, startX: 0, startY: 0, startImg: null };
+      textDragRef.current = { id: null, mode: null, startX: 0, startY: 0, startText: null };
     };
 
     board.addEventListener("pointerdown", onPointerDown);
@@ -431,7 +489,6 @@ export default function LiveSessionPage() {
   }, []);
 
   // ---------- Paste & Drag/Drop images ----------
-  // Compress large screenshots so they pass server limits; also accept direct image URLs via paste.
   useEffect(() => {
     const fileToBitmap = (file: File) => createImageBitmap(file);
 
@@ -457,13 +514,11 @@ export default function LiveSessionPage() {
     const handleItems = async (items: DataTransferItemList | null) => {
       if (!items) return;
 
-      // 1) Prefer actual image blobs
       for (const it of Array.from(items)) {
         if (it.kind === "file" && it.type.startsWith("image/")) {
           const file = it.getAsFile();
           if (!file) continue;
           const bmp = await fileToBitmap(file);
-          // downscale + jpeg to avoid the 5MB server cutoff
           let dataUrl = await bitmapToDataUrl(bmp, 1600, 0.85);
           let approx = Math.floor(dataUrl.length * 0.75);
           if (approx > 5 * 1024 * 1024) {
@@ -475,22 +530,14 @@ export default function LiveSessionPage() {
         }
       }
 
-      // 2) Fallback: image URL text
-      const text =
-        (items as any).clipboardData?.getData?.("text/plain") ??
-        (items as any).dataTransfer?.getData?.("text/plain");
+      const text = (items as any).clipboardData?.getData?.("text/plain") ?? (items as any).dataTransfer?.getData?.("text/plain");
       if (text && /^https?:\/\/\S+\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(text.trim())) {
         addImageNormalized(text.trim());
       }
     };
 
-    const onPaste = (e: ClipboardEvent) => {
-      handleItems(e.clipboardData?.items || null);
-    };
-    const onDrop = (e: DragEvent) => {
-      e.preventDefault();
-      handleItems(e.dataTransfer?.items || null);
-    };
+    const onPaste = (e: ClipboardEvent) => { handleItems(e.clipboardData?.items || null); };
+    const onDrop = (e: DragEvent) => { e.preventDefault(); handleItems(e.dataTransfer?.items || null); };
     const onDragOver = (e: DragEvent) => e.preventDefault();
 
     window.addEventListener("paste", onPaste as any);
@@ -523,7 +570,6 @@ export default function LiveSessionPage() {
     const prevEnd = ends.length ? ends[ends.length - 1] : 0;
     const removed = all.splice(prevEnd, lastEnd - prevEnd);
     myRedoStackRef.current.push(removed);
-    // redraw my layer locally
     const ctx = getCtxForUser(myId);
     const v = viewRef.current;
     ctx.clearRect(0, 0, v.width, v.height);
@@ -532,7 +578,6 @@ export default function LiveSessionPage() {
       const toW = normToWorld(s.to.x, s.to.y);
       drawOnCtx(ctx, fromW, toW, s.color, s.size, s.mode);
     }
-    // resync server so others see the undo
     syncMyStrokesToServer();
   };
 
@@ -554,7 +599,7 @@ export default function LiveSessionPage() {
     myStrokeEndsRef.current.push(all.length);
   };
 
-  // Keyboard shortcuts (Cmd/Ctrl+Z = undo, Shift+Cmd/Ctrl+Z = redo)
+  // Keyboard shortcuts: Cmd/Ctrl+Z for undo, Shift+Cmd/Ctrl+Z for redo
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const isMod = e.metaKey || e.ctrlKey;
@@ -568,7 +613,7 @@ export default function LiveSessionPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // ---------- Clear mine (now clears images I added too) ----------
+  // ---------- Clear mine ----------
   const clearMine = () => {
     if (!me) return;
     const myId = me.id;
@@ -580,13 +625,14 @@ export default function LiveSessionPage() {
     ctx.clearRect(0, 0, v.width, v.height);
     socketRef.current?.emit("draw:clear:user");
     socketRef.current?.emit("image:clear:mine");
+    socketRef.current?.emit("text:clear:mine");
   };
 
   // ---------- Teacher controls ----------
   const teacherClearBoard = () => socketRef.current?.emit("draw:clear");
   const teacherToggleDrawing = () => {
     const next = !drawingDisabled;
-    setDrawingDisabled(next); // optimistic
+    setDrawingDisabled(next);
     socketRef.current?.emit("admin:drawing:set", { disabled: next });
   };
   const teacherEndSession = async () => {
@@ -623,6 +669,30 @@ export default function LiveSessionPage() {
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
   };
 
+  const beginMoveText = (e: React.PointerEvent, t: LocalText) => {
+    if (tool !== "cursor") return;
+    e.stopPropagation();
+    const crect = hitCanvasRef.current!.getBoundingClientRect();
+    const cx = e.clientX - crect.left, cy = e.clientY - crect.top;
+    const { x: wx, y: wy } = canvasToWorld(cx, cy);
+    textDragRef.current = { id: t.id, mode: "move", startX: wx, startY: wy, startText: { ...t } };
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  };
+  const beginResizeText = (e: React.PointerEvent, t: LocalText) => {
+    if (tool !== "cursor") return;
+    e.stopPropagation();
+    const crect = hitCanvasRef.current!.getBoundingClientRect();
+    const cx = e.clientX - crect.left;
+    const { x: wx } = canvasToWorld(cx, 0);
+    textDragRef.current = { id: t.id, mode: "resize", startX: wx, startY: 0, startText: { ...t } };
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  };
+
+  const onEditText = (id: string, text: string) => {
+    setTexts((prev) => prev.map((tx) => (tx.id === id ? { ...tx, text } : tx)));
+    socketRef.current?.emit("text:update", { id, text });
+  };
+
   const drawingLockedForMe = drawingDisabled && !isTeacher;
 
   return (
@@ -632,6 +702,7 @@ export default function LiveSessionPage() {
         <button onClick={() => setTool("cursor")} className={`px-2 py-1 text-xs rounded ${tool === "cursor" ? "bg-emerald-500 text-black" : "bg-white/10"}`}>Pointer</button>
         <button onClick={() => !drawingLockedForMe && setTool("pen")} disabled={drawingLockedForMe} title={drawingLockedForMe ? "Drawing disabled by teacher" : "Draw"} className={`px-2 py-1 text-xs rounded ${tool === "pen" ? "bg-emerald-500 text-black" : "bg-white/10"} ${drawingLockedForMe ? "opacity-50 cursor-not-allowed" : ""}`}>Draw</button>
         <button onClick={() => !drawingLockedForMe && setTool("eraser")} disabled={drawingLockedForMe} title={drawingLockedForMe ? "Drawing disabled by teacher" : "Erase"} className={`px-2 py-1 text-xs rounded ${tool === "eraser" ? "bg-emerald-500 text-black" : "bg-white/10"} ${drawingLockedForMe ? "opacity-50 cursor-not-allowed" : ""}`}>Erase</button>
+        <button onClick={() => !drawingLockedForMe && setTool("text")} disabled={drawingLockedForMe} title={drawingLockedForMe ? "Drawing disabled by teacher" : "Text box"} className={`px-2 py-1 text-xs rounded ${tool === "text" ? "bg-emerald-500 text-black" : "bg-white/10"} ${drawingLockedForMe ? "opacity-50 cursor-not-allowed" : ""}`}>Text</button>
         <input type="color" value={strokeColor} onChange={(e) => setStrokeColor(e.target.value)} className="w-6 h-6 rounded border-0 bg-transparent cursor-pointer" disabled={drawingLockedForMe} />
         <input type="range" min={1} max={24} value={strokeSize} onChange={(e) => setStrokeSize(Number(e.target.value))} className="w-24" disabled={drawingLockedForMe} />
         <button onClick={undoMine} className="px-2 py-1 text-xs rounded bg-white/10 hover:bg-white/20">Undo</button>
@@ -676,13 +747,38 @@ export default function LiveSessionPage() {
           );
         })}
 
+        {/* TEXT boxes under layers (above images) */}
+        {texts.map((t) => {
+          const pos = worldToScreen(t.x, t.y);
+          const pxWidth = (t.w ?? 0.25 * WORLD_W) * viewRef.current.scale;
+          const fontSize = Math.max(12, Math.floor(16 * viewRef.current.scale));
+          return (
+            <div key={t.id}
+                 className="absolute pointer-events-auto group z-0"
+                 style={{ left: `${pos.x}px`, top: `${pos.y}px`, transform: "translate(-50%, -50%)", width: `${pxWidth}px` }}
+                 onPointerDown={(e) => beginMoveText(e, t)}>
+              <div
+                className={`w-full min-h-[1.5rem] rounded bg-white/80 ring-1 ring-black/10 shadow-sm px-2 py-1 outline-none ${editingTextId === t.id ? "ring-2 ring-emerald-400" : ""}`}
+                contentEditable={editingTextId === t.id}
+                suppressContentEditableWarning
+                onDoubleClick={() => setEditingTextId(t.id)}
+                onBlur={() => setEditingTextId((prev) => (prev === t.id ? null : prev))}
+                onInput={(e) => onEditText(t.id, (e.target as HTMLElement).innerText)}
+                style={{ fontSize, lineHeight: 1.2, whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+              >{t.text || ""}</div>
+              {/* resize handle */}
+              <div onPointerDown={(e) => beginResizeText(e, t)} className="absolute right-0 bottom-0 translate-x-1/2 translate-y-1/2 w-3 h-3 rounded-full bg-black/60 ring-2 ring-white opacity-0 group-hover:opacity-100 cursor-ew-resize" />
+            </div>
+          );
+        })}
+
         {/* per-user canvases */}
         <div ref={layersHostRef} className="absolute inset-0 z-10 pointer-events-none" />
 
         {/* hit canvas */}
         <canvas ref={hitCanvasRef} className={`absolute z-20 ${tool === "cursor" ? "pointer-events-none" : ""}`} style={{ inset: "auto" }} />
 
-        {/* cursors (global arrow; tip aligned to exact position) */}
+        {/* cursors */}
         <div className="absolute inset-0 pointer-events-none z-30">
           {Object.values(cursors).map((c) => {
             const posW = normToWorld(c.x, c.y);
@@ -696,22 +792,16 @@ export default function LiveSessionPage() {
           })}
         </div>
 
-        {/* local brush/eraser size indicator (exact strokeSize in screen px) */}
-        {tool !== "cursor" && !drawingLockedForMe && me && (
+        {/* local brush/eraser size indicator */}
+        {tool !== "cursor" && tool !== "text" && !drawingLockedForMe && me && (
           <div className="absolute inset-0 pointer-events-none z-40">
             {(() => {
               const posW = normToWorld(me.x, me.y);
               const posS = worldToScreen(posW.x, posW.y);
               const sizePx = Math.max(1, strokeSize);
               const ringStyle: React.CSSProperties = {
-                position: "absolute",
-                left: `${posS.x}px`,
-                top: `${posS.y}px`,
-                width: `${sizePx}px`,
-                height: `${sizePx}px`,
-                transform: "translate(-50%, -50%)",
-                borderRadius: "9999px",
-                background: tool === "eraser" ? "rgba(0,0,0,0.05)" : "transparent",
+                position: "absolute", left: `${posS.x}px`, top: `${posS.y}px`, width: `${sizePx}px`, height: `${sizePx}px`,
+                transform: "translate(-50%, -50%)", borderRadius: "9999px", background: "transparent",
                 boxShadow: "0 0 0 1px #fff, 0 0 0 3px rgba(0,0,0,.35)",
                 border: `1px solid ${tool === "eraser" ? "rgba(0,0,0,.6)" : strokeColor}`,
               };
@@ -719,6 +809,7 @@ export default function LiveSessionPage() {
             })()}
           </div>
         )}
+
       </div>
     </div>
   );
