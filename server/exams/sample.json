@@ -1,0 +1,27 @@
+{
+  "id": "sample",
+  "title": "Sample Math Exam",
+  "subject": "math",
+  "version": 1,
+  "sections": [
+    {
+      "title": "Section A",
+      "questions": [
+        {
+          "id": "q1",
+          "prompt": "What is $2+2$?",
+          "choices": ["1", "2", "4", "5"],
+          "answer": 2,
+          "explanation": "Because $2+2=4$."
+        },
+        {
+          "id": "q2",
+          "prompt": "Solve $3x=12$.",
+          "choices": ["2", "3", "4", "6"],
+          "answer": 2,
+          "explanation": "$x=4$."
+        }
+      ]
+    }
+  ]
+}
