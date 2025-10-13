@@ -1,4 +1,4 @@
-// src/components/SATPage.tsx
+// src/components/ExamsPage.tsx
 import { useNavigate } from "react-router-dom";
 
 export default function ExamsPage() {
