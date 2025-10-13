@@ -331,6 +331,9 @@ export default function LiveSessionPage() {
       setTexts((prev) => (prev.some((i) => i.id === withW.id) ? prev : [...prev, withW]));
     });
     socket.on("text:update", (patch: Partial<NetText> & { id: string }) => {
+      if (patch.id && editingTextId === patch.id && patch.text != null) {
+        return;
+      }
       const worldPatch: Partial<LocalText> & { id: string } = { id: patch.id };
       if (patch.text != null) (worldPatch as any).text = patch.text;
       if (patch.x != null) worldPatch.x = patch.x * WORLD_W;
@@ -835,19 +838,6 @@ export default function LiveSessionPage() {
                 tabIndex={0}
                 onPointerDown={(e) => { if (editingTextId === t.id) e.stopPropagation(); }}
                 onMouseDown={(e) => { if (editingTextId === t.id) e.stopPropagation(); }}
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  setEditingTextId(t.id);
-                  // ensure DOM content matches state, seed draft, and focus
-                  setTimeout(() => {
-                    const el = document.getElementById(`tx-${t.id}`) as HTMLElement | null;
-                    if (!el) return;
-                    const current = t.text || "";
-                    textDraftRef.current[t.id] = current;
-                    if (el.innerText !== current) el.innerText = current;
-                    focusAtEnd(el);
-                  }, 0);
-                }}
                 onClick={(e) => {
                   if (editingTextId === t.id) {
                     e.stopPropagation();
@@ -870,7 +860,7 @@ export default function LiveSessionPage() {
                 }}
               >
                 {/* IMPORTANT: do not rerender text while editing to avoid caret jumps */}
-                {editingTextId === t.id ? null : (t.text || "")}
+                {t.text || ""}
               </div>
 
               {/* resize handle */}
