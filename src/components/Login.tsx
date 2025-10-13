@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const API = "https://backend-3wuq.onrender.com"; // your backend URL
 
@@ -41,8 +41,8 @@ export default function Login() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const loc = useLocation(); // ⬅️ get the pending redirect
 
-  // Warm the backend to avoid cold-start lag
   useEffect(() => {
     fetch(`${API}/healthz`).catch(() => {});
   }, []);
@@ -58,22 +58,23 @@ export default function Login() {
       const { user } = await postWithTimeout(
         `${API}/api/auth/login`,
         { username, password },
-        10000 // 10s timeout
+        10000
       );
 
       // Persist session
       localStorage.setItem("user", JSON.stringify(user));
       setMsg(`✅ Logged in as "${user.username}" (${user.role})`);
 
-      // Redirect based on role
-      // setTimeout to ensure state updates flush before navigation
-      setTimeout(() => {
-        if (user.role === "teacher") {
-          navigate("/teacher-dashboard");
-        } else {
-          navigate("/student-dashboard");
-        }
-      }, 0);
+      // ✅ Respect the original destination (from RequireAuth → HomeGate)
+      // Only allow safe internal paths
+      const rawFrom = (loc.state as any)?.from as string | undefined;
+      const safeFrom = typeof rawFrom === "string" && rawFrom.startsWith("/") ? rawFrom : undefined;
+
+      // Fallback by role
+      const fallback = user.role === "teacher" ? "/teacher-dashboard" : "/student-dashboard";
+
+      // Use replace: true so we don't leave login in history
+      setTimeout(() => navigate(safeFrom ?? fallback, { replace: true }), 0);
     } catch (err: any) {
       setMsg(`❌ ${err.message || "Login failed"}`);
     } finally {
