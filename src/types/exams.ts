@@ -18,7 +18,7 @@ export type Question = {
   id: string;              // "q1"
   promptMarkdown?: string; // supports rich text
   image?: string;          // "/exams/shsat-2025-a/q1.png"
-  choices?: string[];      // multiple choice
+  choices?: string[];      // multiple choicea
   answerIndex?: number;    // 0-based (optional if you separate answer keys)
   explanationMarkdown?: string;
 };
