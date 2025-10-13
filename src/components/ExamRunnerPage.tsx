@@ -12,42 +12,44 @@ export default function ExamRunnerPage() {
   const exam = slug ? getExamBySlug(slug) : undefined;
 
   // Flatten sections -> linear list of questions for navigation
-  const items = useMemo(() => {
-    if (!exam) return [];
-    const out: {
-      globalId: string;
-      sectionId: string;
-      sectionTitle: string;
-      sectionType: "reading" | "math" | string;
-      sectionPassageMarkdown?: string;
-      sectionPassageImages?: string[];
-      qIndexInSection: number;
-      qTotalInSection: number;
-      stemMarkdown?: string; // question stem (right side)
-      image?: string;
-      choices?: string[];
-    }[] = [];
+const items = useMemo(() => {
+  if (!exam) return [];
+  const out: {
+    globalId: string;
+    sectionId: string;
+    sectionTitle: string;
+    sectionType: "reading" | "math" | string;
+    sectionPassageMarkdown?: string;
+    sectionPassageImages?: string[];
+    qIndexInSection: number;
+    qTotalInSection: number;
+    stemMarkdown?: string;
+    image?: string;
+    choices?: string[];
+  }[] = [];
 
-    exam.sections.forEach((sec) => {
-      sec.questions.forEach((q, i) => {
-        out.push({
-          globalId: `${sec.id}:${q.id}`,
-          sectionId: sec.id,
-          sectionTitle: sec.title,
-          sectionType: sec.type,
-          sectionPassageMarkdown: (sec as any).passageMarkdown,
-          sectionPassageImages: (sec as any).passageImages,
-          qIndexInSection: i,
-          qTotalInSection: sec.questions.length,
-          // Back-compat: accept stemMarkdown or old promptMarkdown
-          stemMarkdown: (q as any).stemMarkdown ?? (q as any).promptMarkdown,
-          image: q.image,
-          choices: q.choices,
-        });
+  exam.sections.forEach((sec) => {
+    sec.questions.forEach((q, i) => {
+      out.push({
+        globalId: `${sec.id}:${q.id}`,
+        sectionId: sec.id,
+        sectionTitle: sec.title,
+        sectionType: sec.type,
+        // ✅ make sure these two lines are here
+        sectionPassageMarkdown: sec.passageMarkdown,
+        sectionPassageImages: sec.passageImages,
+
+        qIndexInSection: i,
+        qTotalInSection: sec.questions.length,
+        stemMarkdown: (q as any).stemMarkdown ?? (q as any).promptMarkdown,
+        image: q.image,
+        choices: q.choices,
       });
     });
-    return out;
-  }, [exam]);
+  });
+
+  return out;
+}, [exam]);
 
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
