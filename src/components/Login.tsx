@@ -2,10 +2,21 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const API = "https://backend-3wuq.onrender.com"; // your backend URL
+const API =
+  (import.meta as any)?.env?.VITE_API_URL ??
+  "https://backend-3wuq.onrender.com";
 
-// Helper: POST with timeout + safe JSON parsing
-async function postWithTimeout(url: string, body: any, ms = 10000) {
+type Role = "teacher" | "student" | (string & {});
+type User = { username: string; role: Role };
+type LoginResponse = { user: User };
+type LocationState = { from?: string };
+
+// Helper: POST with timeout + safe JSON parsing + typing
+async function postWithTimeout<T>(
+  url: string,
+  body: unknown,
+  ms = 10000
+): Promise<T> {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), ms);
 
@@ -13,19 +24,29 @@ async function postWithTimeout(url: string, body: any, ms = 10000) {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      // If your backend uses cookie sessions, uncomment:
+      // credentials: "include",
       body: JSON.stringify(body),
       signal: ctl.signal,
     });
 
     const text = await res.text();
-    let data: any = null;
-    try { data = text ? JSON.parse(text) : null; } catch {}
+    let data: unknown = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      // ignore bad JSON
+    }
 
     if (!res.ok) {
-      throw new Error((data && data.error) || text || `HTTP ${res.status}`);
+      const msg =
+        (data as any)?.error ||
+        text ||
+        `HTTP ${res.status} ${res.statusText}`;
+      throw new Error(msg);
     }
-    if (!data || !data.user) throw new Error("Bad response from server.");
-    return data;
+    if (!data) throw new Error("Empty response from server.");
+    return data as T;
   } catch (e: any) {
     if (e?.name === "AbortError") {
       throw new Error("Server is taking too long. Please try again.");
@@ -36,68 +57,85 @@ async function postWithTimeout(url: string, body: any, ms = 10000) {
   }
 }
 
+function getSafePath(maybe: unknown): string | undefined {
+  return typeof maybe === "string" && maybe.startsWith("/") ? maybe : undefined;
+}
+
 export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
-  const loc = useLocation();
+  const loc = useLocation(); // don't cast to Location; avoid DOM Location clash
 
   // Warm the backend to avoid cold-start lag
   useEffect(() => {
-    fetch(`${API}/healthz`).catch(() => {});
+    const ctl = new AbortController();
+    fetch(`${API}/healthz`, { signal: ctl.signal }).catch(() => {});
+    return () => ctl.abort();
   }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
-    if (!username || !password) return;
+    if (!username || !password || loading) return;
 
     setLoading(true);
     setMsg("");
 
     try {
-      const { user } = await postWithTimeout(
+      const { user } = await postWithTimeout<LoginResponse>(
         `${API}/api/auth/login`,
         { username, password },
         10000
       );
 
       // Persist session
-      localStorage.setItem("user", JSON.stringify(user));
-      setMsg(`✅ Logged in as "${user.username}" (${user.role})`);
-
-      // Read persisted redirect (set by RequireAuth), then state.from, then fallback by role
-      let stored: string | undefined;
       try {
-        stored = sessionStorage.getItem("redirect") || undefined;
-        if (stored) sessionStorage.removeItem("redirect");
+        localStorage.setItem("user", JSON.stringify(user));
       } catch {
         // ignore storage errors
       }
-      const safeStored =
-        typeof stored === "string" && stored.startsWith("/") ? stored : undefined;
 
-      const rawFrom = (loc.state as any)?.from as string | undefined;
-      const safeFrom =
-        typeof rawFrom === "string" && rawFrom.startsWith("/") ? rawFrom : undefined;
+      setMsg(`✅ Logged in as "${user.username}" (${user.role})`);
 
-      const fallback = user.role === "teacher" ? "/teacher-dashboard" : "/student-dashboard";
+      // Read persisted redirect (set by RequireAuth), then state.from, then fallback by role
+      let storedRaw: string | undefined;
+      try {
+        storedRaw = sessionStorage.getItem("redirect") || undefined;
+        if (storedRaw) sessionStorage.removeItem("redirect");
+      } catch {
+        storedRaw = undefined;
+      }
+
+      const safeStored = getSafePath(storedRaw);
+
+      // Narrow only the state shape (avoid casting the entire location)
+      const rawFrom = (loc.state as LocationState | undefined)?.from;
+      const safeFrom = getSafePath(rawFrom);
+
+      const fallback =
+        user.role === "teacher" ? "/teacher-dashboard" : "/student-dashboard";
       const dest = safeStored ?? safeFrom ?? fallback;
 
-console.debug("[Login] dest deciding", {
-  stored: sessionStorage.getItem("redirect"),
-  stateFrom: (useLocation().state as any)?.from,
-});
+      console.debug("[Login] redirect decision", {
+        stored: safeStored,
+        stateFrom: safeFrom,
+        fallback,
+        dest,
+      });
 
       // Use replace so login isn't left in history
-      setTimeout(() => navigate(dest, { replace: true }), 0);
+      navigate(dest, { replace: true });
     } catch (err: any) {
-      setMsg(`❌ ${err.message || "Login failed"}`);
+      setMsg(`❌ ${err?.message || "Login failed"}`);
     } finally {
       setLoading(false);
     }
   }
+
+  const canSubmit = !!username && !!password && !loading;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-6">
@@ -122,6 +160,7 @@ console.debug("[Login] dest deciding", {
             className="w-full rounded-lg px-3 py-2 text-black"
             placeholder="username"
             required
+            autoComplete="username"
           />
         </div>
 
@@ -134,14 +173,17 @@ console.debug("[Login] dest deciding", {
             className="w-full rounded-lg px-3 py-2 text-black"
             placeholder="password"
             required
+            autoComplete="current-password"
           />
         </div>
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={!canSubmit}
           className={`w-full py-2 rounded-lg font-medium transition ${
-            loading ? "bg-blue-600/50 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
+            !canSubmit
+              ? "bg-blue-600/50 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-500"
           }`}
         >
           {loading ? "Logging in…" : "Log In"}
