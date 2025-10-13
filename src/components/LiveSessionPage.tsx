@@ -572,13 +572,12 @@ export default function LiveSessionPage() {
 
         {/* hit canvas */}
         <canvas ref={hitCanvasRef} className={`absolute z-20 ${tool === "cursor" ? "pointer-events-none" : ""}`} style={{ inset: "auto" }} />
-        
+
 {/* cursors */}
 <div className="absolute inset-0 pointer-events-none z-30">
   {Object.values(cursors).map((c) => {
     const posW = normToWorld(c.x, c.y);
     const posS = worldToScreen(posW.x, posW.y);
-    const isPointerMode = tool === "cursor";
 
     return (
       <div
@@ -587,27 +586,12 @@ export default function LiveSessionPage() {
         style={{
           left: `${posS.x}px`,
           top: `${posS.y}px`,
-          // Pointer: align arrow *tip* exactly to the mouse (SVG path starts at 3,2)
-          // Drawing: center the dot on the position
-          transform: isPointerMode ? "translate(-3px, -2px)" : "translate(-50%, -50%)",
+          transform: "translate(-3px, -2px)", // arrow tip to exact position
         }}
       >
-        {isPointerMode ? (
-          // Keep size reasonable; no extra offsets needed now
-          <svg width="22" height="22" viewBox="0 0 24 24" fill={c.color}>
-            <path d="M3 2l7 18 2-7 7-2L3 2z" />
-          </svg>
-        ) : (
-          <div
-            className="rounded-full"
-            style={{
-              width: 8,
-              height: 8,
-              background: c.color,
-              boxShadow: "0 0 0 2px #fff, 0 0 0 4px rgba(0,0,0,.15)",
-            }}
-          />
-        )}
+        <svg width="22" height="22" viewBox="0 0 24 24" fill={c.color}>
+          <path d="M3 2l7 18 2-7 7-2L3 2z" />
+        </svg>
         <div
           className="mt-1 px-2 py-0.5 text-xs font-medium rounded"
           style={{ background: c.color, color: "#0b0d12" }}
