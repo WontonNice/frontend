@@ -1,24 +1,20 @@
-import { Link } from "react-router-dom";
+// src/components/SATPage.tsx
+import { useNavigate } from "react-router-dom";
 
 export default function ExamsPage() {
+  const navigate = useNavigate();
+
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">Live Activities</h2>
+      <h2 className="text-2xl font-semibold">SAT — Advanced Questions</h2>
+      <p className="text-white/70">Choose a subject below to get started.</p>
 
-      <Link
-        to="/exams"
-        className="block text-left rounded-2xl bg-[#111318] ring-1 ring-white/10 p-5 transition hover:-translate-y-0.5 hover:ring-white/20 w-full"
+      <button
+        onClick={() => navigate("/sat/math")}
+        className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 transition text-white font-semibold"
       >
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Join Session</h3>
-          <span className="text-xs px-2 py-1 rounded bg-emerald-600/20 text-emerald-300 ring-1 ring-emerald-500/30">
-            Beta
-          </span>
-        </div>
-        <p className="text-sm text-white/70 mt-2">
-          Exam test
-        </p>
-      </Link>
+        exams
+      </button>
     </div>
   );
 }
