@@ -1,27 +1,31 @@
 // src/data/exams.ts
-import type { Exam, Question } from "../types/exams";
+import type { Exam, Section, Question } from "../types/exams";
 
-// import all JSONs from src/exams
 const modules = import.meta.glob("../exams/*.json", { eager: true });
 
-function normalize(exam: any): Exam {
+function normalizeExam(rawIn: any): Exam {
+  // support both { default: json } and raw json
+  const raw = rawIn?.default ?? rawIn;
+
   return {
-    ...exam,
-    sections: (exam.sections ?? []).map((sec: any) => ({
-      ...sec,
-      // ensure passage fields survive and are strings/arrays
-      passageMarkdown: typeof sec.passageMarkdown === "string" ? sec.passageMarkdown : undefined,
-      passageImages: Array.isArray(sec.passageImages) ? sec.passageImages : undefined,
-      questions: (sec.questions ?? []).map((q: Question) => ({
+    ...raw,
+    sections: (raw.sections ?? []).map((s: any): Section => ({
+      ...s,
+      passageMarkdown: typeof s.passageMarkdown === "string" ? s.passageMarkdown : undefined,
+      passageImages: Array.isArray(s.passageImages) ? s.passageImages : undefined,
+      questions: (s.questions ?? []).map((q: any): Question => ({
         ...q,
-        // back-compat so old promptMarkdown still works
-        stemMarkdown: (q as any).stemMarkdown ?? (q as any).promptMarkdown,
+        stemMarkdown: q.stemMarkdown ?? q.promptMarkdown ?? "", // back-compat
+        image: q.image ?? undefined,
+        choices: q.choices ?? [],
+        answerIndex: typeof q.answerIndex === "number" ? q.answerIndex : undefined,
+        explanationMarkdown: q.explanationMarkdown ?? undefined,
       })),
     })),
   };
 }
 
-const exams: Exam[] = Object.values(modules).map((m: any) => normalize(m.default));
+const exams: Exam[] = Object.values(modules).map((m: any) => normalizeExam(m));
 
 export const listExams = () => exams;
 export const getExamBySlug = (slug: string) => exams.find((e) => e.slug === slug);
