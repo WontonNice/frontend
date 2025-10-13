@@ -1,0 +1,77 @@
+{
+  "slug": "shsat-2025-b",
+  "title": "SHSAT Practice B",
+  "description": "Full-length SHSAT practice test with reading and math sections.",
+  "sections": [
+    {
+      "id": "reading-1",
+      "title": "Reading Passage 1",
+      "type": "reading",
+      "passageMarkdown": "### Excerpt from *“The Science of Sleep”*\n\nby Dana Lee\n\n1) Most people underestimate the importance of sleep. It is not merely a time of rest, but an active state during which the brain organizes memories, clears toxins, and restores energy for the day ahead.\n\n2) In one experiment, participants who slept less than six hours per night for a week performed as poorly on attention tests as those who had gone two nights without sleep. Their reaction times slowed, and they made more mistakes.\n\n3) Sleep deprivation doesn’t just affect the brain—it also affects the body. Hormones that regulate appetite and metabolism are disrupted, which can lead to overeating and weight gain. Chronic sleep loss has even been linked to heart disease and diabetes.\n\n4) Scientists now believe that quality sleep is one of the best predictors of long-term health. It’s not a luxury—it’s a biological necessity.",
+      "passageImages": [
+        "/exams/shsat-2025-b/reading-1/figure-1.png"
+      ],
+      "questions": [
+        {
+          "id": "q1",
+          "stemMarkdown": "Which sentence best expresses the main idea of the passage?",
+          "choices": [
+            "A. Sleep is a luxury that people can do without.",
+            "B. Getting enough sleep is essential for both mental and physical health.",
+            "C. Sleep deprivation only affects concentration.",
+            "D. Most people sleep more than they need to."
+          ],
+          "answerIndex": 1
+        },
+        {
+          "id": "q2",
+          "stemMarkdown": "Which statement from the passage provides evidence that sleep affects more than the brain?",
+          "choices": [
+            "A. 'It is not merely a time of rest, but an active state during which the brain organizes memories.'",
+            "B. 'In one experiment, participants who slept less than six hours performed poorly on attention tests.'",
+            "C. 'Hormones that regulate appetite and metabolism are disrupted, which can lead to overeating and weight gain.'",
+            "D. 'Scientists now believe that quality sleep is one of the best predictors of long-term health.'"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "id": "q3",
+          "stemMarkdown": "What is the tone of the passage?",
+          "choices": [
+            "A. Cautionary and informative",
+            "B. Sarcastic and humorous",
+            "C. Angry and emotional",
+            "D. Uncertain and speculative"
+          ],
+          "answerIndex": 0
+        }
+      ]
+    },
+
+    {
+      "id": "math-1",
+      "title": "Math Set 1",
+      "type": "math",
+      "questions": [
+        {
+          "id": "q4",
+          "stemMarkdown": "A rectangular field is 20 meters long and 10 meters wide. What is its area?",
+          "choices": ["100", "150", "200", "300"],
+          "answerIndex": 2
+        },
+        {
+          "id": "q5",
+          "stemMarkdown": "If a triangle has a base of 8 cm and a height of 5 cm, what is its area?",
+          "choices": ["10", "20", "25", "40"],
+          "answerIndex": 1
+        },
+        {
+          "id": "q6",
+          "stemMarkdown": "What is the value of x if 3x + 9 = 18?",
+          "choices": ["2", "3", "4", "5"],
+          "answerIndex": 2
+        }
+      ]
+    }
+  ]
+}

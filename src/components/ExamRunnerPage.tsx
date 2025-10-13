@@ -18,21 +18,29 @@ export default function ExamRunnerPage() {
       globalId: string;
       sectionId: string;
       sectionTitle: string;
+      sectionType: "reading" | "math" | string;
+      sectionPassageMarkdown?: string;
+      sectionPassageImages?: string[];
       qIndexInSection: number;
       qTotalInSection: number;
-      promptMarkdown?: string;
+      stemMarkdown?: string; // question stem (right side)
       image?: string;
       choices?: string[];
     }[] = [];
+
     exam.sections.forEach((sec) => {
       sec.questions.forEach((q, i) => {
         out.push({
           globalId: `${sec.id}:${q.id}`,
           sectionId: sec.id,
           sectionTitle: sec.title,
+          sectionType: sec.type,
+          sectionPassageMarkdown: (sec as any).passageMarkdown,
+          sectionPassageImages: (sec as any).passageImages,
           qIndexInSection: i,
           qTotalInSection: sec.questions.length,
-          promptMarkdown: q.promptMarkdown,
+          // Back-compat: accept stemMarkdown or old promptMarkdown
+          stemMarkdown: (q as any).stemMarkdown ?? (q as any).promptMarkdown,
           image: q.image,
           choices: q.choices,
         });
@@ -52,7 +60,7 @@ export default function ExamRunnerPage() {
     setReviewOpen(false);
   }, [slug]);
 
-  // Keyboard navigation + close review on ESC
+  // Keyboard nav + close review on ESC
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") setIdx((i) => Math.min(items.length - 1, i + 1));
@@ -99,9 +107,9 @@ export default function ExamRunnerPage() {
 
   return (
     <div className="space-y-4">
-      {/* ======= Compact Toolbar + Status Bar ======= */}
+      {/* ======= FULL-WIDTH Compact Toolbar + Status Bar ======= */}
       <div className="sticky top-14 z-30">
-        {/* Toolbar */}
+        {/* Toolbar (full-width) */}
         <div className="w-full flex items-center gap-2 bg-white border-b border-gray-300 px-4 py-1.5 shadow-sm">
           {/* Joined blue arrows */}
           <div className="inline-flex overflow-hidden rounded-md">
@@ -201,7 +209,7 @@ export default function ExamRunnerPage() {
             )}
           </div>
 
-          {/* Bookmark */}
+          {/* Bookmark (visual) */}
           <button
             className="inline-flex items-center gap-1.5 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
             title="Bookmark Question for Review"
@@ -251,8 +259,8 @@ export default function ExamRunnerPage() {
           </div>
         </div>
 
-        {/* Cyan hairline + Dark status bar */}
-        <div className="h-[3px] bg-sky-500" />
+        {/* Cyan hairline + Dark status bar (full-width) */}
+        <div className="h-[3px] bg-sky-500 border-t border-gray-300" />
         <div className="w-full bg-[#5e5e5e] text-white text-[13px]">
           <div className="flex items-center gap-2 px-6 py-1">
             <span className="font-semibold">{exam.title.toUpperCase()}</span>
@@ -273,32 +281,58 @@ export default function ExamRunnerPage() {
       {/* ======= Main “Sheet” (two columns) ======= */}
       <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left: scrollable passage / prompt */}
+          {/* Left: shared section passage (scrollable) */}
           <div className="rounded-lg border border-gray-200 shadow-sm p-4">
             <div className="h-[520px] overflow-y-auto">
               <div className="border rounded-md p-6 bg-white">
-                {current?.promptMarkdown ? (
+                {current.sectionPassageMarkdown ? (
                   <div className="prose max-w-none">
-                    <ReactMarkdown>{current.promptMarkdown}</ReactMarkdown>
+                    <ReactMarkdown>{current.sectionPassageMarkdown}</ReactMarkdown>
                   </div>
+                ) : current.image || current.stemMarkdown ? (
+                  <>
+                    {current.stemMarkdown && (
+                      <div className="prose max-w-none">
+                        <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
+                      </div>
+                    )}
+                    {current.image && (
+                      <img
+                        src={current.image}
+                        alt="question"
+                        className="mt-4 max-w-full rounded border border-gray-200"
+                      />
+                    )}
+                  </>
                 ) : (
-                  <p className="text-gray-500">No passage for this question.</p>
+                  <p className="text-gray-500">No passage for this item.</p>
                 )}
 
-                {current?.image && (
-                  <img
-                    src={current.image}
-                    alt="question"
-                    className="mt-4 max-w-full rounded border border-gray-200"
-                  />
-                )}
+                {current.sectionPassageImages?.length ? (
+                  <div className="mt-4 space-y-3">
+                    {current.sectionPassageImages.map((src, i) => (
+                      <img
+                        key={i}
+                        src={src}
+                        alt={`passage-figure-${i + 1}`}
+                        className="max-w-full rounded border border-gray-200"
+                      />
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
 
-          {/* Right: radio choices */}
+          {/* Right: question stem + choices */}
           <div className="rounded-lg border border-gray-200 shadow-sm p-4">
-            {current?.choices ? (
+            {current.stemMarkdown ? (
+              <div className="prose max-w-none mb-4">
+                <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
+              </div>
+            ) : null}
+
+            {current.choices ? (
               <ul className="space-y-4">
                 {current.choices.map((choice, i) => {
                   const selected = answers[current.globalId] === i;

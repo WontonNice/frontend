@@ -1,25 +1,63 @@
 {
-  "id": "sample",
-  "title": "Sample Math Exam",
-  "subject": "math",
-  "version": 1,
+  "slug": "shsat-2025-a",
+  "title": "SHSAT Practice A",
+  "description": "Full-length practice with reading & math.",
   "sections": [
     {
-      "title": "Section A",
+      "id": "reading-1",
+      "title": "Reading Passage 1",
+      "type": "reading",
+      "passageMarkdown": "### Excerpt from *“It’s Time to Stop Thinking That All Non-Native Species Are Evil”*\n\nby Emma Marris\n\n1) Invasive species are scary. It was ecologist Charles Elton, back in the 1950s, who introduced the militaristic 'invasion' metaphor to describe exotic plants and animals—but there’s no question some can be extremely destructive.\n\n2) The brown tree snake has eaten a dozen kinds of forest birds in Guam to extinction; zebra mussels clog pipes around the Great Lakes; the common house cat turns out to be, in Australia, a mercilessly effective killer of cute, fluffy marsupials like the bilby and the numbat.\n\n3) As scientists have sounded the alarm about these pests, the public has gotten the message: species that move into new habitats are dangerous invaders that must be eradicated. But the reality is more complicated.",
+      "passageImages": [
+        "/exams/shsat-2025-a/reading-1/figure-1.png"
+      ],
       "questions": [
         {
           "id": "q1",
-          "prompt": "What is $2+2$?",
-          "choices": ["1", "2", "4", "5"],
-          "answer": 2,
-          "explanation": "Because $2+2=4$."
+          "stemMarkdown": "Which sentence from the excerpt supports the conclusion that Elton’s 'militaristic invasion' metaphor influenced science?",
+          "choices": [
+            "A. 'Among [Olden’s] findings: a substantial number of them said they would immediately eradicate a hypothetical non-native forest plant, even if it were shown to have no effect on the forest.' (paragraph 5)",
+            "B. 'Regardless of what we label them, conservationists will be reluctant to remove them from their new environs—to do so would stymie their chances of adapting to the warmer future we’re creating.' (paragraph 8)",
+            "C. 'A project to rip out and poison the spartina—which grows in dense swaths that exclude many other shorebirds—saw clapper rail numbers go tumbling downward.' (paragraph 10)",
+            "D. 'In some cases we can best serve biodiversity by leaving the non-natives alone or even—brace yourself, now—introducing them on purpose.' (paragraph 14)"
+          ],
+          "answerIndex": 0
         },
         {
           "id": "q2",
-          "prompt": "Solve $3x=12$.",
-          "choices": ["2", "3", "4", "6"],
-          "answer": 2,
-          "explanation": "$x=4$."
+          "stemMarkdown": "Which choice best states the main idea of the excerpt?",
+          "choices": [
+            "A. Invasive species always pose a severe threat to biodiversity.",
+            "B. Scientists must completely eradicate all non-native species to preserve ecosystems.",
+            "C. The view that all non-native species are harmful oversimplifies a more complex reality.",
+            "D. Human activity has little effect on ecological balance."
+          ],
+          "answerIndex": 2
+        }
+      ]
+    },
+    {
+      "id": "math-1",
+      "title": "Math Set 1",
+      "type": "math",
+      "questions": [
+        {
+          "id": "q3",
+          "stemMarkdown": "Find the area of the triangle shown below.",
+          "image": "/exams/shsat-2025-a/math-1/q3.png",
+          "choices": ["10", "12", "15", "18"],
+          "answerIndex": 2
+        },
+        {
+          "id": "q4",
+          "stemMarkdown": "If the length of one side of a square is doubled, how does its area change?",
+          "choices": [
+            "A. It doubles",
+            "B. It triples",
+            "C. It quadruples",
+            "D. It stays the same"
+          ],
+          "answerIndex": 2
         }
       ]
     }
