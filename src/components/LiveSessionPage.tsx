@@ -354,6 +354,12 @@ export default function LiveSessionPage() {
     const onPointerDown = (e: PointerEvent) => {
       // Don't capture/paint while editing a text box
       if (editingTextId) return;
+      if (tool === "text") {
+        const target = e.target as HTMLElement | null;
+        if (target && target.closest?.('[data-tx-wrapper="1"]')) {
+          return;
+        }
+      }
       if (tool !== "text") {
         (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
       }
@@ -793,6 +799,7 @@ export default function LiveSessionPage() {
 
           return (
             <div
+              data-tx-wrapper="1"
               key={t.id}
               className={`absolute group z-0 ${tool === "cursor" && !isEditing ? "cursor-move" : tool === "text" ? "cursor-text" : ""}`}
               style={{ left: `${pos.x}px`, top: `${pos.y}px`, transform: "translate(-50%, -50%)", width: `${pxWidth}px` }}
