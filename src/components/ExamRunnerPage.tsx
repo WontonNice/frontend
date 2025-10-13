@@ -1,5 +1,5 @@
 // src/components/ExamRunnerPage.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getExamBySlug } from "../data/exams";
 import ReactMarkdown from "react-markdown";
@@ -24,7 +24,6 @@ export default function ExamRunnerPage() {
       image?: string;
       choices?: string[];
     }[] = [];
-
     exam.sections.forEach((sec) => {
       sec.questions.forEach((q, i) => {
         out.push({
@@ -44,21 +43,35 @@ export default function ExamRunnerPage() {
 
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
+  const [reviewOpen, setReviewOpen] = useState(false); // NEW: review dropdown
+  const reviewWrapRef = useRef<HTMLDivElement>(null);   // NEW: outside-click
 
   useEffect(() => {
     setIdx(0);
     setAnswers({});
+    setReviewOpen(false);
   }, [slug]);
 
-  // Keyboard navigation
+  // Keyboard navigation + close review on ESC
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") setIdx((i) => Math.min(items.length - 1, i + 1));
       if (e.key === "ArrowLeft") setIdx((i) => Math.max(0, i - 1));
+      if (e.key === "Escape") setReviewOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [items.length]);
+
+  // Click outside to close review
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (!reviewWrapRef.current) return;
+      if (!reviewWrapRef.current.contains(e.target as Node)) setReviewOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
 
   if (!exam) {
     return (
@@ -75,6 +88,10 @@ export default function ExamRunnerPage() {
 
   const goPrev = () => setIdx((i) => Math.max(0, i - 1));
   const goNext = () => setIdx((i) => Math.min(total - 1, i + 1));
+  const jumpTo = (i: number) => {
+    setIdx(i);
+    setReviewOpen(false);
+  };
   const selectChoice = (choiceIndex: number) => {
     if (!current) return;
     setAnswers((prev) => ({ ...prev, [current.globalId]: choiceIndex }));
@@ -83,7 +100,7 @@ export default function ExamRunnerPage() {
   return (
     <div className="space-y-4">
       {/* ===== TOP CONTROLS: compact toolstrip + cyan hairline + dark status bar ===== */}
-      <div className="sticky top-16 z-30"> {/* adjust if your back button bar is taller/shorter */}
+      <div className="sticky top-16 z-30">
         {/* Toolstrip */}
         <div className="mx-auto max-w-4xl rounded-2xl border border-gray-300 bg-white shadow-sm px-3 py-2">
           <div className="flex items-center gap-3">
@@ -115,22 +132,104 @@ export default function ExamRunnerPage() {
               </button>
             </div>
 
-            {/* Review / Bookmark (placeholders for now) */}
-            <button className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50">
-              <span className="opacity-90">👁</span> Review
-            </button>
-            <button className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50">
-              <span className="opacity-90">🔖</span> Bookmark
+            {/* ===== Review (with dropdown) ===== */}
+            <div className="relative" ref={reviewWrapRef}>
+              <button
+                onClick={() => setReviewOpen((v) => !v)}
+                className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-gradient-to-b from-white to-gray-100 px-3 py-2 text-sm shadow-sm hover:bg-gray-50"
+              >
+                {/* list icon to match screenshot */}
+                <span className="inline-block h-4 w-4 relative">
+                  <span className="absolute inset-x-0 top-0 h-0.5 bg-gray-700 rounded" />
+                  <span className="absolute inset-x-0 top-1.5 h-0.5 bg-gray-700 rounded" />
+                  <span className="absolute inset-x-0 top-3 h-0.5 bg-gray-700 rounded" />
+                </span>
+                Review
+              </button>
+
+              {/* Dropdown panel */}
+              {reviewOpen && (
+                <div className="absolute left-0 mt-2 w-[560px] rounded-lg border border-gray-300 bg-white shadow-xl">
+                  {/* caret */}
+                  <div className="absolute -top-2 left-8 h-3 w-3 rotate-45 bg-white border-l border-t border-gray-300" />
+                  <div className="p-3">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm font-semibold">
+                        Navigate Questions
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {idx + 1} / {total} answered:{" "}
+                        {
+                          Object.values(answers).filter(
+                            (v) => typeof v === "number"
+                          ).length
+                        }
+                      </div>
+                    </div>
+
+                    {/* Grid of question pills */}
+                    <div className="max-h-64 overflow-auto">
+                      <div className="grid grid-cols-10 gap-2">
+                        {items.map((it, i) => {
+                          const answered = typeof answers[it.globalId] === "number";
+                          const isCurrent = i === idx;
+                          return (
+                            <button
+                              key={it.globalId}
+                              onClick={() => jumpTo(i)}
+                              className={[
+                                "h-8 w-8 rounded-md text-xs font-medium border",
+                                "focus:outline-none focus:ring-2 focus:ring-blue-400",
+                                answered
+                                  ? "bg-green-50 border-green-300 text-green-800"
+                                  : "bg-gray-50 border-gray-300 text-gray-700",
+                                isCurrent && "ring-2 ring-blue-500",
+                              ].join(" ")}
+                              title={`${it.sectionTitle} · Q${it.qIndexInSection + 1}`}
+                            >
+                              {i + 1}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Section legend */}
+                    <div className="mt-3 flex items-center gap-3 text-xs text-gray-600">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="h-3 w-3 rounded bg-green-200 border border-green-300 inline-block" />
+                        Answered
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="h-3 w-3 rounded bg-gray-200 border border-gray-300 inline-block" />
+                        Unanswered
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bookmark (visual match, no-op for now) */}
+            <button className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-gradient-to-b from-white to-gray-100 px-3 py-2 text-sm shadow-sm hover:bg-gray-50">
+              <span className="inline-block h-4 w-4">
+                {/* simple bookmark glyph */}
+                <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-gray-700" strokeWidth={1.6}>
+                  <path d="M7 3h10a1 1 0 0 1 1 1v17l-6-3-6 3V4a1 1 0 0 1 1-1Z"/>
+                </svg>
+              </span>
+              Bookmark
             </button>
 
             <div className="flex-1" />
 
-            {/* Pointer / Stop / Close / Fullscreen (placeholders) */}
+            {/* Pointer / Stop / Close / Fullscreen (visual only) */}
             <div className="flex items-center gap-2">
-              <button className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50">·</button>
-              <button className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50">▢</button>
-              <button className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50">✕</button>
-              <button className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50">⤢</button>
+              <button className="rounded-md border border-gray-300 bg-gradient-to-b from-white to-gray-100 px-3 py-2 text-sm shadow-sm hover:bg-gray-50">·</button>
+              <button className="rounded-md border border-gray-300 bg-gradient-to-b from-white to-gray-100 px-3 py-2 text-sm shadow-sm hover:bg-gray-50">▢</button>
+              <button className="rounded-md border border-gray-300 bg-gradient-to-b from-white to-gray-100 px-3 py-2 text-sm shadow-sm hover:bg-gray-50">✕</button>
+              <button className="rounded-md border border-gray-300 bg-gradient-to-b from-white to-gray-100 px-3 py-2 text-sm shadow-sm hover:bg-gray-50">⤢</button>
             </div>
           </div>
         </div>
