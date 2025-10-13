@@ -1,16 +1,17 @@
-// src/components/ExamRunnerPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getExamBySlug } from "../data/exams";
 import ReactMarkdown from "react-markdown";
+import { ChevronLeft, ChevronRight, Bookmark, Eye, Square, X, Maximize2 } from "lucide-react";
 
-type AnswerMap = Record<string, number | undefined>; // key = question globalId, value = choice index
+/** Stores selected choice index per question */
+type AnswerMap = Record<string, number | undefined>;
 
 export default function ExamRunnerPage() {
   const { slug } = useParams<{ slug: string }>();
   const exam = slug ? getExamBySlug(slug) : undefined;
 
-  // Flatten all questions into a linear list for easy navigation
+  // Flatten exam -> linear questions for nav
   const items = useMemo(() => {
     if (!exam) return [];
     const out: {
@@ -38,14 +39,14 @@ export default function ExamRunnerPage() {
         });
       });
     });
+
     return out;
   }, [exam]);
 
   const [idx, setIdx] = useState(0);
-  const [answers, setAnswers] = useState<AnswerMap>({}); // selections per question
+  const [answers, setAnswers] = useState<AnswerMap>({});
 
   useEffect(() => {
-    // reset index if exam changes
     setIdx(0);
     setAnswers({});
   }, [slug]);
@@ -53,155 +54,173 @@ export default function ExamRunnerPage() {
   // keyboard arrows
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") goNext();
-      if (e.key === "ArrowLeft") goPrev();
+      if (e.key === "ArrowRight") setIdx((i) => Math.min(items.length - 1, i + 1));
+      if (e.key === "ArrowLeft") setIdx((i) => Math.max(0, i - 1));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idx, items.length]);
+  }, [items.length]);
 
   if (!exam) {
     return (
       <div className="mx-auto max-w-2xl">
         <h1 className="text-2xl font-semibold text-red-600">Exam not found</h1>
-        <p className="text-gray-600 mt-2">Check the URL or go back to the exams list.</p>
+        <p className="text-gray-600 mt-2">Check the URL or choose from the exams list.</p>
       </div>
     );
   }
 
   const current = items[idx];
   const total = items.length;
-  const progress = total ? Math.round(((idx + 1) / total) * 100) : 0;
+  const progressPct = total ? Math.round(((idx + 1) / total) * 100) : 0;
 
-  function goPrev() {
-    setIdx((i) => Math.max(0, i - 1));
-  }
-  function goNext() {
-    setIdx((i) => Math.min(total - 1, i + 1));
-  }
+  const goPrev = () => setIdx((i) => Math.max(0, i - 1));
+  const goNext = () => setIdx((i) => Math.min(total - 1, i + 1));
 
-  function selectChoice(choiceIndex: number) {
+  const selectChoice = (choiceIndex: number) => {
+    if (!current) return;
     setAnswers((prev) => ({ ...prev, [current.globalId]: choiceIndex }));
-  }
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header / Title */}
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold">{exam.title}</h1>
-        {exam.description && <p className="text-gray-600">{exam.description}</p>}
-      </header>
-
-      {/* Progress bar + controls */}
-      <div className="rounded-lg border border-gray-200 p-3 flex items-center gap-4">
-        <div className="flex-1">
-          <div className="text-sm text-gray-600 mb-1">
-            Question {idx + 1} of {total} · {current?.sectionTitle}
+    <div className="space-y-4">
+      {/* ======= TOOLSTRIP (blue arrows + actions) ======= */}
+      <div className="sticky top-[60px] z-30 bg-white border rounded-lg shadow-sm px-3 py-2">
+        <div className="flex items-center gap-3">
+          {/* Blue arrows (left / right) */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goPrev}
+              disabled={idx === 0}
+              className={`inline-flex items-center gap-1 rounded-md px-3 py-2 text-white font-medium ${
+                idx === 0 ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
+              }`}
+              aria-label="Previous"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              onClick={goNext}
+              disabled={idx === total - 1}
+              className={`inline-flex items-center gap-1 rounded-md px-3 py-2 text-white font-medium ${
+                idx === total - 1 ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
+              }`}
+              aria-label="Next"
+            >
+              <ChevronRight size={18} />
+            </button>
           </div>
-          <div className="h-2 w-full bg-gray-100 rounded">
-            <div
-              className="h-2 rounded bg-blue-600 transition-[width]"
-              style={{ width: `${progress}%` }}
-            />
+
+          {/* Review / Bookmark */}
+          <div className="flex items-center gap-2">
+            <button className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2">
+              <Eye size={16} /> Review
+            </button>
+            <button className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2">
+              <Bookmark size={16} /> Bookmark
+            </button>
+          </div>
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Center icons (pointer / stop / close / fullscreen) */}
+          <div className="flex items-center gap-2">
+            <button className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50">
+              ▪︎
+            </button>
+            <button className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2">
+              <Square size={16} /> 
+            </button>
+            <button className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2">
+              <X size={16} />
+            </button>
+            <button className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2">
+              <Maximize2 size={16} />
+            </button>
           </div>
         </div>
 
-        {/* Left / Right blue arrows */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={goPrev}
-            disabled={idx === 0}
-            className={`rounded-md px-3 py-2 text-white font-medium ${
-              idx === 0 ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
-            }`}
-            aria-label="Previous question"
-          >
-            ←
-          </button>
-          <button
-            onClick={goNext}
-            disabled={idx === total - 1}
-            className={`rounded-md px-3 py-2 text-white font-medium ${
-              idx === total - 1 ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
-            }`}
-            aria-label="Next question"
-          >
-            →
-          </button>
+        {/* Breadcrumb + slim progress */}
+        <div className="mt-3 text-[13px] text-gray-700 flex items-center gap-2">
+          <span className="font-medium uppercase tracking-wide">{exam.title}</span>
+          <span className="opacity-60">/</span>
+          <span>Section {current ? current.sectionTitle : "-"}</span>
+          <span className="opacity-60">/</span>
+          <span>{idx + 1} of {total}</span>
+          <span className="opacity-60">/</span>
+          <span>{progressPct}%</span>
+        </div>
+        <div className="mt-1 h-2 w-full bg-gray-200 rounded">
+          <div
+            className="h-2 rounded bg-blue-600 transition-[width]"
+            style={{ width: `${progressPct}%` }}
+          />
         </div>
       </div>
 
-      {/* Question “paper” */}
-      {current && (
-        <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-4">
-          {/* per-section breadcrumb */}
-          <div className="text-sm text-gray-500">
-            {current.sectionTitle} · Question {current.qIndexInSection + 1} / {current.qTotalInSection}
+      {/* ======= MAIN “SHEET” (two columns) ======= */}
+      <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left: Passage (scrollable card) */}
+          <div className="rounded-lg border border-gray-200 shadow-sm p-4">
+            <div className="h-[520px] overflow-y-auto">
+              {/* Mocked inner “paper” look */}
+              <div className="border rounded-md p-6 bg-white">
+                {/* Example: title could be embedded in prompt/section content if desired */}
+                {/* You can render a passageMarkdown for reading sections if present */}
+                {current?.promptMarkdown ? (
+                  <div className="prose max-w-none">
+                    <ReactMarkdown>{current.promptMarkdown}</ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No passage for this question.</p>
+                )}
+                {current?.image && (
+                  <img
+                    src={current.image}
+                    alt="question"
+                    className="mt-4 max-w-full rounded border border-gray-200"
+                  />
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* prompt */}
-          {current.promptMarkdown && (
-            <div className="prose max-w-none">
-              <ReactMarkdown>{current.promptMarkdown}</ReactMarkdown>
-            </div>
-          )}
+          {/* Right: Choices */}
+          <div className="rounded-lg border border-gray-200 shadow-sm p-4">
+            {current?.choices ? (
+              <ul className="space-y-4">
+                {current.choices.map((choice, i) => {
+                  const selected = answers[current.globalId] === i;
+                  return (
+                    <li key={i}>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="radio"
+                          name={current.globalId}
+                          className="h-5 w-5"
+                          checked={selected}
+                          onChange={() => selectChoice(i)}
+                        />
+                        <span className="flex-1 rounded-lg px-3 py-2 bg-gray-50 border border-gray-200">
+                          {choice}
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-gray-500">No choices for this item.</p>
+            )}
+          </div>
+        </div>
+      </div>
 
-          {/* image */}
-          {current.image && (
-            <img
-              src={current.image}
-              alt={`${exam.title}`}
-              className="max-w-full rounded-lg border border-gray-200"
-            />
-          )}
-
-          {/* choices */}
-          {current.choices && (
-            <ol className="grid sm:grid-cols-2 gap-2 list-decimal list-inside">
-              {current.choices.map((choice, i) => {
-                const selected = answers[current.globalId] === i;
-                return (
-                  <li key={i}>
-                    <button
-                      onClick={() => selectChoice(i)}
-                      className={`w-full text-left px-3 py-2 rounded-lg border transition ${
-                        selected
-                          ? "bg-blue-50 border-blue-400"
-                          : "bg-gray-50 border-gray-200 hover:bg-gray-100"
-                      }`}
-                    >
-                      {choice}
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-        </section>
-      )}
-
-      {/* Bottom nav (optional duplicate) */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={goPrev}
-          disabled={idx === 0}
-          className={`rounded-md px-4 py-2 text-white font-medium ${
-            idx === 0 ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
-          }`}
-        >
-          ← Previous
-        </button>
-        <div className="text-sm text-gray-500">Use ← and → keys to navigate</div>
-        <button
-          onClick={goNext}
-          disabled={idx === total - 1}
-          className={`rounded-md px-4 py-2 text-white font-medium ${
-            idx === total - 1 ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
-          }`}
-        >
-          Next →
-        </button>
+      {/* Bottom nav hint */}
+      <div className="text-center text-sm text-gray-500">
+        Use ← and → keys to navigate
       </div>
     </div>
   );
