@@ -772,25 +772,35 @@ export default function LiveSessionPage() {
                  className="absolute pointer-events-auto group z-0"
                  style={{ left: `${pos.x}px`, top: `${pos.y}px`, transform: "translate(-50%, -50%)", width: `${pxWidth}px` }}
                  onPointerDown={(e) => beginMoveText(e, t)}>
-              <div
-                id={`tx-${t.id}`}
-                className={`w-full min-h-[1.5rem] rounded bg-white/80 ring-1 ring-black/10 shadow-sm px-2 py-1 outline-none ${editingTextId === t.id ? "ring-2 ring-emerald-400" : ""}`}
-                contentEditable={editingTextId === t.id}
-                suppressContentEditableWarning
-                tabIndex={0}
-                onPointerDown={(e) => e.stopPropagation()}
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  setEditingTextId(t.id);
-                  setTimeout(() => {
-                    const el = document.getElementById(`tx-${t.id}`);
-                    (el as HTMLElement | null)?.focus();
-                  }, 0);
-                }}
-                onBlur={() => setEditingTextId((prev) => (prev === t.id ? null : prev))}
-                onInput={(e) => onEditText(t.id, (e.target as HTMLElement).innerText)}
-                style={{ fontSize, lineHeight: 1.2, whiteSpace: "pre-wrap", wordBreak: "break-word" }}
-              >{t.text || ""}</div>
+<div
+  id={`tx-${t.id}`}
+  className={`w-full min-h-[1.5rem] rounded bg-white/80 ring-1 ring-black/10 shadow-sm px-2 py-1 outline-none ${editingTextId === t.id ? "ring-2 ring-emerald-400" : ""} text-black caret-black`}
+  contentEditable={editingTextId === t.id}
+  suppressContentEditableWarning
+  tabIndex={0}
+  onPointerDown={(e) => e.stopPropagation()}
+  onDoubleClick={(e) => {
+    e.stopPropagation();
+    setEditingTextId(t.id);
+    setTimeout(() => {
+      const el = document.getElementById(`tx-${t.id}`);
+      (el as HTMLElement | null)?.focus();
+    }, 0);
+  }}
+  onBlur={() => setEditingTextId((prev) => (prev === t.id ? null : prev))}
+  onInput={(e) => onEditText(t.id, (e.target as HTMLElement).innerText)}
+  style={{
+    fontSize,
+    lineHeight: 1.2,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    color: "#111827",            // <- hard fallback in case utilities get overridden
+    caretColor: "#111827",
+  }}
+>
+  {t.text || ""}
+</div>
+
               {/* resize handle */}
               <div onPointerDown={(e) => beginResizeText(e, t)} className="absolute right-0 bottom-0 translate-x-1/2 translate-y-1/2 w-3 h-3 rounded-full bg-black/60 ring-2 ring-white opacity-0 group-hover:opacity-100 cursor-ew-resize" />
             </div>
