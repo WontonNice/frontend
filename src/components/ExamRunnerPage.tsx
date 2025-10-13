@@ -43,8 +43,8 @@ export default function ExamRunnerPage() {
 
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
-  const [reviewOpen, setReviewOpen] = useState(false); // NEW: review dropdown
-  const reviewWrapRef = useRef<HTMLDivElement>(null);   // NEW: outside-click
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const reviewWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIdx(0);
@@ -99,171 +99,178 @@ export default function ExamRunnerPage() {
 
   return (
     <div className="space-y-4">
-      {/* ===== TOP CONTROLS: compact toolstrip + cyan hairline + dark status bar ===== */}
-      <div className="sticky top-16 z-30">
-        {/* Toolstrip */}
-        <div className="mx-auto max-w-4xl rounded-2xl border border-gray-300 bg-white shadow-sm px-3 py-2">
-          <div className="flex items-center gap-3">
-            {/* Joined blue arrows */}
-            <div className="inline-flex overflow-hidden rounded-md">
-              <button
-                onClick={goPrev}
-                disabled={idx === 0}
-                className={`px-3 py-2 text-white font-medium border-r ${
-                  idx === 0
-                    ? "bg-blue-300 cursor-not-allowed border-blue-300"
-                    : "bg-blue-600 hover:bg-blue-500 border-blue-700"
-                }`}
-                aria-label="Previous"
+      {/* ======= Compact Toolbar + Status Bar ======= */}
+      <div className="sticky top-14 z-30">
+        {/* Toolbar */}
+        <div className="mx-auto max-w-5xl flex items-center gap-2 bg-white border border-gray-300 rounded-md px-2 py-1.5 shadow-sm">
+          {/* Joined blue arrows */}
+          <div className="inline-flex overflow-hidden rounded-md">
+            <button
+              onClick={goPrev}
+              disabled={idx === 0}
+              className={`px-3 py-1.5 text-white text-sm font-medium border-r ${
+                idx === 0
+                  ? "bg-blue-300 cursor-not-allowed border-blue-300"
+                  : "bg-blue-600 hover:bg-blue-500 border-blue-700"
+              }`}
+              title="Previous Question"
+            >
+              ←
+            </button>
+            <button
+              onClick={goNext}
+              disabled={idx === total - 1}
+              className={`px-3 py-1.5 text-white text-sm font-medium ${
+                idx === total - 1
+                  ? "bg-blue-300 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-500"
+              }`}
+              title="Next Question"
+            >
+              →
+            </button>
+          </div>
+
+          {/* Review (with dropdown) */}
+          <div className="relative" ref={reviewWrapRef}>
+            <button
+              onClick={() => setReviewOpen((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+              title="Review Questions"
+            >
+              {/* List icon */}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 text-gray-700"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
               >
-                ←
-              </button>
-              <button
-                onClick={goNext}
-                disabled={idx === total - 1}
-                className={`px-3 py-2 text-white font-medium ${
-                  idx === total - 1
-                    ? "bg-blue-300 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-500"
-                }`}
-                aria-label="Next"
-              >
-                →
-              </button>
-            </div>
-
-            {/* ===== Review (with dropdown) ===== */}
-            <div className="relative" ref={reviewWrapRef}>
-              <button
-                onClick={() => setReviewOpen((v) => !v)}
-                className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-gradient-to-b from-white to-gray-100 px-3 py-2 text-sm shadow-sm hover:bg-gray-50"
-              >
-                {/* list icon to match screenshot */}
-                <span className="inline-block h-4 w-4 relative">
-                  <span className="absolute inset-x-0 top-0 h-0.5 bg-gray-700 rounded" />
-                  <span className="absolute inset-x-0 top-1.5 h-0.5 bg-gray-700 rounded" />
-                  <span className="absolute inset-x-0 top-3 h-0.5 bg-gray-700 rounded" />
-                </span>
-                Review
-              </button>
-
-              {/* Dropdown panel */}
-              {reviewOpen && (
-                <div className="absolute left-0 mt-2 w-[560px] rounded-lg border border-gray-300 bg-white shadow-xl">
-                  {/* caret */}
-                  <div className="absolute -top-2 left-8 h-3 w-3 rotate-45 bg-white border-l border-t border-gray-300" />
-                  <div className="p-3">
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm font-semibold">
-                        Navigate Questions
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {idx + 1} / {total} answered:{" "}
-                        {
-                          Object.values(answers).filter(
-                            (v) => typeof v === "number"
-                          ).length
-                        }
-                      </div>
-                    </div>
-
-                    {/* Grid of question pills */}
-                    <div className="max-h-64 overflow-auto">
-                      <div className="grid grid-cols-10 gap-2">
-                        {items.map((it, i) => {
-                          const answered = typeof answers[it.globalId] === "number";
-                          const isCurrent = i === idx;
-                          return (
-                            <button
-                              key={it.globalId}
-                              onClick={() => jumpTo(i)}
-                              className={[
-                                "h-8 w-8 rounded-md text-xs font-medium border",
-                                "focus:outline-none focus:ring-2 focus:ring-blue-400",
-                                answered
-                                  ? "bg-green-50 border-green-300 text-green-800"
-                                  : "bg-gray-50 border-gray-300 text-gray-700",
-                                isCurrent && "ring-2 ring-blue-500",
-                              ].join(" ")}
-                              title={`${it.sectionTitle} · Q${it.qIndexInSection + 1}`}
-                            >
-                              {i + 1}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Section legend */}
-                    <div className="mt-3 flex items-center gap-3 text-xs text-gray-600">
-                      <span className="inline-flex items-center gap-1">
-                        <span className="h-3 w-3 rounded bg-green-200 border border-green-300 inline-block" />
-                        Answered
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <span className="h-3 w-3 rounded bg-gray-200 border border-gray-300 inline-block" />
-                        Unanswered
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Bookmark (visual match, no-op for now) */}
-            <button className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-gradient-to-b from-white to-gray-100 px-3 py-2 text-sm shadow-sm hover:bg-gray-50">
-              <span className="inline-block h-4 w-4">
-                {/* simple bookmark glyph */}
-                <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-gray-700" strokeWidth={1.6}>
-                  <path d="M7 3h10a1 1 0 0 1 1 1v17l-6-3-6 3V4a1 1 0 0 1 1-1Z"/>
-                </svg>
-              </span>
-              Bookmark
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              Review
             </button>
 
-            <div className="flex-1" />
+            {reviewOpen && (
+              <div className="absolute left-0 mt-2 w-[520px] rounded-md border border-gray-300 bg-white shadow-lg z-40">
+                {/* caret */}
+                <div className="absolute -top-1 left-6 h-2 w-2 rotate-45 bg-white border-l border-t border-gray-300" />
+                <div className="p-3 text-sm">
+                  <div className="mb-2 flex justify-between">
+                    <span className="font-semibold">Navigate Questions</span>
+                    <span className="text-gray-500">
+                      {idx + 1}/{total} — answered{" "}
+                      {Object.values(answers).filter((v) => typeof v === "number").length}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-10 gap-2 max-h-64 overflow-auto">
+                    {items.map((q, i) => {
+                      const answered = typeof answers[q.globalId] === "number";
+                      const active = i === idx;
+                      return (
+                        <button
+                          key={q.globalId}
+                          onClick={() => jumpTo(i)}
+                          className={`h-7 w-7 rounded border text-xs font-medium ${
+                            active
+                              ? "border-blue-500 ring-2 ring-blue-300"
+                              : answered
+                              ? "bg-green-50 border-green-300 text-green-700"
+                              : "bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100"
+                          }`}
+                          title={`${q.sectionTitle} · Q${q.qIndexInSection + 1}`}
+                        >
+                          {i + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 flex items-center gap-3 text-xs text-gray-600">
+                    <span className="inline-flex items-center gap-1">
+                      <span className="h-3 w-3 rounded bg-green-200 border border-green-300 inline-block" />
+                      Answered
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <span className="h-3 w-3 rounded bg-gray-200 border border-gray-300 inline-block" />
+                      Unanswered
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
-            {/* Pointer / Stop / Close / Fullscreen (visual only) */}
-            <div className="flex items-center gap-2">
-              <button className="rounded-md border border-gray-300 bg-gradient-to-b from-white to-gray-100 px-3 py-2 text-sm shadow-sm hover:bg-gray-50">·</button>
-              <button className="rounded-md border border-gray-300 bg-gradient-to-b from-white to-gray-100 px-3 py-2 text-sm shadow-sm hover:bg-gray-50">▢</button>
-              <button className="rounded-md border border-gray-300 bg-gradient-to-b from-white to-gray-100 px-3 py-2 text-sm shadow-sm hover:bg-gray-50">✕</button>
-              <button className="rounded-md border border-gray-300 bg-gradient-to-b from-white to-gray-100 px-3 py-2 text-sm shadow-sm hover:bg-gray-50">⤢</button>
-            </div>
+          {/* Bookmark */}
+          <button
+            className="inline-flex items-center gap-1.5 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+            title="Bookmark Question for Review"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-gray-700"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 4h12v16l-6-3-6 3V4z" />
+            </svg>
+            Bookmark
+          </button>
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Mini control icons (visual only) */}
+          <div className="flex items-center gap-1.5">
+            <button
+              className="h-7 w-7 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 text-sm hover:bg-gray-50"
+              title="Pointer Tool"
+            >
+              ·
+            </button>
+            <button
+              className="h-7 w-7 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 text-sm hover:bg-gray-50"
+              title="Stop"
+            >
+              ▢
+            </button>
+            <button
+              className="h-7 w-7 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 text-sm hover:bg-gray-50"
+              title="Close"
+            >
+              ✕
+            </button>
+            <button
+              className="h-7 w-7 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 text-sm hover:bg-gray-50"
+              title="Fullscreen"
+            >
+              ⤢
+            </button>
           </div>
         </div>
 
-        {/* Cyan hairline */}
-        <div className="h-[3px] bg-sky-500 mt-1" />
-
-        {/* Dark status bar */}
-        <div className="bg-[#5e5e5e] text-white">
-          <div className="mx-auto max-w-6xl flex items-center gap-3 px-3 py-2 text-[13px]">
-            <span className="font-semibold tracking-wide">
-              {exam.title.toUpperCase()}
-            </span>
-            <span className="opacity-80">/</span>
+        {/* Cyan hairline + Dark status bar */}
+        <div className="h-[3px] bg-sky-500" />
+        <div className="bg-[#5e5e5e] text-white text-[13px]">
+          <div className="mx-auto max-w-5xl flex items-center gap-2 px-3 py-1">
+            <span className="font-semibold">{exam.title.toUpperCase()}</span>
+            <span>/</span>
             <span>SECTION {current?.sectionTitle ?? "-"}</span>
-            <span className="opacity-80">/</span>
+            <span>/</span>
             <span>{idx + 1} OF {total}</span>
-            <span className="opacity-80">/</span>
+            <span>/</span>
             <span>{progressPct}%</span>
-
             <div className="flex-1" />
-
-            {/* slim progress bar on right */}
-            <div className="w-48 h-2 bg-[#3f3f3f] rounded">
-              <div
-                className="h-2 rounded bg-[#a0a0a0]"
-                style={{ width: `${progressPct}%` }}
-              />
+            <div className="w-40 h-1.5 bg-[#3f3f3f] rounded">
+              <div className="h-1.5 rounded bg-[#a0a0a0]" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* ===== MAIN SHEET: two-column layout ===== */}
+      {/* ======= Main “Sheet” (two columns) ======= */}
       <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left: scrollable passage / prompt */}
