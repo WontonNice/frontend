@@ -10,18 +10,18 @@ import { fileURLToPath } from "url";
 // ---------- path resolution ----------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROOT = path.resolve(__dirname, ".."); // project root (one level up from /server)
+const ROOT = path.resolve(__dirname, ".."); // project root
 
-// allow STATIC_DIR to be relative to project root (e.g., "dist" or "client/dist")
+// allow STATIC_DIR relative to ROOT (e.g., "dist" or "client/dist")
 const STATIC_DIR_ENV = process.env.STATIC_DIR
   ? path.resolve(ROOT, process.env.STATIC_DIR)
   : null;
 
-// pick the first candidate that contains index.html
+// preferred locations for index.html
 const CANDIDATES = [
-  STATIC_DIR_ENV,                    // env override first
-  path.join(ROOT, "dist"),           // vite build output (recommended)
-  ROOT,                              // fallback: serve project root (dev-ish)
+  STATIC_DIR_ENV,             // env override, if set
+  path.join(ROOT, "dist"),    // vite build output (recommended)
+  ROOT                        // fallback: project root (dev-ish)
 ].filter(Boolean);
 
 let STATIC_DIR = "";
@@ -43,22 +43,16 @@ if (!INDEX_FILE) {
 }
 
 const app = express();
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN?.split(",") || "*",
-  })
-);
+app.use(cors({ origin: process.env.CORS_ORIGIN?.split(",") || "*" }));
 app.use(express.json());
 
-// Health check
+// health check
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
 
-// --- serve static frontend assets (only if found) ---
+// serve static assets if we found a dir
 if (STATIC_DIR) {
   app.use(express.static(STATIC_DIR, { maxAge: "1h", index: false }));
 }
-
-const httpServer = createServer(app);
 
 const allowed = process.env.CORS_ORIGIN?.split(",") || "*";
 const io = new Server(httpServer, {
