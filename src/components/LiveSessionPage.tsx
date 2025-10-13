@@ -70,6 +70,10 @@ export default function LiveSessionPage() {
   const layerMapRef = useRef<Map<string, HTMLCanvasElement>>(new Map());
   const layerCtxRef = useRef<Map<string, CanvasRenderingContext2D>>(new Map());
   const strokesByUserRef = useRef<Map<string, Stroke[]>>(new Map());
+  // Undo/Redo (per user, local boundaries; server resynced by replaying)
+  const myStrokeEndsRef = useRef<number[]>([]); // cumulative segment counts after each finished stroke
+  const myRedoStackRef = useRef<Stroke[][]>([]);
+  const currentStrokeStartCountRef = useRef<number>(0);
 
   const [me, setMe] = useState<Cursor | null>(null);
   const [cursors, setCursors] = useState<Record<string, Cursor>>({});
@@ -301,7 +305,14 @@ export default function LiveSessionPage() {
       const { x: wx, y: wy } = canvasToWorld(cx, cy);
       const clampedW = { x: Math.min(Math.max(wx, 0), WORLD_W), y: Math.min(Math.max(wy, 0), WORLD_H) };
       lastNormRef.current = worldToNorm(clampedW.x, clampedW.y);
-      if (tool !== "cursor" && !drawingLockedForMe) drawingRef.current = true;
+      if (tool !== "cursor" && !drawingLockedForMe) {
+        drawingRef.current = true;
+        if (me) {
+          const myId = me.id;
+          const arr = strokesByUserRef.current.get(myId) || [];
+          currentStrokeStartCountRef.current = arr.length;
+        }
+      }
     };
 
     const onPointerMove = (e: PointerEvent) => {
@@ -358,6 +369,16 @@ export default function LiveSessionPage() {
     };
 
     const endStroke = () => {
+      // record a stroke boundary if we added any segments since pointerdown
+      if (me && drawingRef.current) {
+        const myId = me.id;
+        const arr = strokesByUserRef.current.get(myId) || [];
+        const start = currentStrokeStartCountRef.current || 0;
+        if (arr.length > start) {
+          myStrokeEndsRef.current.push(arr.length);
+          myRedoStackRef.current = [];
+        }
+      }
       drawingRef.current = false;
       lastNormRef.current = null;
       dragRef.current = { id: null, mode: null, startX: 0, startY: 0, startImg: null };
@@ -470,16 +491,81 @@ export default function LiveSessionPage() {
     };
   }, [me]);
 
+  // ---------- Undo / Redo (drawings) ----------
+  const syncMyStrokesToServer = () => {
+    if (!me || !socketRef.current) return;
+    const myId = me.id;
+    const arr = strokesByUserRef.current.get(myId) || [];
+    socketRef.current.emit("draw:clear:user");
+    for (const s of arr) socketRef.current.emit("draw:segment", s);
+  };
+
+  const undoMine = () => {
+    if (!me) return;
+    const myId = me.id;
+    const ends = myStrokeEndsRef.current;
+    const all = strokesByUserRef.current.get(myId) || [];
+    if (!ends.length) return;
+    const lastEnd = ends.pop()!;
+    const prevEnd = ends.length ? ends[ends.length - 1] : 0;
+    const removed = all.splice(prevEnd, lastEnd - prevEnd);
+    myRedoStackRef.current.push(removed);
+    // redraw my layer locally
+    const ctx = getCtxForUser(myId);
+    const v = viewRef.current;
+    ctx.clearRect(0, 0, v.width, v.height);
+    for (const s of all) {
+      const fromW = normToWorld(s.from.x, s.from.y);
+      const toW = normToWorld(s.to.x, s.to.y);
+      drawOnCtx(ctx, fromW, toW, s.color, s.size, s.mode);
+    }
+    // resync server so others see the undo
+    syncMyStrokesToServer();
+  };
+
+  const redoMine = () => {
+    if (!me) return;
+    const myId = me.id;
+    const group = myRedoStackRef.current.pop();
+    if (!group || !group.length) return;
+    if (!strokesByUserRef.current.has(myId)) strokesByUserRef.current.set(myId, []);
+    const all = strokesByUserRef.current.get(myId)!;
+    for (const s of group) {
+      all.push(s);
+      const ctx = getCtxForUser(myId);
+      const fromW = normToWorld(s.from.x, s.from.y);
+      const toW = normToWorld(s.to.x, s.to.y);
+      drawOnCtx(ctx, fromW, toW, s.color, s.size, s.mode);
+      socketRef.current?.emit("draw:segment", s);
+    }
+    myStrokeEndsRef.current.push(all.length);
+  };
+
+  // Keyboard shortcuts (Cmd/Ctrl+Z = undo, Shift+Cmd/Ctrl+Z = redo)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const isMod = e.metaKey || e.ctrlKey;
+      if (!isMod) return;
+      if (e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redoMine(); else undoMine();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   // ---------- Clear mine (now clears images I added too) ----------
   const clearMine = () => {
     if (!me) return;
     const myId = me.id;
     strokesByUserRef.current.set(myId, []);
+    myStrokeEndsRef.current = [];
+    myRedoStackRef.current = [];
     const ctx = getCtxForUser(myId);
     const v = viewRef.current;
     ctx.clearRect(0, 0, v.width, v.height);
     socketRef.current?.emit("draw:clear:user");
-    // also clear any images I added (server must support image:clear:mine)
     socketRef.current?.emit("image:clear:mine");
   };
 
@@ -535,6 +621,8 @@ export default function LiveSessionPage() {
         <button onClick={() => !drawingLockedForMe && setTool("eraser")} disabled={drawingLockedForMe} title={drawingLockedForMe ? "Drawing disabled by teacher" : "Erase"} className={`px-2 py-1 text-xs rounded ${tool === "eraser" ? "bg-emerald-500 text-black" : "bg-white/10"} ${drawingLockedForMe ? "opacity-50 cursor-not-allowed" : ""}`}>Erase</button>
         <input type="color" value={strokeColor} onChange={(e) => setStrokeColor(e.target.value)} className="w-6 h-6 rounded border-0 bg-transparent cursor-pointer" disabled={drawingLockedForMe} />
         <input type="range" min={1} max={24} value={strokeSize} onChange={(e) => setStrokeSize(Number(e.target.value))} className="w-24" disabled={drawingLockedForMe} />
+        <button onClick={undoMine} className="px-2 py-1 text-xs rounded bg-white/10 hover:bg-white/20">Undo</button>
+        <button onClick={redoMine} className="px-2 py-1 text-xs rounded bg-white/10 hover:bg-white/20">Redo</button>
         <button onClick={clearMine} className="px-2 py-1 text-xs rounded bg-red-500/80 text-black">Clear</button>
       </div>
 
