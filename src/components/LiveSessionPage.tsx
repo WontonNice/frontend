@@ -188,7 +188,6 @@ export default function LiveSessionPage() {
   };
 
   // ---------- socket ----------
-  // Keep a live ref of the current editing id so socket listeners can read it
   const editingRef = useRef<string | null>(null);
   useEffect(() => { editingRef.current = editingTextId; }, [editingTextId]);
 
@@ -216,13 +215,11 @@ export default function LiveSessionPage() {
       setCursors((prev) => ({ ...prev, [c.id]: { ...c, color: colorFromId(c.id) } }));
     });
 
-    // 🔒 admin lock broadcasts
     socket.on("admin:drawing:set", ({ disabled }: { disabled: boolean }) => {
       setDrawingDisabled(!!disabled);
       if (disabled) { drawingRef.current = false; lastNormRef.current = null; }
     });
 
-    // initial state (also contains admin flags)
     socket.on("session:state", (payload: {
       sessionId: number;
       strokes: (Stroke & { userId?: string })[];
@@ -237,23 +234,19 @@ export default function LiveSessionPage() {
         strokesByUserRef.current.get(uid)!.push({ from: s.from, to: s.to, color: s.color, size: s.size, mode: s.mode });
         ensureLayerCanvas(uid);
       }
-      const imgs = (payload.images || []).map((img) => ({
+      setImages((payload.images || []).map((img) => ({
         id: img.id, src: img.src,
         x: (img.x ?? 0.5) * WORLD_W, y: (img.y ?? 0.5) * WORLD_H,
         w: (img.w ?? 0.2) * WORLD_W,
-      }));
-      setImages(imgs);
+      })));
 
-      const txs = (payload.texts || []).map((t) => ({
+      setTexts((payload.texts || []).map((t) => ({
         id: t.id, text: t.text,
         x: (t.x ?? 0.5) * WORLD_W, y: (t.y ?? 0.5) * WORLD_H,
         w: (t.w ?? 0.25) * WORLD_W,
-      }));
-      setTexts(txs);
+      })));
 
-      // pick up admin flag on join
       setDrawingDisabled(!!payload.admin?.drawingDisabled);
-
       ensureCanvasesSize();
       replayAll();
     });
@@ -261,7 +254,7 @@ export default function LiveSessionPage() {
     socket.on("draw:segment", (p: StrokeMsg) => {
       const myId = socketRef.current?.id;
       const uid = p.userId || "_unknown";
-      if (uid === myId) return; // ignore self-echo
+      if (uid === myId) return;
       if (!strokesByUserRef.current.has(uid)) strokesByUserRef.current.set(uid, []);
       strokesByUserRef.current.get(uid)!.push({ from: p.from, to: p.to, color: p.color, size: p.size, mode: p.mode });
       const ctx = getCtxForUser(uid);
@@ -272,14 +265,13 @@ export default function LiveSessionPage() {
 
     socket.on("draw:clear:user", ({ userId }: { userId: string }) => {
       const myId = socketRef.current?.id;
-      if (userId === myId) return; // ignore self-echo during resync
+      if (userId === myId) return;
       const ctx = getCtxForUser(userId);
       const v = viewRef.current;
       ctx.clearRect(0, 0, v.width, v.height);
       strokesByUserRef.current.set(userId, []);
     });
 
-    // Teacher "Clear Board"
     socket.on("draw:clear", () => {
       const v = viewRef.current;
       for (const ctx of layerCtxRef.current.values()) ctx.clearRect(0, 0, v.width, v.height);
@@ -319,12 +311,6 @@ export default function LiveSessionPage() {
       setImages((prev) => prev.filter((im) => !ids.includes(im.id)));
     });
 
-    socket.on("image:error", (p: { reason: string; maxMB?: number }) => {
-      if (p?.reason === "too_large") {
-        alert(`That image is too large. Max allowed is ~${p.maxMB ?? 5} MB.`);
-      }
-    });
-
     // TEXT events
     socket.on("text:add", (t: NetText) => {
       const withW: LocalText = {
@@ -336,10 +322,7 @@ export default function LiveSessionPage() {
     });
 
     socket.on("text:update", (patch: Partial<NetText> & { id: string }) => {
-      // 👇 ignore echo while *this* client is actively editing that id
-      if (patch.id && editingRef.current === patch.id && patch.text != null) {
-        return;
-      }
+      if (patch.id && editingRef.current === patch.id && patch.text != null) return;
       const worldPatch: Partial<LocalText> & { id: string } = { id: patch.id };
       if (patch.text != null) (worldPatch as any).text = patch.text;
       if (patch.x != null) worldPatch.x = patch.x * WORLD_W;
@@ -369,7 +352,7 @@ export default function LiveSessionPage() {
     const drawingLockedForMe = drawingDisabled && !isTeacher;
 
     const onPointerDown = (e: PointerEvent) => {
-      // don't capture/paint while editing a text box
+      // Don't capture/paint while editing a text box
       if (editingTextId) return;
 
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -380,14 +363,14 @@ export default function LiveSessionPage() {
       lastNormRef.current = worldToNorm(clampedW.x, clampedW.y);
 
       if (tool === "text" && !drawingLockedForMe) {
+        // Clicking empty board adds a new textbox
         const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
         const local: LocalText = { id, text: "", x: clampedW.x, y: clampedW.y, w: 0.25 * WORLD_W };
         setTexts((prev) => [...prev, local]);
         setEditingTextId(id);
         textDraftRef.current[id] = "";
         socketRef.current?.emit("text:add", { id, text: "", x: local.x / WORLD_W, y: local.y / WORLD_H, w: local.w / WORLD_W });
-
-        // focus newly created textbox and put caret at the end
+        // Focus newly created textbox and put caret at the end
         setTimeout(() => {
           focusAtEnd(document.getElementById(`tx-${id}`) as HTMLElement | null);
         }, 0);
@@ -442,7 +425,7 @@ export default function LiveSessionPage() {
           const patchWorld = {
             id: active.id,
             x: Math.min(WORLD_W, Math.max(0, (active.startImg.x ?? WORLD_W / 2) + dxW)),
-            y: Math.min(WORLD_H, Math.max(0, (active.startImg.y ?? WORLD_H / 2) + dyW)),
+            y: Math.min(WORLD_H, Math.max(0, (active.startImg.y ?? WORLD_W / 2) + dyW)),
           };
           setImages((prev) => prev.map((im) => (im.id === patchWorld.id ? { ...im, ...patchWorld } : im)));
           socketRef.current?.emit("image:update", { id: patchWorld.id, x: patchWorld.x / WORLD_W, y: patchWorld.y / WORLD_H });
@@ -461,7 +444,7 @@ export default function LiveSessionPage() {
           const patchWorld = {
             id: tActive.id,
             x: Math.min(WORLD_W, Math.max(0, (tActive.startText.x ?? WORLD_W / 2) + dxW)),
-            y: Math.min(WORLD_H, Math.max(0, (tActive.startText.y ?? WORLD_H / 2) + dyW)),
+            y: Math.min(WORLD_H, Math.max(0, (tActive.startText.y ?? WORLD_W / 2) + dyW)),
           };
           setTexts((prev) => prev.map((tx) => (tx.id === patchWorld.id ? { ...tx, ...patchWorld } : tx)));
           socketRef.current?.emit("text:update", { id: patchWorld.id, x: patchWorld.x / WORLD_W, y: patchWorld.y / WORLD_H });
@@ -474,7 +457,6 @@ export default function LiveSessionPage() {
     };
 
     const endStroke = () => {
-      // Close a stroke: record boundary for undo if any segments were added
       if (me && drawingRef.current) {
         const myId = me.id;
         const arr = strokesByUserRef.current.get(myId) || [];
@@ -548,7 +530,6 @@ export default function LiveSessionPage() {
 
     const handleItems = async (items: DataTransferItemList | null) => {
       if (!items) return;
-
       for (const it of Array.from(items)) {
         if (it.kind === "file" && it.type.startsWith("image/")) {
           const file = it.getAsFile();
@@ -558,17 +539,13 @@ export default function LiveSessionPage() {
           let approx = Math.floor(dataUrl.length * 0.75);
           if (approx > 5 * 1024 * 1024) {
             dataUrl = await bitmapToDataUrl(bmp, 1200, 0.8);
-            approx = Math.floor(dataUrl.length * 0.75);
           }
           addImageNormalized(dataUrl);
           return;
         }
       }
-
       const text = (items as any).clipboardData?.getData?.("text/plain") ?? (items as any).dataTransfer?.getData?.("text/plain");
-      if (text && /^https?:\/\/\S+\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(text.trim())) {
-        addImageNormalized(text.trim());
-      }
+      if (text && /^https?:\/\/\S+\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(text.trim())) addImageNormalized(text.trim());
     };
 
     const onPaste = (e: ClipboardEvent) => { handleItems(e.clipboardData?.items || null); };
@@ -653,9 +630,10 @@ export default function LiveSessionPage() {
     myStrokeEndsRef.current.push(all.length);
   };
 
-  // Keyboard shortcuts: Cmd/Ctrl+Z for undo, Shift+Cmd/Ctrl+Z for redo
+  // Global key handler only for undo/redo; do not block typing
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (editingRef.current) return; // don't intercept while typing
       const isMod = e.metaKey || e.ctrlKey;
       if (!isMod) return;
       if (e.key.toLowerCase() === "z") {
@@ -745,6 +723,7 @@ export default function LiveSessionPage() {
 
   // ---------- render ----------
   const drawingLockedForMe = drawingDisabled && !isTeacher;
+  const isTyping = Boolean(editingTextId || tool === "text");
 
   return (
     <div className="w-full p-0 m-0">
@@ -783,9 +762,9 @@ export default function LiveSessionPage() {
         ref={boardRef}
         className="relative w-full h-[calc(100vh-var(--topbar-height))] bg-white overflow-hidden"
         style={{
-          WebkitUserSelect: (editingTextId || tool === "text") ? "text" as const : "none" as const,
-          userSelect: (editingTextId || tool === "text") ? "text" as const : "none" as const,
-          touchAction: (editingTextId || tool === "text") ? "auto" as const : "none" as const,
+          WebkitUserSelect: isTyping ? "text" as const : "none" as const,
+          userSelect: isTyping ? "text" as const : "none" as const,
+          touchAction: isTyping ? "auto" as const : "none" as const,  // <- allow typing/touch caret selection
           cursor: tool === "text" ? "text" : (tool === "cursor" ? "default" : (drawingLockedForMe ? "not-allowed" : "crosshair")),
         }}
       >
@@ -807,57 +786,45 @@ export default function LiveSessionPage() {
         {texts.map((t) => {
           const pos = worldToScreen(t.x, t.y);
           const pxWidth = (t.w ?? 0.25 * WORLD_W) * viewRef.current.scale;
+          const isEditing = editingTextId === t.id;
+
           return (
-            <div key={t.id}
-              className={`absolute pointer-events-auto group z-0 ${
-                tool === "cursor" && editingTextId !== t.id ? "cursor-move" : tool === "text" ? "cursor-text" : ""
-              }`}
+            <div
+              key={t.id}
+              className={`absolute group z-0 ${tool === "cursor" && !isEditing ? "cursor-move" : tool === "text" ? "cursor-text" : ""}`}
               style={{ left: `${pos.x}px`, top: `${pos.y}px`, transform: "translate(-50%, -50%)", width: `${pxWidth}px` }}
               onPointerDown={(e) => {
                 if (tool === "text") {
-                  // Clicking a textbox while in Text mode should edit it, not create a new one
-                  e.stopPropagation(); // prevent board from creating a new box
+                  e.stopPropagation();
                   setEditingTextId(t.id);
                   setTimeout(() => {
                     const el = document.getElementById(`tx-${t.id}`) as HTMLElement | null;
                     if (el) {
-                      // seed with current text and place caret at end
                       el.textContent = textDraftRef.current[t.id] ?? t.text ?? "";
-                      const sel = window.getSelection?.();
-                      const range = document.createRange();
-                      range.selectNodeContents(el);
-                      range.collapse(false);
-                      sel?.removeAllRanges();
-                      sel?.addRange(range);
-                      el.focus();
+                      focusAtEnd(el);
                     }
                   }, 0);
                 } else {
-                  // Pointer tool: allow dragging
                   beginMoveText(e, t);
                 }
-              }}>
+              }}
+            >
               <div
                 id={`tx-${t.id}`}
                 dir="ltr"
                 className={`w-full min-h-[1.5rem] rounded bg-white/80 ring-1 ring-black/10 shadow-sm px-2 py-1 outline-none ${
-                  editingTextId === t.id ? "ring-2 ring-emerald-400" : ""
+                  isEditing ? "ring-2 ring-emerald-400" : ""
                 } !text-black caret-black`}
-                contentEditable={editingTextId === t.id}
+                // Keep CE always on; gate interaction via pointer-events
+                contentEditable
                 suppressContentEditableWarning
+                role="textbox"
+                aria-multiline="true"
+                spellCheck={false}
                 tabIndex={0}
-                onPointerDown={(e) => { if (editingRef.current === t.id) e.stopPropagation(); }}
-                onMouseDown={(e) => { if (editingRef.current === t.id) e.stopPropagation(); }}
-                onClick={(e) => {
-                  if (editingRef.current === t.id) {
-                    e.stopPropagation();
-                    (e.currentTarget as HTMLElement).focus();
-                  }
-                }}
-                onKeyDown={(e) => { if (editingRef.current === t.id) e.stopPropagation(); }}
-                onBlur={(e) => commitText(t.id, e.currentTarget as HTMLElement)}
-                onInput={(e) => onEditTextInput(t.id, e.currentTarget as HTMLElement)}
+                // Only allow pointer/keyboard to reach this div when editing
                 style={{
+                  pointerEvents: isEditing ? "auto" : "none",
                   fontSize: Math.max(12, Math.floor(16 * viewRef.current.scale)),
                   lineHeight: 1.2,
                   whiteSpace: "pre-wrap",
@@ -869,13 +836,28 @@ export default function LiveSessionPage() {
                   unicodeBidi: "plaintext",
                   textAlign: "left",
                 }}
+                onPointerDown={(e) => { if (isEditing) e.stopPropagation(); }}
+                onMouseDown={(e) => { if (isEditing) e.stopPropagation(); }}
+                onClick={(e) => {
+                  if (isEditing) {
+                    e.stopPropagation();
+                    (e.currentTarget as HTMLElement).focus();
+                  }
+                }}
+                onKeyDown={(e) => { if (isEditing) e.stopPropagation(); }}
+                onBeforeInput={(e) => { if (!isEditing) e.preventDefault(); }}
+                onInput={(e) => onEditTextInput(t.id, e.currentTarget as HTMLElement)}
+                onBlur={(e) => commitText(t.id, e.currentTarget as HTMLElement)}
               >
-                {/* IMPORTANT: avoid rerender jumps while editing */}
-                {editingTextId === t.id ? null : (t.text || "")}
+                {/* Avoid rerender jumps while editing */}
+                {isEditing ? null : (t.text || "")}
               </div>
 
               {/* resize handle */}
-              <div onPointerDown={(e) => beginResizeText(e, t)} className="absolute right-0 bottom-0 translate-x-1/2 translate-y-1/2 w-3 h-3 rounded-full bg-black/60 ring-2 ring-white opacity-0 group-hover:opacity-100 cursor-ew-resize" />
+              <div
+                onPointerDown={(e) => beginResizeText(e, t)}
+                className="absolute right-0 bottom-0 translate-x-1/2 translate-y-1/2 w-3 h-3 rounded-full bg-black/60 ring-2 ring-white opacity-0 group-hover:opacity-100 cursor-ew-resize"
+              />
             </div>
           );
         })}
@@ -883,11 +865,14 @@ export default function LiveSessionPage() {
         {/* per-user canvases */}
         <div ref={layersHostRef} className="absolute inset-0 z-10 pointer-events-none" />
 
-        {/* hit canvas (only active for pen/eraser) */}
+        {/* hit canvas (disable interaction while typing/text mode) */}
         <canvas
           ref={hitCanvasRef}
-          className={`absolute z-20 ${tool === "pen" || tool === "eraser" ? "" : "pointer-events-none"}`}
-          style={{ inset: "auto" }}
+          className="absolute z-20"
+          style={{
+            inset: "auto",
+            pointerEvents: (tool === "pen" || tool === "eraser") && !editingTextId ? "auto" : "none",
+          }}
         />
 
         {/* cursors */}
@@ -921,7 +906,6 @@ export default function LiveSessionPage() {
             })()}
           </div>
         )}
-
       </div>
     </div>
   );
