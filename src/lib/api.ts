@@ -1,5 +1,9 @@
 // src/lib/api.ts
-const BASE_URL = "https://frontend-tgl3.onrender.com";
+// Prefer VITE_API_URL when set. In prod, default to same-origin.
+// In dev, default to your local API.
+export const BASE_URL =
+  (import.meta as any)?.env?.VITE_API_URL ??
+  (import.meta.env.PROD ? "" : "http://localhost:3001");
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -7,18 +11,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     credentials: "include",
     ...init,
   });
-  if (!res.ok) {
+
+  // Guard against HTML/SPA fallbacks
+  const ct = res.headers.get("content-type") || "";
+  if (!res.ok || !ct.includes("application/json")) {
     const text = await res.text();
-    throw new Error(`HTTP ${res.status} ${res.statusText} — ${text}`);
+    throw new Error(`Expected JSON. Got ${res.status} ${ct}: ${text.slice(0,180)}…`);
   }
   return res.json() as Promise<T>;
 }
 
-// Example typed endpoints:
 export const api = {
-  health: () => fetch(`${BASE_URL}/health`).then(r => r.text()), // plain text
+  healthz: () => request<{ ok: boolean }>("/healthz"),
   hello: () => request<{ msg: string }>("/api/hello"),
-  // add more: request("/api/students"), request("/api/tests"), etc.
+  exams: (all = false) => request(`/api/exams${all ? "?all=1" : ""}`),
+  // add more: request("/api/exams/:id/open"), etc.
 };
-
-export { BASE_URL };
