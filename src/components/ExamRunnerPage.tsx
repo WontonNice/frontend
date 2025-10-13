@@ -93,6 +93,11 @@ const items = useMemo(() => {
   }
 
   const current = items[idx];
+  const sectionForCurrent = exam.sections.find((s) => s.id === current?.sectionId);
+const effectivePassage =
+  current?.sectionPassageMarkdown ?? sectionForCurrent?.passageMarkdown;
+const effectivePassageImages =
+  current?.sectionPassageImages ?? sectionForCurrent?.passageImages;
   const total = items.length;
   const progressPct = total ? Math.round(((idx + 1) / total) * 100) : 0;
 
@@ -283,48 +288,49 @@ const items = useMemo(() => {
       {/* ======= Main “Sheet” (two columns) ======= */}
       <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left: shared section passage (scrollable) */}
-          <div className="rounded-lg border border-gray-200 shadow-sm p-4">
-            <div className="h-[520px] overflow-y-auto">
-              <div className="border rounded-md p-6 bg-white">
-                {current.sectionPassageMarkdown ? (
-                  <div className="prose max-w-none">
-                    <ReactMarkdown>{current.sectionPassageMarkdown}</ReactMarkdown>
-                  </div>
-                ) : current.image || current.stemMarkdown ? (
-                  <>
-                    {current.stemMarkdown && (
-                      <div className="prose max-w-none">
-                        <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
-                      </div>
-                    )}
-                    {current.image && (
-                      <img
-                        src={current.image}
-                        alt="question"
-                        className="mt-4 max-w-full rounded border border-gray-200"
-                      />
-                    )}
-                  </>
-                ) : (
-                  <p className="text-gray-500">No passage for this item.</p>
-                )}
 
-                {current.sectionPassageImages?.length ? (
-                  <div className="mt-4 space-y-3">
-                    {current.sectionPassageImages.map((src, i) => (
-                      <img
-                        key={i}
-                        src={src}
-                        alt={`passage-figure-${i + 1}`}
-                        className="max-w-full rounded border border-gray-200"
-                      />
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+    {/* Left: shared section passage (scrollable) */}
+<div className="rounded-lg border border-gray-200 shadow-sm p-4">
+  <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
+    <div className="border rounded-md p-6 bg-white">
+      {effectivePassage ? (
+        <div className="prose max-w-none">
+          <ReactMarkdown>{effectivePassage}</ReactMarkdown>
+        </div>
+      ) : current.image || current.stemMarkdown ? (
+        <>
+          {current.stemMarkdown && (
+            <div className="prose max-w-none">
+              <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
             </div>
-          </div>
+          )}
+          {current.image && (
+            <img
+              src={current.image}
+              alt="question"
+              className="mt-4 max-w-full rounded border border-gray-200"
+            />
+          )}
+        </>
+      ) : (
+        <p className="text-gray-500">No passage for this item.</p>
+      )}
+
+      {effectivePassageImages?.length ? (
+        <div className="mt-4 space-y-3">
+          {effectivePassageImages.map((src, i) => (
+            <img
+              key={i}
+              src={src}
+              alt={`passage-figure-${i + 1}`}
+              className="max-w-full rounded border border-gray-200"
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  </div>
+</div>
 
           {/* Right: question stem + choices */}
           <div className="rounded-lg border border-gray-200 shadow-sm p-4">
