@@ -602,6 +602,35 @@ export default function LiveSessionPage() {
     );
   })}
 </div>
+
+{/* local brush/eraser size indicator */}
+{tool !== "cursor" && !drawingLockedForMe && me && (
+  <div className="absolute inset-0 pointer-events-none z-40">
+    {(() => {
+      const posW = normToWorld(me.x, me.y);
+      const posS = worldToScreen(posW.x, posW.y);
+      const sizePx = Math.max(1, strokeSize); // stroke size is already in screen px
+
+      // Style: ring with white/black outline for contrast
+      const ringStyle: React.CSSProperties = {
+        position: "absolute",
+        left: `${posS.x}px`,
+        top: `${posS.y}px`,
+        width: `${sizePx}px`,
+        height: `${sizePx}px`,
+        transform: "translate(-50%, -50%)",
+        borderRadius: "9999px",
+        background: "transparent",
+        boxShadow: "0 0 0 1px #fff, 0 0 0 3px rgba(0,0,0,.35)",
+        // Color edge hint (pen uses strokeColor; eraser uses darker hint)
+        border: `1px solid ${tool === "eraser" ? "rgba(0,0,0,.6)" : strokeColor}`,
+      };
+
+      return <div style={ringStyle} />;
+    })()}
+  </div>
+)}
+
       </div>
     </div>
   );
