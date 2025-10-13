@@ -790,49 +790,46 @@ export default function LiveSessionPage() {
                  className="absolute pointer-events-auto group z-0"
                  style={{ left: `${pos.x}px`, top: `${pos.y}px`, transform: "translate(-50%, -50%)", width: `${pxWidth}px` }}
                  onPointerDown={(e) => beginMoveText(e, t)}>
-              <div
-                id={`tx-${t.id}`}
-                dir="ltr"
-                className={`w-full min-h-[1.5rem] rounded bg-white/80 ring-1 ring-black/10 shadow-sm px-2 py-1 outline-none
-                  ${editingTextId === t.id ? "ring-2 ring-emerald-400" : ""} !text-black caret-black text-left`}
-                contentEditable={editingTextId === t.id}
-                suppressContentEditableWarning
-                tabIndex={0}
-                // prevent dragging when clicking to edit
-                onPointerDown={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                onDoubleClick={(e) => {
-                  e.stopPropagation();
-                  setEditingTextId(t.id);
-                  // focus after enabling contentEditable and put caret at end
-                  setTimeout(() => focusAtEnd(document.getElementById(`tx-${t.id}`) as HTMLElement | null), 0);
-                }}
-                onClick={(e) => {
-                  // if already in edit mode, keep focus on click
-                  if (editingTextId === t.id) {
-                    e.stopPropagation();
-                    (e.currentTarget as HTMLElement).focus();
-                  }
-                }}
-                onBlur={() => setEditingTextId((prev) => (prev === t.id ? null : prev))}
-                onInput={(e) => onEditText(t.id, (e.target as HTMLElement).innerText)}
-                style={{
-                  fontSize,
-                  lineHeight: 1.2,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  // bidi + direction safety
-                  direction: "ltr",
-                  unicodeBidi: "plaintext",
-                  textAlign: "left",
-                  // hard overrides in case a global rule uses !important
-                  color: "#111827",
-                  caretColor: "#111827",
-                  WebkitTextFillColor: "#111827",
-                }}
-              >
-                {t.text || ""}
-              </div>
+
+<div
+  id={`tx-${t.id}`}
+  dir="ltr"                          // ⬅️ force left-to-right
+  className={`w-full min-h-[1.5rem] rounded bg-white/80 ring-1 ring-black/10 shadow-sm px-2 py-1 outline-none
+    ${editingTextId === t.id ? "ring-2 ring-emerald-400" : ""} !text-black caret-black`}
+  contentEditable={editingTextId === t.id}
+  suppressContentEditableWarning
+  tabIndex={0}
+  onPointerDown={(e) => e.stopPropagation()}
+  onMouseDown={(e) => e.stopPropagation()}
+  onDoubleClick={(e) => {
+    e.stopPropagation();
+    setEditingTextId(t.id);
+    setTimeout(() => document.getElementById(`tx-${t.id}`)?.focus(), 0);
+  }}
+  onClick={(e) => {
+    if (editingTextId === t.id) {
+      e.stopPropagation();
+      (e.currentTarget as HTMLElement).focus();
+    }
+  }}
+  onBlur={() => setEditingTextId((prev) => (prev === t.id ? null : prev))}
+  onInput={(e) => onEditText(t.id, (e.currentTarget.textContent ?? ""))}  // ⬅️ use textContent
+  style={{
+    fontSize: Math.max(12, Math.floor(16 * viewRef.current.scale)),
+    lineHeight: 1.2,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    color: "#111827",
+    caretColor: "#111827",
+    WebkitTextFillColor: "#111827",
+    direction: "ltr",                 // ⬅️ explicit LTR
+    unicodeBidi: "plaintext",         // ⬅️ prevent RTL override
+    textAlign: "left",                // ⬅️ align left to feel natural
+  }}
+>
+  {t.text || ""}
+</div>
+
               {/* resize handle */}
               <div onPointerDown={(e) => beginResizeText(e, t)} className="absolute right-0 bottom-0 translate-x-1/2 translate-y-1/2 w-3 h-3 rounded-full bg-black/60 ring-2 ring-white opacity-0 group-hover:opacity-100 cursor-ew-resize" />
             </div>
