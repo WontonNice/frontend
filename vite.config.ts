@@ -4,18 +4,16 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+
+  // no proxy needed — direct API calls to http://localhost:3001
   server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:4000', // Local dev backend
-        changeOrigin: true,
-      },
-    },
+    host: '0.0.0.0',
+    port: 5173,
   },
+
   preview: {
     host: '0.0.0.0',
     port: Number(process.env.PORT) || 4173,
     allowedHosts: ['frontend-tgl3.onrender.com'],
-
   },
 });
