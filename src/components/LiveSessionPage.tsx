@@ -354,8 +354,9 @@ export default function LiveSessionPage() {
     const onPointerDown = (e: PointerEvent) => {
       // Don't capture/paint while editing a text box
       if (editingTextId) return;
-
-      (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      if (tool !== "text") {
+        (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+      }
       const { left, top } = hit.getBoundingClientRect();
       const cx = e.clientX - left, cy = e.clientY - top;
       const { x: wx, y: wy } = canvasToWorld(cx, cy);
@@ -371,9 +372,11 @@ export default function LiveSessionPage() {
         textDraftRef.current[id] = "";
         socketRef.current?.emit("text:add", { id, text: "", x: local.x / WORLD_W, y: local.y / WORLD_H, w: local.w / WORLD_W });
         // Focus newly created textbox and put caret at the end
-        setTimeout(() => {
-          focusAtEnd(document.getElementById(`tx-${id}`) as HTMLElement | null);
-        }, 0);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            focusAtEnd(document.getElementById(`tx-${id}`) as HTMLElement | null);
+          });
+        });
         return;
       }
 
@@ -797,13 +800,15 @@ export default function LiveSessionPage() {
                 if (tool === "text") {
                   e.stopPropagation();
                   setEditingTextId(t.id);
-                  setTimeout(() => {
-                    const el = document.getElementById(`tx-${t.id}`) as HTMLElement | null;
-                    if (el) {
-                      el.textContent = textDraftRef.current[t.id] ?? t.text ?? "";
-                      focusAtEnd(el);
-                    }
-                  }, 0);
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                      const el = document.getElementById(`tx-${t.id}`) as HTMLElement | null;
+                      if (el) {
+                        el.textContent = textDraftRef.current[t.id] ?? t.text ?? "";
+                        focusAtEnd(el);
+                      }
+                    });
+                  });
                 } else {
                   beginMoveText(e, t);
                 }
@@ -838,6 +843,7 @@ export default function LiveSessionPage() {
                 }}
                 onPointerDown={(e) => { if (isEditing) e.stopPropagation(); }}
                 onMouseDown={(e) => { if (isEditing) e.stopPropagation(); }}
+                onKeyDownCapture={(e) => { if (isEditing) e.stopPropagation(); }}
                 onClick={(e) => {
                   if (isEditing) {
                     e.stopPropagation();
