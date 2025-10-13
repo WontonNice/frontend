@@ -1,7 +1,7 @@
 // src/data/exams.ts
 import type { Exam } from "../types/exams";
 
-const modules = import.meta.glob("../content/exams/*.json", { eager: true });
+const modules = import.meta.glob("../exams/*.json", { eager: true });
 
 const exams: Exam[] = Object.values(modules).map((m: any) => m.default);
 
