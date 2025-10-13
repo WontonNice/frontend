@@ -221,9 +221,17 @@ export default function LiveSessionPage() {
     });
 
     socket.on("draw:segment", (p: StrokeMsg) => {
+      const myId = socketRef.current?.id;
       const uid = p.userId || "_unknown";
+
+      // Ignore server echo of my own segments — already drawn & stored locally
+      if (uid === myId) return;
+
       if (!strokesByUserRef.current.has(uid)) strokesByUserRef.current.set(uid, []);
-      strokesByUserRef.current.get(uid)!.push({ from: p.from, to: p.to, color: p.color, size: p.size, mode: p.mode });
+      strokesByUserRef.current.get(uid)!.push({
+        from: p.from, to: p.to, color: p.color, size: p.size, mode: p.mode
+      });
+
       const ctx = getCtxForUser(uid);
       const fromW = normToWorld(p.from.x, p.from.y);
       const toW = normToWorld(p.to.x, p.to.y);
@@ -231,6 +239,11 @@ export default function LiveSessionPage() {
     });
 
     socket.on("draw:clear:user", ({ userId }: { userId: string }) => {
+      const myId = socketRef.current?.id;
+
+      // Ignore my own clear echo (used during undo/redo resync)
+      if (userId === myId) return;
+
       const ctx = getCtxForUser(userId);
       const v = viewRef.current;
       ctx.clearRect(0, 0, v.width, v.height);
