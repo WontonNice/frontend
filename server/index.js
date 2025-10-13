@@ -3,6 +3,16 @@ import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// --- resolve paths ---
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// If you build with Vite to "dist" at project root:
+const DIST_DIR = process.env.STATIC_DIR || path.resolve(__dirname, "../dist");
+const INDEX_FILE = path.join(DIST_DIR, "index.html");
 
 const app = express();
 app.use(
@@ -11,6 +21,13 @@ app.use(
   })
 );
 app.use(express.json());
+
+// Health check (Render pings this)
+app.get("/healthz", (_req, res) => res.json({ ok: true }));
+
+// --- serve static frontend assets ---
+app.use(express.static(DIST_DIR, { maxAge: "1h", index: false }));
+
 const httpServer = createServer(app);
 
 const allowed = process.env.CORS_ORIGIN?.split(",") || "*";
@@ -23,10 +40,8 @@ const io = new Server(httpServer, {
 // ===============================
 //  Data stores
 // ===============================
-
 /** roomCursors: Map<room, Map<socketId, {id,name,x,y}>> */
 const roomCursors = new Map();
-
 /**
  * roomState: Map<room, {
  *   sessionId:number,
@@ -35,7 +50,6 @@ const roomCursors = new Map();
  * }>
  */
 const roomState = new Map();
-
 /** roomFlags: Map<room, { drawingDisabled: boolean }> */
 const roomFlags = new Map();
 
@@ -49,21 +63,18 @@ const getFlags = (room) =>
 // ===============================
 //  Socket.io
 // ===============================
-
 io.on("connection", (socket) => {
   socket.on("join", ({ name, room, role } = {}) => {
     if (!room) return;
     socket.join(room);
     socket.data.room = room;
     socket.data.name = (name || "Anonymous").toString().slice(0, 64);
-    // simple role hint from client; secure it with auth if needed
     socket.data.role = role === "teacher" ? "teacher" : "student";
 
     const cursors = getRoomMap(room);
     cursors.set(socket.id, { id: socket.id, name: socket.data.name, x: 0.5, y: 0.5 });
     io.to(room).emit("presence", serialize(room));
 
-    // ensure session + flags and send to joiner
     const state =
       roomState.get(room) ||
       roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
@@ -72,7 +83,7 @@ io.on("connection", (socket) => {
     const MAX_BOOTSTRAP_STROKES = 1000;
     socket.emit("session:state", {
       sessionId: state.sessionId,
-      strokes: state.strokes.slice(-MAX_BOOTSTRAP_STROKES), // each stroke has userId
+      strokes: state.strokes.slice(-MAX_BOOTSTRAP_STROKES),
       images: state.images,
       admin: { drawingDisabled: !!flags.drawingDisabled },
     });
@@ -122,30 +133,21 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ===============================
   // Admin controls
-  // ===============================
-
-  // Teacher toggles student drawing
   socket.on("admin:drawing:set", ({ disabled } = {}) => {
     const room = socket.data.room;
     if (!room) return;
-    if (socket.data.role !== "teacher") return; // gate
+    if (socket.data.role !== "teacher") return;
     const flags = getFlags(room);
     flags.drawingDisabled = !!disabled;
     io.to(room).emit("admin:drawing:set", { disabled: !!disabled });
   });
 
-  // ===============================
   // Drawing + images (PERSISTED)
-  // ===============================
-
-  // Add a stroke and tag it with the author's socket.id
   socket.on("draw:segment", (p = {}) => {
     const room = socket.data.room;
     if (!room) return;
 
-    // enforce lock: while disabled, ignore non-teacher strokes
     const flags = getFlags(room);
     if (flags.drawingDisabled && socket.data.role !== "teacher") return;
 
@@ -162,16 +164,13 @@ io.on("connection", (socket) => {
       color: typeof color === "string" ? color : "#111827",
       size: Math.max(1, Math.min(64, Number.isFinite(+size) ? +size : 3)),
       mode: mode === "eraser" ? "eraser" : "pen",
-      userId: socket.id, // owner
+      userId: socket.id,
     };
 
     state.strokes.push(stroke);
-
-    // send to everyone (authoritative stroke includes userId)
     io.to(room).emit("draw:segment", stroke);
   });
 
-  // Clear ONLY the caller's strokes
   socket.on("draw:clear:user", () => {
     const room = socket.data.room;
     if (!room) return;
@@ -181,15 +180,13 @@ io.on("connection", (socket) => {
       roomState.set(room, { sessionId: Date.now(), strokes: [], images: [] }).get(room);
 
     state.strokes = (state.strokes || []).filter((s) => s.userId !== socket.id);
-
     io.to(room).emit("draw:clear:user", { userId: socket.id });
   });
 
-  // Teacher-only global clear (drawings + images)
   socket.on("draw:clear", () => {
     const room = socket.data.room;
     if (!room) return;
-    if (socket.data.role !== "teacher") return; // gate
+    if (socket.data.role !== "teacher") return;
 
     const state =
       roomState.get(room) ||
@@ -200,12 +197,10 @@ io.on("connection", (socket) => {
     io.to(room).emit("draw:clear");
   });
 
-  // add image (supports width fraction "w")
   socket.on("image:add", (img) => {
     const room = socket.data.room;
     if (!room || !img?.src) return;
 
-    // ~5MB cap to avoid huge base64 payloads
     const approxBytes = Math.floor((img.src.length || 0) * 0.75);
     if (approxBytes > 5 * 1024 * 1024) return;
 
@@ -221,10 +216,9 @@ io.on("connection", (socket) => {
       w: Math.min(1, Math.max(0.05, Number.isFinite(+img?.w) ? +img.w : 0.2)),
     };
     state.images.push(safe);
-    io.to(room).emit("image:add", safe); // include sender
+    io.to(room).emit("image:add", safe);
   });
 
-  // update image (drag / resize)
   socket.on("image:update", (patch) => {
     const room = socket.data.room;
     if (!room || !patch?.id) return;
@@ -244,14 +238,13 @@ io.on("connection", (socket) => {
     state.images[idx] = next;
 
     socket.to(room).emit("image:update", { id: next.id, x: next.x, y: next.y, w: next.w });
-    socket.emit("image:update", { id: next.id, x: next.x, y: next.y, w: next.w }); // echo to author
+    socket.emit("image:update", { id: next.id, x: next.x, y: next.y, w: next.w });
   });
 });
 
 // ===============================
-//  Teacher session controls
+//  Teacher session controls (API)
 // ===============================
-
 app.post("/session/end", (req, res) => {
   const { room } = req.body || {};
   if (!room) return res.status(400).json({ error: "Missing room" });
@@ -264,9 +257,17 @@ app.post("/session/end", (req, res) => {
 });
 
 // ===============================
+//  SPA fallback (must be AFTER APIs/static, BEFORE listen)
+// ===============================
+// Any GET that isn't a file and isn't Socket.IO should serve index.html
+app.get(/^\/(?!socket\.io\/).*/, (req, res) => {
+  res.sendFile(INDEX_FILE);
+});
+
+// ===============================
 //  Start server
 // ===============================
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Realtime server running on port ${PORT}`);
+  console.log(`✅ Realtime server + SPA on ${PORT} (serving ${DIST_DIR})`);
 });
