@@ -113,31 +113,31 @@
       "questions": [
         {
           "id": "q1",
-          "stemMarkdown": "What is the most likely reason the author refers to Michelle Obama and Hillary Clinton in paragraph 2?",
+          "stemMarkdown": "The phrase “I have heard of your wonderful detective work” in paragraph 2 shows that the author is",
           "choices": [
-            "A. to contrast how expectations of First Ladies have changed over time",
-            "B. to provide well-known examples of women that inspired Lady Bird Johnson",
-            "C. to show how Lady Bird Johnson was held in higher regard than more recent First Ladies",
-            "D. to prove that First Ladies have always been powerful political figures"
+            "A. introducing the idea that the narrator’s friend is a competent detective.",
+            "B. explaining that the narrator’s friend has worked on previous cases for Luigi.",
+            "C. suggesting that the case might be dangerous for the narrator to investigate.",
+            "D. emphasizing Luigi’s need for a competent detective."
           ],
           "answerIndex": 0
         },
         {
           "id": "q2",
-          "stemMarkdown": "Read this sentence from paragraph 2.\n\n**In the mid-1900s, First Ladies were largely ornamental; it was expected, or even required, that they be seen and rarely heard.**\n\nWhat is the most likely reason the author uses the word “ornamental” in this sentence?",
+          "stemMarkdown": "How does the introduction of Gennaro in paragraph 6 affect the development of the plot?",
           "choices": [
-            "A. to emphasize the physical beauty that characterized First Ladies during the mid-1900s",
-            "B. to show how First Ladies in the mid-1900s were only valued for their appearances and not their ideas",
-            "C. to highlight the active role that First Ladies played in making political decisions since 1900",
-            "D. to reinforce the notion that First Ladies in the mid-1900s were not expected to work"
+            "A. It causes the narrator to realize that Gennaro wants help with his daughter’s kidnapping.",
+            "B. It inspires the narrator to hope for an autograph from Gennaro.",
+            "C. It motivates the narrator to share a ransom letter with the other men in the room.",
+            "D. It reminds the narrator of reading about the kidnapping of Gennaro’s daughter in the paper."
           ],
           "answerIndex": 2
         },
         {
           "id": "q3",
-          "stemMarkdown": "What role does paragraph 3 play in the overall structure of the passage?",
+          "stemMarkdown": "Read these sentences from paragraph 6.\n\n**True to his word, Luigi was waiting for us in the dark hall. With a motion that indicated silence, he led us up the stairs to the second floor, and quickly opened a door into what seemed to be a mid-sized private dining-room.**\n\nHow do the sentences contribute to the development of the setting?",
           "choices": [
-            "A. It describes Lady Bird Johnson’s childhood in order to later demonstrate her personal growth as an adult woman.",
+            "A. They emphasize how easy it would be for Kennedy and the narrator to get lost in this place on their own.",
             "B. It introduces Lady Bird Johnson’s adolescent personality in order to later contrast it with the force of her historical impact as an adult.",
             "C. It provides examples of the ways Lady Bird Johnson’s upbringing was similar to Michelle Obama and Hillary Clinton’s childhoods.",
             "D. It highlights details from Lady Bird Johnson’s early childhood that explain why she was a fierce opponent of the civil rights movement."
