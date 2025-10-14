@@ -27,6 +27,16 @@ type FlatItem = {
   isEnd?: boolean;
 };
 
+type ResultRow = {
+  globalId: string;
+  indexInAll: number; // 0-based in flattened list (questions only)
+  sectionTitle: string;
+  qNumberInSection: number; // 1-based
+  userIndex: number | undefined;
+  correctIndex: number | undefined;
+  choices?: string[];
+};
+
 export default function ExamRunnerPage() {
   const { slug } = useParams<{ slug: string }>();
   const exam = slug ? getExamBySlug(slug) : undefined;
@@ -117,11 +127,23 @@ export default function ExamRunnerPage() {
   const [hlPos, setHlPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const selectionRangeRef = useRef<Range | null>(null);
 
+  // ===== Submission / Results state =====
+  const [submitted, setSubmitted] = useState(false);
+  const [results, setResults] = useState<{
+    rows: ResultRow[];
+    correctCount: number;
+    incorrectCount: number;
+    unansweredCount: number;
+    scoredCount: number; // questions with a known correct answer
+  } | null>(null);
+
   useEffect(() => {
     setIdx(0);
     setAnswers({});
     setReviewOpen(false);
     setReviewTab("all");
+    setSubmitted(false);
+    setResults(null);
   }, [slug]);
 
   // Keyboard nav + close review on ESC
@@ -197,6 +219,7 @@ export default function ExamRunnerPage() {
   const jumpTo = (i: number) => {
     setIdx(i);
     setReviewOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const selectChoice = (choiceIndex: number) => {
     if (!current || current.isEnd) return;
@@ -216,7 +239,7 @@ export default function ExamRunnerPage() {
 
   // ===== Selection handlers: fixed-position palette (only on question pages) =====
   useEffect(() => {
-    if (!current || current.isEnd) return; // no highlighter on END page
+    if (!current || current.isEnd) return; // no highlighter on END / results page
     const el = passageRef.current;
     if (!el) return;
 
@@ -408,7 +431,215 @@ export default function ExamRunnerPage() {
     return groups;
   }, [filteredItems]);
 
+  // ===== Submit & Score =====
+  const letter = (i?: number) => (i == null || i < 0 ? "-" : String.fromCharCode(65 + i));
+  const parseLetterToIndex = (val: string) => {
+    const s = val.trim().toUpperCase();
+    if (/^\d+$/.test(s)) return Number(s); // treat as numeric index if provided
+    if (/^[A-Z]$/.test(s)) return s.charCodeAt(0) - 65;
+    return undefined;
+    };
+  const getCorrectIndex = (q: any): number | undefined => {
+    // Try common fields
+    const fields = [
+      "correctIndex",
+      "answerIndex",
+      "correctChoiceIndex",
+      "solutionIndex",
+      "solution",
+      "correct",
+      "answer",
+      "key",
+    ];
+    for (const f of fields) {
+      if (q == null || !(f in q)) continue;
+      const v = (q as any)[f];
+      if (typeof v === "number") return v;
+      if (typeof v === "string") return parseLetterToIndex(v);
+      // some structures might be like { index: 2 }
+      if (typeof v === "object" && v && "index" in v && typeof v.index === "number") return v.index;
+    }
+    return undefined;
+  };
+
+  const computeResults = () => {
+    const rows: ResultRow[] = [];
+    let correctCount = 0;
+    let incorrectCount = 0;
+    let unansweredCount = 0;
+    let scoredCount = 0;
+
+    // Walk the original exam structure to access raw questions
+    let indexInAll = 0;
+    exam?.sections.forEach((sec) => {
+      sec.questions.forEach((q, i) => {
+        const globalId = `${sec.id}:${q.id}`;
+        const userIndex = answers[globalId];
+        const correctIndex = getCorrectIndex(q);
+        const choices = (q as any).choices as string[] | undefined;
+
+        if (correctIndex != null) {
+          scoredCount++;
+          if (userIndex == null) {
+            unansweredCount++;
+          } else if (userIndex === correctIndex) {
+            correctCount++;
+          } else {
+            incorrectCount++;
+          }
+        } else {
+          // If we can't score it (no key), count as unanswered in UX but not in scoredCount
+          if (userIndex == null) unansweredCount++;
+        }
+
+        rows.push({
+          globalId,
+          indexInAll,
+          sectionTitle: sec.title,
+          qNumberInSection: i + 1,
+          userIndex,
+          correctIndex,
+          choices,
+        });
+        indexInAll++;
+      });
+    });
+
+    setResults({ rows, correctCount, incorrectCount, unansweredCount, scoredCount });
+  };
+
+  const onSubmit = () => {
+    computeResults();
+    setSubmitted(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   // ===== Render =====
+  // Results page
+  if (submitted && results) {
+    const { correctCount, incorrectCount, unansweredCount, scoredCount, rows } = results;
+    const percent = scoredCount ? Math.round((correctCount / scoredCount) * 100) : 0;
+    const wrongRows = rows.filter((r) => r.correctIndex != null && r.userIndex != null && r.userIndex !== r.correctIndex);
+
+    return (
+      <div className="space-y-6">
+        {/* Header/status */}
+        <div className="sticky top-14 z-30">
+          <div className="h-[3px] bg-sky-500 border-t border-gray-300" />
+          <div className="w-full bg-[#5e5e5e] text-white text-[13px]">
+            <div className="flex items-center gap-2 px-6 py-1">
+              <span className="font-semibold">{exam.title.toUpperCase()}</span>
+              <span>/</span>
+              <span>RESULTS</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-8 max-w-4xl mx-auto">
+          <div className="text-center mb-6">
+            <h2 className="text-4xl font-bold">Your Score</h2>
+            <div className="mt-3 text-xl">
+              <span className="font-semibold">{correctCount}</span> correct out of{" "}
+              <span className="font-semibold">{scoredCount}</span> scored questions
+              {" · "}
+              <span className="font-semibold">{percent}%</span>
+            </div>
+            <div className="mt-1 text-gray-600 text-sm">
+              Incorrect: {incorrectCount} &nbsp;·&nbsp; Unanswered: {unansweredCount}
+            </div>
+
+            <div className="mt-5 flex gap-2 justify-center">
+              <button
+                onClick={() => {
+                  // Jump to first wrong if exists
+                  const firstWrong = wrongRows[0];
+                  if (!firstWrong) return;
+                  const i = items.findIndex((x) => x.globalId === firstWrong.globalId);
+                  setSubmitted(false);
+                  jumpTo(i);
+                }}
+                disabled={wrongRows.length === 0}
+                className={`px-4 py-2 rounded-md text-white ${wrongRows.length ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-300 cursor-not-allowed"}`}
+                title={wrongRows.length ? "Go to first incorrect question" : "No incorrect questions"}
+              >
+                Review Incorrect Questions
+              </button>
+              <button
+                onClick={() => {
+                  setSubmitted(false);
+                  setIdx(0);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
+                className="px-4 py-2 rounded-md border border-gray-300 bg-white hover:bg-gray-50"
+              >
+                Back to Exam
+              </button>
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div className="rounded border border-gray-200 bg-gray-50 p-4 mb-4 text-sm">
+            <div className="flex items-center gap-6">
+              <span className="inline-flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-orange-500 inline-block" />
+                Unanswered
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-red-500 inline-block" />
+                Incorrect
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-green-500 inline-block" />
+                Correct
+              </span>
+            </div>
+          </div>
+
+          {/* Wrong questions list */}
+          <div>
+            <h3 className="text-xl font-semibold mb-2">Questions you got wrong</h3>
+            {wrongRows.length === 0 ? (
+              <p className="text-gray-600">Nice! You didn’t miss any scored questions.</p>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {wrongRows.map((r) => {
+                  const i = items.findIndex((x) => x.globalId === r.globalId);
+                  const your = letter(r.userIndex);
+                  const correct = letter(r.correctIndex);
+                  return (
+                    <div key={r.globalId} className="py-3 flex items-center gap-3">
+                      <button
+                        onClick={() => {
+                          setSubmitted(false);
+                          jumpTo(i);
+                        }}
+                        className="shrink-0 px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 border border-gray-300"
+                        title="Jump to this question"
+                      >
+                        {r.sectionTitle}: Q{r.qNumberInSection}
+                      </button>
+                      <div className="text-sm">
+                        <div>
+                          Your answer: <span className="font-semibold">{your}</span>
+                          {r.choices && r.userIndex != null ? ` — ${r.choices[r.userIndex]}` : ""}
+                        </div>
+                        <div>
+                          Correct answer: <span className="font-semibold">{correct}</span>
+                          {r.choices && r.correctIndex != null ? ` — ${r.choices[r.correctIndex]}` : ""}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ===== Normal exam UI (includes End-of-Exam screen before submit) =====
   return (
     <div className="space-y-4">
       {/* ======= FULL-WIDTH Compact Toolbar + Status Bar ======= */}
@@ -730,7 +961,7 @@ export default function ExamRunnerPage() {
               </p>
 
               <button
-                onClick={() => alert("Submit handler not wired yet.")}
+                onClick={onSubmit}
                 className="mt-6 inline-block bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-md"
               >
                 Submit Final Answers
@@ -751,7 +982,7 @@ export default function ExamRunnerPage() {
               </div>
             </div>
 
-            {/* Unanswered grid (entire exam) */}
+            {/* All questions (show unanswered + bookmarks indicators) */}
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {questionItems.map((q) => {
                 const i = items.findIndex((x) => x.globalId === q.globalId);
