@@ -64,7 +64,8 @@ export default function ExamRunnerPage() {
   const [fetchedPassage, setFetchedPassage] = useState<string | undefined>(undefined);
 
   // ===== Highlighting state (persist to localStorage) =====
-  const passageRef = useRef<HTMLDivElement>(null);
+  const passageRef = useRef<HTMLDivElement>(null);        // inner content container
+  const passageHostRef = useRef<HTMLDivElement>(null);    // positioned host (palette's coordinate space)
   const [savedHtml, setSavedHtml] = useState<string | null>(null);
   const [hlOpen, setHlOpen] = useState(false);
   const [hlPos, setHlPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -163,8 +164,9 @@ export default function ExamRunnerPage() {
 
   // ===== Selection handlers: robust listeners on document =====
   useEffect(() => {
-    const el = passageRef.current;
-    if (!el) return;
+    const el = passageRef.current;       // inner content element where text lives
+    const host = passageHostRef.current; // `.passage.relative` container (palette is absolutely positioned here)
+    if (!el || !host) return;
 
     // helper: is a DOM node inside `el`?
     const isInside = (node: Node | null) => {
@@ -227,9 +229,9 @@ export default function ExamRunnerPage() {
       // Keep a stable clone we can mutate later
       selectionRangeRef.current = range.cloneRange();
 
-      // Position toolbox centered above selection (relative to passage container)
+      // Position toolbox centered above selection (relative to the HOST container)
       const rect = getSafeRect(range);
-      const hostRect = el.getBoundingClientRect();
+      const hostRect = host.getBoundingClientRect();
       const x = rect.left - hostRect.left + rect.width / 2;
       const y = Math.max(rect.top - hostRect.top - 8, 0);
       setHlPos({ x, y });
@@ -252,7 +254,7 @@ export default function ExamRunnerPage() {
     };
     const onDocMouseDown = (e: MouseEvent) => {
       // close if clicking outside the passage; ignore clicks on the palette
-      const palette = el.querySelector("[data-hl-palette]");
+      const palette = host.querySelector("[data-hl-palette]");
       const t = e.target as Node | null;
       if (palette && t && (palette === t || palette.contains(t))) return;
       if (!t || !isInside(t)) setHlOpen(false);
@@ -503,7 +505,10 @@ export default function ExamRunnerPage() {
             <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
               <div className="border rounded-md p-6 bg-white">
                 {effectivePassage ? (
-                  <div className="prose md:prose-lg max-w-none passage relative">
+                  <div
+                    className="prose md:prose-lg max-w-none passage relative"
+                    ref={passageHostRef}
+                  >
                     {/* Render saved HTML if exists, else markdown; both go into the same ref container */}
                     {savedHtml ? (
                       <div ref={passageRef} dangerouslySetInnerHTML={{ __html: savedHtml }} />
