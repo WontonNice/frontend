@@ -1,5 +1,5 @@
 // src/components/ExamRunnerPage.tsx
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getExamBySlug } from "../data/exams";
 import ReactMarkdown from "react-markdown";
@@ -24,6 +24,7 @@ type FlatItem = {
 
   globalIndex: number; // 0-based across entire exam
   isEnd?: boolean;
+  isMathIntro?: boolean; // special math transition page
 };
 
 type ResultRow = {
@@ -37,17 +38,12 @@ type ResultRow = {
 
 const groupLabel = (type: string) => {
   if (type === "reading") return "Reading";
-  if (type === "math") return "Math";
+  if (type === "math") return "Mathematics";
   return type.charAt(0).toUpperCase() + type.slice(1);
 };
 
 const BookmarkIcon = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
-  <svg
-    viewBox="0 0 24 24"
-    className={className}
-    aria-hidden
-    fill="#2563EB" // Tailwind blue-600
-  >
+  <svg viewBox="0 0 24 24" className={className} aria-hidden fill="#2563EB">
     <path d="M6 2h12a2 2 0 0 1 2 2v18l-8-4-8 4V4a2 2 0 0 1 2-2z" />
   </svg>
 );
@@ -56,13 +52,30 @@ export default function ExamRunnerPage() {
   const { slug } = useParams<{ slug: string }>();
   const exam = slug ? getExamBySlug(slug) : undefined;
 
-  // ===== Flatten ALL questions (continuous numbering); append one end-of-exam marker =====
-  const items = useMemo<FlatItem[]>(() => {
-    if (!exam) return [];
+  // ===== Flatten ALL questions (continuous numbering) and inject a Math intro page =====
+  const { items, mathIntroIndex } = useMemo(() => {
+    if (!exam) return { items: [] as FlatItem[], mathIntroIndex: -1 };
+
     const out: FlatItem[] = [];
     let globalIndex = 0;
+    let insertedMathIntro = false;
+    let mathIntroIdx = -1;
 
     exam.sections.forEach((sec) => {
+      // Insert a math transition page BEFORE the first math question
+      if (sec.type === "math" && !insertedMathIntro) {
+        mathIntroIdx = out.length;
+        out.push({
+          globalId: "__MATH_INTRO__",
+          sectionId: "__MATH__",
+          sectionTitle: "Mathematics",
+          sectionType: "math",
+          globalIndex,
+          isMathIntro: true,
+        });
+        insertedMathIntro = true;
+      }
+
       sec.questions.forEach((q) => {
         out.push({
           globalId: `${sec.id}:${q.id}`,
@@ -80,6 +93,7 @@ export default function ExamRunnerPage() {
       });
     });
 
+    // End marker
     out.push({
       globalId: "__END__",
       sectionId: "__END__",
@@ -89,10 +103,10 @@ export default function ExamRunnerPage() {
       isEnd: true,
     });
 
-    return out;
+    return { items: out, mathIntroIndex: mathIntroIdx };
   }, [exam]);
 
-  const questionItems = items.filter((i) => !i.isEnd);
+  const questionItems = items.filter((i) => !i.isEnd && !i.isMathIntro);
   const lastIndex = Math.max(0, items.length - 1);
 
   const [idx, setIdx] = useState(0);
@@ -122,7 +136,7 @@ export default function ExamRunnerPage() {
   };
   const toggleBookmark = () => {
     const cur = items[idx];
-    if (!cur || cur.isEnd) return;
+    if (!cur || cur.isEnd || cur.isMathIntro) return;
     setBookmarks((prev) => {
       const next = new Set(prev);
       if (next.has(cur.globalId)) next.delete(cur.globalId);
@@ -176,7 +190,7 @@ export default function ExamRunnerPage() {
   const current = items[idx];
   useEffect(() => {
     setFetchedPassage(undefined);
-    if (!current || current.isEnd) return;
+    if (!current || current.isEnd || current.isMathIntro) return;
 
     let url = current.sectionPassageUrl;
     if (!url) return;
@@ -189,7 +203,7 @@ export default function ExamRunnerPage() {
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((txt) => setFetchedPassage(txt))
       .catch(() => setFetchedPassage(undefined));
-  }, [current?.sectionId, current?.sectionPassageUrl, current?.isEnd]);
+  }, [current?.sectionId, current?.sectionPassageUrl, current?.isEnd, current?.isMathIntro]);
 
   if (!exam) {
     return (
@@ -201,19 +215,21 @@ export default function ExamRunnerPage() {
   }
 
   // Prefer fetched content (from .md), then fall back to inline JSON passage
-  const effectivePassage = !current?.isEnd
-    ? fetchedPassage ??
-      (exam.sections.find((s) => s.id === current.sectionId) as any)?.passageMarkdown
-    : undefined;
+  const effectivePassage =
+    !current?.isEnd && !current?.isMathIntro && current?.sectionType !== "math"
+      ? fetchedPassage ??
+        (exam.sections.find((s) => s.id === current.sectionId) as any)?.passageMarkdown
+      : undefined;
 
-  const effectivePassageImages = !current?.isEnd
-    ? (exam.sections.find((s) => s.id === current.sectionId) as any)?.passageImages
-    : undefined;
+  const effectivePassageImages =
+    !current?.isEnd && !current?.isMathIntro && current?.sectionType !== "math"
+      ? (exam.sections.find((s) => s.id === current.sectionId) as any)?.passageImages
+      : undefined;
 
-  // ===== Progress: GLOBAL numbering =====
+  // ===== Progress: GLOBAL numbering (math intro page shows last seen) =====
   const questionCount = questionItems.length;
   const questionOrdinal = Math.min(
-    current?.isEnd ? questionCount : (current?.globalIndex ?? 0) + 1,
+    current?.isEnd ? questionCount : current?.isMathIntro ? Math.max(1, items.findIndex(it => !it.isMathIntro && !it.isEnd) + 1) : (current?.globalIndex ?? 0) + 1,
     questionCount
   );
   const progressPct = questionCount ? Math.round((questionOrdinal / questionCount) * 100) : 0;
@@ -226,7 +242,7 @@ export default function ExamRunnerPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const selectChoice = (choiceIndex: number) => {
-    if (!current || current.isEnd) return;
+    if (!current || current.isEnd || current.isMathIntro) return;
     setAnswers((prev) => ({ ...prev, [current.globalId]: choiceIndex }));
   };
 
@@ -249,7 +265,7 @@ export default function ExamRunnerPage() {
   const groupedByDisplayGroup = useMemo(() => {
     const groups: Record<string, FlatItem[]> = {};
     filteredItems.forEach((q) => {
-      const key = groupLabel(q.sectionType); // "Reading" merges both passages
+      const key = groupLabel(q.sectionType);
       if (!groups[key]) groups[key] = [];
       groups[key].push(q);
     });
@@ -260,7 +276,7 @@ export default function ExamRunnerPage() {
   const letter = (i?: number) => (i == null || i < 0 ? "-" : String.fromCharCode(65 + i));
   const getCorrectIndex = (q: any): number | undefined => {
     const v = (q as any)?.answerIndex;
-    return typeof v === "number" ? v : undefined; // expects 0-based index
+    return typeof v === "number" ? v : undefined; // 0-based index
   };
 
   const computeResults = () => {
@@ -394,20 +410,12 @@ export default function ExamRunnerPage() {
                       </button>
                       <div className="text-sm">
                         <div>
-                          Your answer:{" "}
-                          <span className="font-semibold">
-                            {letter(r.userIndex)}
-                          </span>
+                          Your answer: <span className="font-semibold">{letter(r.userIndex)}</span>
                           {r.choices && r.userIndex != null ? ` — ${r.choices[r.userIndex]}` : ""}
                         </div>
                         <div>
-                          Correct answer:{" "}
-                          <span className="font-semibold">
-                            {letter(r.correctIndex)}
-                          </span>
-                          {r.choices && r.correctIndex != null
-                            ? ` — ${r.choices[r.correctIndex]}`
-                            : ""}
+                          Correct answer: <span className="font-semibold">{letter(r.correctIndex)}</span>
+                          {r.choices && r.correctIndex != null ? ` — ${r.choices[r.correctIndex]}` : ""}
                         </div>
                       </div>
                     </div>
@@ -421,7 +429,7 @@ export default function ExamRunnerPage() {
     );
   }
 
-  // ===== Normal exam UI (includes End-of-Exam screen) =====
+  // ===== Normal exam UI (includes Math intro and End-of-Exam screen) =====
   return (
     <div className="space-y-4">
       {/* ======= Toolbar + Status ======= */}
@@ -432,9 +440,7 @@ export default function ExamRunnerPage() {
               onClick={goPrev}
               disabled={idx === 0}
               className={`px-3 py-1.5 text-white text-sm font-medium border-r ${
-                idx === 0
-                  ? "bg-blue-300 cursor-not-allowed border-blue-300"
-                  : "bg-blue-600 hover:bg-blue-500 border-blue-700"
+                idx === 0 ? "bg-blue-300 cursor-not-allowed border-blue-300" : "bg-blue-600 hover:bg-blue-500 border-blue-700"
               }`}
               title="Previous"
             >
@@ -459,14 +465,7 @@ export default function ExamRunnerPage() {
               className="inline-flex items-center gap-1.5 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
               title="Review Questions"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 text-gray-700"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
               Review
@@ -480,71 +479,68 @@ export default function ExamRunnerPage() {
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     <button
                       onClick={() => setReviewTab("all")}
-                      className={`flex flex-col items-center rounded border px-2 py-2 ${
-                        reviewTab === "all"
-                          ? "bg-white border-gray-800"
-                          : "bg-gray-50 border-gray-300 hover:bg-gray-100"
-                      }`}
+                      className={`flex flex-col items-center rounded border px-2 py-2 ${reviewTab === "all" ? "bg-white border-gray-800" : "bg-gray-50 border-gray-300 hover:bg-gray-100"}`}
                     >
                       <span className="text-[11px] text-gray-600">All Questions</span>
-                      <span className="mt-1 text-base font-semibold">{questionCount}</span>
+                      <span className="mt-1 text-base font-semibold">{questionItems.length}</span>
                     </button>
                     <button
                       onClick={() => setReviewTab("unanswered")}
-                      className={`flex flex-col items-center rounded border px-2 py-2 ${
-                        reviewTab === "unanswered"
-                          ? "bg-white border-gray-800"
-                          : "bg-gray-50 border-gray-300 hover:bg-gray-100"
-                      }`}
+                      className={`flex flex-col items-center rounded border px-2 py-2 ${reviewTab === "unanswered" ? "bg-white border-gray-800" : "bg-gray-50 border-gray-300 hover:bg-gray-100"}`}
                     >
                       <span className="text-[11px] text-gray-600">Not Answered</span>
                       <span className="mt-1 text-base font-semibold">{unansweredCount}</span>
                     </button>
                     <button
                       onClick={() => setReviewTab("bookmarked")}
-                      className={`flex flex-col items-center rounded border px-2 py-2 ${
-                        reviewTab === "bookmarked"
-                          ? "bg-white border-gray-800"
-                          : "bg-gray-50 border-gray-300 hover:bg-gray-100"
-                      }`}
+                      className={`flex flex-col items-center rounded border px-2 py-2 ${reviewTab === "bookmarked" ? "bg-white border-gray-800" : "bg-gray-50 border-gray-300 hover:bg-gray-100"}`}
                     >
                       <span className="text-[11px] text-gray-600">Bookmarks</span>
                       <span className="mt-1 text-base font-semibold">{bookmarkedCount}</span>
                     </button>
                   </div>
 
-                  {/* Filtered list grouped by merged group (Reading / Math) */}
+                  {/* Filtered list grouped by merged group (Reading / Mathematics).
+                      Group header for Mathematics is clickable -> jumps to math intro page. */}
                   <div className="max-h-72 overflow-auto rounded border border-gray-200">
-                    {Object.entries(groupedByDisplayGroup).map(([group, qs]) => (
-                      <div key={group}>
-                        <div className="px-3 py-2 text-[12px] font-semibold bg-gray-50 border-b border-gray-200">
-                          {group}
-                        </div>
-                        {qs.map((q) => {
-                          const i = items.findIndex((x) => x.globalId === q.globalId);
-                          const answered = isAnswered(q.globalId);
-                          const bookmarked = bookmarks.has(q.globalId);
-                          return (
-                            <button
-                              key={q.globalId}
-                              onClick={() => jumpTo(i)}
-                              className={`w-full text-left px-3 py-2 flex items-center gap-2 border-b border-gray-200 hover:bg-gray-50 ${
-                                i === idx ? "bg-blue-50" : ""
-                              }`}
-                              title={`${group} · Question ${q.globalIndex + 1}`}
-                            >
-                              <span
-                                className={`h-2.5 w-2.5 rounded-full ${
-                                  answered ? "bg-green-500" : "bg-orange-500"
+                    {Object.entries(groupedByDisplayGroup).map(([group, qs]) => {
+                      const isMath = group.toLowerCase() === "mathematics";
+                      return (
+                        <div key={group}>
+                          <button
+                            className={`w-full text-left px-3 py-2 text-[12px] font-semibold ${isMath ? "bg-gray-100 hover:bg-gray-200" : "bg-gray-50 hover:bg-gray-100"} border-b border-gray-200`}
+                            onClick={() => {
+                              if (isMath && mathIntroIndex >= 0) jumpTo(mathIntroIndex);
+                            }}
+                            title={isMath ? "Open Mathematics notes" : undefined}
+                          >
+                            {group}
+                            {isMath && mathIntroIndex >= 0 && <span className="ml-2 text-xs text-blue-600">(section page)</span>}
+                          </button>
+
+                          {qs.map((q) => {
+                            const i = items.findIndex((x) => x.globalId === q.globalId);
+                            const active = i === idx;
+                            const answered = isAnswered(q.globalId);
+                            const bookmarked = bookmarks.has(q.globalId);
+                            return (
+                              <button
+                                key={q.globalId}
+                                onClick={() => jumpTo(i)}
+                                className={`w-full text-left px-3 py-2 flex items-center gap-2 border-b border-gray-200 ${
+                                  active ? "bg-gray-700 text-white" : "hover:bg-gray-50"
                                 }`}
-                              />
-                              <span className="flex-1">Question {q.globalIndex + 1}</span>
-                              {bookmarked && <BookmarkIcon className="h-3.5 w-3.5" />}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ))}
+                                title={`${group} · Question ${q.globalIndex + 1}`}
+                              >
+                                <span className={`h-2.5 w-2.5 rounded-full ${answered ? "bg-green-500" : "bg-orange-500"}`} />
+                                <span className="flex-1">Question {q.globalIndex + 1}</span>
+                                {bookmarked && <BookmarkIcon className="h-3.5 w-3.5" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
                     {filteredItems.length === 0 && (
                       <div className="px-3 py-6 text-center text-gray-500 text-sm">
                         No questions to show here.
@@ -556,17 +552,19 @@ export default function ExamRunnerPage() {
             )}
           </div>
 
-          {/* Bookmark toggle */}
+          {/* Bookmark toggle (disabled on special pages) */}
           <button
             onClick={toggleBookmark}
-            disabled={current?.isEnd}
+            disabled={current?.isEnd || current?.isMathIntro}
             className={`inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium ${
-              !current?.isEnd && bookmarks.has(current?.globalId ?? "")
+              !current?.isEnd &&
+              !current?.isMathIntro &&
+              bookmarks.has(current?.globalId ?? "")
                 ? "border-blue-600 bg-blue-50 hover:bg-blue-100"
                 : "border-gray-400 bg-gradient-to-b from-white to-gray-100 hover:bg-gray-50"
-            } ${current?.isEnd ? "opacity-50 cursor-not-allowed" : ""}`}
+            } ${current?.isEnd || current?.isMathIntro ? "opacity-50 cursor-not-allowed" : ""}`}
             title={
-              current?.isEnd
+              current?.isEnd || current?.isMathIntro
                 ? "No question to bookmark"
                 : bookmarks.has(current?.globalId ?? "")
                 ? "Remove bookmark"
@@ -601,7 +599,13 @@ export default function ExamRunnerPage() {
           <div className="flex items-center gap-2 px-6 py-1">
             <span className="font-semibold">{exam.title.toUpperCase()}</span>
             <span>/</span>
-            <span>{current?.isEnd ? "END OF EXAM" : groupLabel(current?.sectionType ?? "")}</span>
+            <span>
+              {current?.isEnd
+                ? "END OF EXAM"
+                : current?.isMathIntro
+                ? "MATHEMATICS"
+                : groupLabel(current?.sectionType ?? "")}
+            </span>
             <span>/</span>
             <span>
               {current?.isEnd
@@ -619,66 +623,76 @@ export default function ExamRunnerPage() {
       </div>
 
       {/* ======= Main Sheet ======= */}
-      {!current?.isEnd ? (
-        <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left: passage for the ORIGINAL section this question belongs to */}
-            <div className="rounded-lg border border-gray-200 shadow-sm p-4">
-              <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
-                <div className="border rounded-md p-6 bg-white">
-                  {effectivePassage ? (
-                    <div className="prose md:prose-lg max-w-none passage">
-                      <ReactMarkdown>{effectivePassage}</ReactMarkdown>
-                    </div>
-                  ) : current?.image || current?.stemMarkdown ? (
-                    <>
-                      {current.stemMarkdown && (
-                        <div className="prose md:prose-lg max-w-none passage">
-                          <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
-                        </div>
-                      )}
-                      {current.image && (
-                        <img
-                          src={current.image}
-                          alt="question"
-                          className="mt-4 max-w-full rounded border border-gray-200"
-                        />
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-gray-500">No passage for this item.</p>
-                  )}
+      {current?.isMathIntro ? (
+        // ---------- Math transition page ----------
+        <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-8">
+          <div className="max-w-5xl mx-auto">
+            <h2 className="text-2xl font-extrabold text-center">MATHEMATICS</h2>
+            <h3 className="text-xl font-extrabold text-center mt-1">IMPORTANT NOTES</h3>
 
-                  {effectivePassageImages?.length ? (
-                    <div className="mt-4 space-y-3">
-                      {effectivePassageImages.map((src: string, i: number) => (
-                        <img
-                          key={i}
-                          src={src}
-                          alt={`passage-figure-${i + 1}`}
-                          className="max-w-full rounded border border-gray-200"
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
+            <ol className="mt-6 space-y-6 text-[17px] leading-8">
+              <li>
+                Formulas and definitions of mathematical terms and symbols are <strong>not</strong> provided.
+              </li>
+              <li>
+                Diagrams other than graphs are <strong>not</strong> necessarily drawn to scale. Do not assume any
+                relationship in a diagram unless it is specifically stated or can be determined from the information
+                given.
+              </li>
+              <li>
+                Assume that a diagram is in one plane unless the question specifically states that it is not.
+              </li>
+              <li>
+                Graphs are drawn to scale. Unless stated otherwise, you can assume relationships according to
+                appearance. For example, lines on a graph that appear to be parallel can be assumed to be parallel.
+                This is also true for concurrent lines, straight lines, collinear points, right angles, etc.
+              </li>
+            </ol>
+
+            <div className="mt-8">
+              <h4 className="text-center font-extrabold text-lg">DIRECTIONS:</h4>
+              <p className="mt-3 text-[17px] leading-8">
+                Solve each problem. Select the answer from the choices given or enter your answer in the space provided.
+                When you are solving problems, you can use the online notepad tool or write on the scrap paper given to
+                you.
+              </p>
             </div>
 
-            {/* Right: question */}
+            <div className="mt-8 text-center">
+              <button
+                onClick={() => setIdx((i) => Math.min(i + 1, lastIndex))}
+                className="inline-block bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-md"
+              >
+                Begin Math Questions
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : !current?.isEnd ? (
+        // ---------- Reading vs Math question layouts ----------
+        current?.sectionType === "math" ? (
+          // Single-column for math (no passage)
+          <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
             <div className="rounded-lg border border-gray-200 shadow-sm p-4">
               {current?.stemMarkdown ? (
                 <div className="prose max-w-none mb-4">
-                  {/* Show GLOBAL number here */}
                   <p className="text-sm text-gray-500 mb-2">
-                    {groupLabel(current.sectionType)} · Question {current.globalIndex + 1}
+                    Mathematics · Question {current.globalIndex + 1}
                   </p>
                   <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
                 </div>
               ) : null}
 
+              {current?.image && (
+                <img
+                  src={current.image}
+                  alt="question"
+                  className="mt-4 max-w-full rounded border border-gray-200"
+                />
+              )}
+
               {current?.choices ? (
-                <ul className="space-y-4">
+                <ul className="space-y-4 mt-4">
                   {current.choices.map((choice, i) => {
                     const selected = answers[current.globalId] === i;
                     return (
@@ -704,9 +718,95 @@ export default function ExamRunnerPage() {
               )}
             </div>
           </div>
-        </div>
+        ) : (
+          // Two-column for reading (passage + question)
+          <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left: reading passage */}
+              <div className="rounded-lg border border-gray-200 shadow-sm p-4">
+                <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
+                  <div className="border rounded-md p-6 bg-white">
+                    {effectivePassage ? (
+                      <div className="prose md:prose-lg max-w-none passage">
+                        <ReactMarkdown>{effectivePassage}</ReactMarkdown>
+                      </div>
+                    ) : current?.image || current?.stemMarkdown ? (
+                      <>
+                        {current.stemMarkdown && (
+                          <div className="prose md:prose-lg max-w-none passage">
+                            <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
+                          </div>
+                        )}
+                        {current.image && (
+                          <img
+                            src={current.image}
+                            alt="question"
+                            className="mt-4 max-w-full rounded border border-gray-200"
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-gray-500">No passage for this item.</p>
+                    )}
+
+                    {effectivePassageImages?.length ? (
+                      <div className="mt-4 space-y-3">
+                        {effectivePassageImages.map((src: string, i: number) => (
+                          <img
+                            key={i}
+                            src={src}
+                            alt={`passage-figure-${i + 1}`}
+                            className="max-w-full rounded border border-gray-200"
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: question */}
+              <div className="rounded-lg border border-gray-200 shadow-sm p-4">
+                {current?.stemMarkdown ? (
+                  <div className="prose max-w-none mb-4">
+                    <p className="text-sm text-gray-500 mb-2">
+                      {groupLabel(current.sectionType)} · Question {current.globalIndex + 1}
+                    </p>
+                    <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
+                  </div>
+                ) : null}
+
+                {current?.choices ? (
+                  <ul className="space-y-4">
+                    {current.choices.map((choice, i) => {
+                      const selected = answers[current.globalId] === i;
+                      return (
+                        <li key={i}>
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={current.globalId}
+                              className="h-5 w-5"
+                              checked={selected}
+                              onChange={() => selectChoice(i)}
+                            />
+                            <span className="flex-1 rounded-lg px-3 py-2 bg-gray-50 border border-gray-200">
+                              {choice}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500">No choices for this item.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )
       ) : (
-        /* ======= End-of-Exam page ======= */
+        // ---------- End-of-Exam page ----------
         <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-8">
           <div className="max-w-3xl mx-auto">
             <div className="text-center">
@@ -774,7 +874,7 @@ export default function ExamRunnerPage() {
       {/* Bottom hint */}
       <div className="text-center text-sm text-gray-500">Use ← and → keys to navigate</div>
 
-      {/* ===== Passage & list styling (kept; removed highlighter styles) ===== */}
+      {/* ===== Passage & list styling ===== */}
       <style>{`
         .passage h1, .passage h2, .passage h3 { text-align: center; margin-bottom: 0.25rem; }
         .passage h1 + p, .passage h2 + p, .passage h3 + p { text-align: center; margin-top: 0.25rem; margin-bottom: 1rem; }
