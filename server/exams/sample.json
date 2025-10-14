@@ -1,7 +1,7 @@
 {
-  "slug": "shsat-2025-a",
-  "title": "SHSAT Practice A",
-  "description": "Full-length practice with reading & math.",
+  "slug": "digital-shsat-practice-test-form-1",
+  "title": "Digital SHSAT Practice Test Form 1",
+  "description": "Digital SHSAT Practice Test Form 1",
   "sections": [
     {
       "id": "reading-1",
@@ -31,17 +31,6 @@
             "B. to show how First Ladies in the mid-1900s were only valued for their appearances and not their ideas",
             "C. to highlight the active role that First Ladies played in making political decisions since 1900",
             "D. to reinforce the notion that First Ladies in the mid-1900s were not expected to work"
-          ],
-          "answerIndex": 2
-        },
-        {
-          "id": "q3",
-          "stemMarkdown": "What role does paragraph 3 play in the overall structure of the passage?",
-          "choices": [
-            "A. It describes Lady Bird Johnson’s childhood in order to later demonstrate her personal growth as an adult woman.",
-            "B. It introduces Lady Bird Johnson’s adolescent personality in order to later contrast it with the force of her historical impact as an adult.",
-            "C. It provides examples of the ways Lady Bird Johnson’s upbringing was similar to Michelle Obama and Hillary Clinton’s childhoods.",
-            "D. It highlights details from Lady Bird Johnson’s early childhood that explain why she was a fierce opponent of the civil rights movement."
           ],
           "answerIndex": 2
         },
