@@ -118,6 +118,15 @@ export default function ExamRunnerPage() {
   // fetched passage content (if section provides `passageMd`)
   const [fetchedPassage, setFetchedPassage] = useState<string | undefined>(undefined);
 
+  // ===== Math intro markdown (from public/exams/mathpage.md) =====
+  const [mathIntroMd, setMathIntroMd] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    fetch("/exams/mathpage.md")
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((txt) => setMathIntroMd(txt))
+      .catch(() => setMathIntroMd(undefined));
+  }, []);
+
   // ===== Bookmark state (persist per exam) =====
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
   const bmStorageKey = slug ? `bm:${slug}` : null;
@@ -165,16 +174,7 @@ export default function ExamRunnerPage() {
     setResults(null);
   }, [slug]);
 
-  // Keyboard nav + close review on ESC
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") setIdx((i) => Math.min(lastIndex, i + 1));
-      if (e.key === "ArrowLeft") setIdx((i) => Math.max(0, i - 1));
-      if (e.key === "Escape") setReviewOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [lastIndex]);
+  // (Removed keyboard navigation/useEffect per request)
 
   // Click outside to close review
   useEffect(() => {
@@ -226,10 +226,14 @@ export default function ExamRunnerPage() {
       ? (exam.sections.find((s) => s.id === current.sectionId) as any)?.passageImages
       : undefined;
 
-  // ===== Progress: GLOBAL numbering (math intro page shows last seen) =====
+  // ===== Progress: GLOBAL numbering =====
   const questionCount = questionItems.length;
   const questionOrdinal = Math.min(
-    current?.isEnd ? questionCount : current?.isMathIntro ? Math.max(1, items.findIndex(it => !it.isMathIntro && !it.isEnd) + 1) : (current?.globalIndex ?? 0) + 1,
+    current?.isEnd
+      ? questionCount
+      : current?.isMathIntro
+      ? Math.max(1, items.findIndex((it) => !it.isMathIntro && !it.isEnd) + 1)
+      : (current?.globalIndex ?? 0) + 1,
     questionCount
   );
   const progressPct = questionCount ? Math.round((questionOrdinal / questionCount) * 100) : 0;
@@ -500,8 +504,7 @@ export default function ExamRunnerPage() {
                     </button>
                   </div>
 
-                  {/* Filtered list grouped by merged group (Reading / Mathematics).
-                      Group header for Mathematics is clickable -> jumps to math intro page. */}
+                  {/* Filtered list grouped by merged group (Reading / Mathematics). */}
                   <div className="max-h-72 overflow-auto rounded border border-gray-200">
                     {Object.entries(groupedByDisplayGroup).map(([group, qs]) => {
                       const isMath = group.toLowerCase() === "mathematics";
@@ -624,38 +627,15 @@ export default function ExamRunnerPage() {
 
       {/* ======= Main Sheet ======= */}
       {current?.isMathIntro ? (
-        // ---------- Math transition page ----------
+        // ---------- Math transition page (Markdown from /exams/mathpage.md) ----------
         <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-8">
           <div className="max-w-5xl mx-auto">
-            <h2 className="text-2xl font-extrabold text-center">MATHEMATICS</h2>
-            <h3 className="text-xl font-extrabold text-center mt-1">IMPORTANT NOTES</h3>
-
-            <ol className="mt-6 space-y-6 text-[17px] leading-8">
-              <li>
-                Formulas and definitions of mathematical terms and symbols are <strong>not</strong> provided.
-              </li>
-              <li>
-                Diagrams other than graphs are <strong>not</strong> necessarily drawn to scale. Do not assume any
-                relationship in a diagram unless it is specifically stated or can be determined from the information
-                given.
-              </li>
-              <li>
-                Assume that a diagram is in one plane unless the question specifically states that it is not.
-              </li>
-              <li>
-                Graphs are drawn to scale. Unless stated otherwise, you can assume relationships according to
-                appearance. For example, lines on a graph that appear to be parallel can be assumed to be parallel.
-                This is also true for concurrent lines, straight lines, collinear points, right angles, etc.
-              </li>
-            </ol>
-
-            <div className="mt-8">
-              <h4 className="text-center font-extrabold text-lg">DIRECTIONS:</h4>
-              <p className="mt-3 text-[17px] leading-8">
-                Solve each problem. Select the answer from the choices given or enter your answer in the space provided.
-                When you are solving problems, you can use the online notepad tool or write on the scrap paper given to
-                you.
-              </p>
+            <div className="prose md:prose-lg max-w-none">
+              {mathIntroMd ? (
+                <ReactMarkdown>{mathIntroMd}</ReactMarkdown>
+              ) : (
+                <p className="text-gray-600">Loading Mathematics notes…</p>
+              )}
             </div>
 
             <div className="mt-8 text-center">
@@ -871,8 +851,7 @@ export default function ExamRunnerPage() {
         </div>
       )}
 
-      {/* Bottom hint */}
-      <div className="text-center text-sm text-gray-500">Use ← and → keys to navigate</div>
+      {/* (Removed bottom hint “Use ← and → keys to navigate”) */}
 
       {/* ===== Passage & list styling ===== */}
       <style>{`
