@@ -219,6 +219,16 @@ export default function ExamRunnerPage() {
     scoredCount: number;
   } | null>(null);
 
+  // Toggle the global layout top bar: hide during exam, show on results
+   useEffect(() => {
+   const bar = document.getElementById("exam-topbar");
+   if (!bar) return;
+   const shouldShow = submitted && !!results;
+   bar.classList.toggle("hidden", !shouldShow);
+   // ensure it’s restored if this component unmounts
+   return () => bar.classList.remove("hidden");
+ }, [submitted, results]);
+
   useEffect(() => {
     setIdx(0);
     setAnswers({});
@@ -652,7 +662,7 @@ export default function ExamRunnerPage() {
           <div className="flex-1" />
 
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/exams")}
             className="inline-flex items-center gap-1.5 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
             title="Back to Exams"
           >
