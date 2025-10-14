@@ -1,5 +1,5 @@
 // src/components/ExamRunnerPage.tsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { getExamBySlug } from "../data/exams";
 import ReactMarkdown from "react-markdown";
@@ -10,26 +10,19 @@ type ReviewTab = "all" | "unanswered" | "bookmarked";
 
 type FlatItem = {
   globalId: string;
-  // original section ids/titles remain for passage loading,
-  // but we ALSO compute a displayGroup ("Reading" | "Math" | other)
   sectionId: string;
   sectionTitle: string;
   sectionType: "reading" | "math" | string;
 
-  // Passage sources (per original section)
   sectionPassageMarkdown?: string;
   sectionPassageImages?: string[];
   sectionPassageUrl?: string;
 
-  // Question props
   stemMarkdown?: string;
   image?: string;
   choices?: string[];
 
-  // NEW: global index across the WHOLE EXAM (0-based)
-  globalIndex: number;
-
-  // SPECIAL end marker
+  globalIndex: number; // 0-based across entire exam
   isEnd?: boolean;
 };
 
@@ -45,15 +38,25 @@ type ResultRow = {
 const groupLabel = (type: string) => {
   if (type === "reading") return "Reading";
   if (type === "math") return "Math";
-  // fallback for any other type
   return type.charAt(0).toUpperCase() + type.slice(1);
 };
+
+const BookmarkIcon = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={className}
+    aria-hidden
+    fill="#2563EB" // Tailwind blue-600
+  >
+    <path d="M6 2h12a2 2 0 0 1 2 2v18l-8-4-8 4V4a2 2 0 0 1 2-2z" />
+  </svg>
+);
 
 export default function ExamRunnerPage() {
   const { slug } = useParams<{ slug: string }>();
   const exam = slug ? getExamBySlug(slug) : undefined;
 
-  // ===== Flatten ALL questions (continuous numbering), append ONE end-of-exam marker =====
+  // ===== Flatten ALL questions (continuous numbering); append one end-of-exam marker =====
   const items = useMemo<FlatItem[]>(() => {
     if (!exam) return [];
     const out: FlatItem[] = [];
@@ -77,13 +80,12 @@ export default function ExamRunnerPage() {
       });
     });
 
-    // End marker (no passage, no choices)
     out.push({
       globalId: "__END__",
       sectionId: "__END__",
       sectionTitle: "End",
       sectionType: "end",
-      globalIndex, // not used, but set
+      globalIndex,
       isEnd: true,
     });
 
@@ -129,13 +131,6 @@ export default function ExamRunnerPage() {
       return next;
     });
   };
-
-  // ===== Highlighter state (persist to localStorage) =====
-  const passageRef = useRef<HTMLDivElement>(null);
-  const [savedHtml, setSavedHtml] = useState<string | null>(null);
-  const [hlOpen, setHlOpen] = useState(false);
-  const [hlPos, setHlPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const selectionRangeRef = useRef<Range | null>(null);
 
   // ===== Submission / Results state =====
   const [submitted, setSubmitted] = useState(false);
@@ -216,8 +211,11 @@ export default function ExamRunnerPage() {
     : undefined;
 
   // ===== Progress: GLOBAL numbering =====
-  const questionCount = questionItems.length; // all questions, continuous
-  const questionOrdinal = Math.min(current?.isEnd ? questionCount : (current?.globalIndex ?? 0) + 1, questionCount);
+  const questionCount = questionItems.length;
+  const questionOrdinal = Math.min(
+    current?.isEnd ? questionCount : (current?.globalIndex ?? 0) + 1,
+    questionCount
+  );
   const progressPct = questionCount ? Math.round((questionOrdinal / questionCount) * 100) : 0;
 
   const goPrev = () => setIdx((i) => Math.max(0, i - 1));
@@ -232,181 +230,7 @@ export default function ExamRunnerPage() {
     setAnswers((prev) => ({ ...prev, [current.globalId]: choiceIndex }));
   };
 
-  // ===== Load saved highlights per ORIGINAL section (passage-based) =====
-  const hlStorageKey =
-    slug && !current?.isEnd && current?.sectionId ? `hl:${slug}:${current.sectionId}` : null;
-  useEffect(() => {
-    if (!hlStorageKey) {
-      setSavedHtml(null);
-      return;
-    }
-    const html = localStorage.getItem(hlStorageKey);
-    setSavedHtml(html);
-  }, [hlStorageKey]);
-
-  // ===== Selection handlers: fixed-position palette =====
-  useEffect(() => {
-    if (!current || current.isEnd) return;
-    const el = passageRef.current;
-    if (!el) return;
-
-    const isInside = (node: Node | null) => {
-      if (!node) return false;
-      let cur: Node | null = node;
-      while (cur) {
-        if (cur === el) return true;
-        cur = (cur as any).parentNode || (cur as any).host || null;
-      }
-      return false;
-    };
-
-    const getSafeRect = (range: Range): DOMRect => {
-      const rect = range.getBoundingClientRect();
-      if (rect && (rect.width > 0 || rect.height > 0)) return rect;
-      const marker = document.createElement("span");
-      marker.style.display = "inline-block";
-      marker.style.width = "1px";
-      marker.style.height = "1em";
-      marker.style.verticalAlign = "text-bottom";
-      const clone = range.cloneRange();
-      clone.collapse(false);
-      clone.insertNode(marker);
-      const safe = marker.getBoundingClientRect();
-      const parent = marker.parentNode!;
-      parent.removeChild(marker);
-      return safe;
-    };
-
-    let lastShown = false;
-
-    const openIfValidSelection = () => {
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) {
-        setHlOpen(false);
-        selectionRangeRef.current = null;
-        lastShown = false;
-        return;
-      }
-      const range = sel.getRangeAt(0);
-      if (
-        range.collapsed ||
-        String(sel).trim() === "" ||
-        !isInside(sel.anchorNode) ||
-        !isInside(sel.focusNode)
-      ) {
-        setHlOpen(false);
-        selectionRangeRef.current = null;
-        lastShown = false;
-        return;
-      }
-      selectionRangeRef.current = range.cloneRange();
-
-      const rect = getSafeRect(range);
-      const x = Math.max(8, Math.min(rect.left + rect.width / 2, window.innerWidth - 8));
-      const y = Math.max(8, rect.top - 8);
-      setHlPos({ x, y });
-      setHlOpen(true);
-      lastShown = true;
-    };
-
-    const onMouseUp = () => requestAnimationFrame(openIfValidSelection);
-    const onKeyUp = () => requestAnimationFrame(openIfValidSelection);
-    const onSelectionChange = () => {
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) {
-        if (lastShown) setHlOpen(false);
-        selectionRangeRef.current = null;
-        lastShown = false;
-      }
-    };
-    const onScroll = () => {
-      if (lastShown) setHlOpen(false);
-    };
-    const onDocMouseDown = (e: MouseEvent) => {
-      const palette = document.querySelector("[data-hl-palette]");
-      const t = e.target as Node | null;
-      if (palette && t && (palette === t || palette.contains(t))) return;
-      if (!t || !isInside(t)) setHlOpen(false);
-    };
-
-    document.addEventListener("mouseup", onMouseUp);
-    document.addEventListener("keyup", onKeyUp);
-    document.addEventListener("selectionchange", onSelectionChange);
-    document.addEventListener("mousedown", onDocMouseDown);
-    window.addEventListener("scroll", onScroll, { passive: true });
-
-    return () => {
-      document.removeEventListener("mouseup", onMouseUp);
-      document.removeEventListener("keyup", onKeyUp);
-      document.removeEventListener("selectionchange", onSelectionChange);
-      document.removeEventListener("mousedown", onDocMouseDown);
-      window.removeEventListener("scroll", onScroll);
-    };
-  }, [slug, current?.sectionId, current?.isEnd]);
-
-  // ===== Apply / remove highlight helpers =====
-  function saveHtml() {
-    if (!hlStorageKey || !passageRef.current) return;
-    const html = passageRef.current.innerHTML;
-    localStorage.setItem(hlStorageKey, html);
-    setSavedHtml(html);
-  }
-  function wrapSelection(color: "blue" | "pink") {
-    const range = selectionRangeRef.current;
-    if (!range || !passageRef.current) return;
-    try {
-      const mark = document.createElement("mark");
-      mark.setAttribute("data-hl", color);
-      mark.className = `hl hl-${color}`;
-      range.surroundContents(mark);
-    } catch {
-      const contents = range.cloneContents();
-      const walker = document.createTreeWalker(contents, NodeFilter.SHOW_TEXT);
-      const pieces: { text: string }[] = [];
-      while (walker.nextNode()) pieces.push({ text: walker.currentNode!.textContent || "" });
-      if (pieces.length) {
-        const span = document.createElement("span");
-        pieces.forEach((p, i) => {
-          const m = document.createElement("mark");
-          m.setAttribute("data-hl", color);
-          m.className = `hl hl-${color}`;
-          m.textContent = p.text;
-          span.appendChild(m);
-          if (i < pieces.length - 1) span.appendChild(document.createTextNode(""));
-        });
-        range.deleteContents();
-        range.insertNode(span);
-      }
-    }
-    setHlOpen(false);
-    saveHtml();
-  }
-  function eraseSelection() {
-    const range = selectionRangeRef.current;
-    if (!range || !passageRef.current) return;
-    const toUnwrap: HTMLElement[] = [];
-    const ancestor = range.commonAncestorContainer;
-    const container: Element =
-      ancestor.nodeType === 1 ? (ancestor as Element) : (ancestor.parentElement!);
-    container.querySelectorAll("mark.hl").forEach((m) => {
-      const r = document.createRange();
-      r.selectNodeContents(m);
-      const overlaps = !(
-        range.compareBoundaryPoints(Range.END_TO_START, r) <= 0 ||
-        range.compareBoundaryPoints(Range.START_TO_END, r) >= 0
-      );
-      if (overlaps) toUnwrap.push(m as HTMLElement);
-    });
-    toUnwrap.forEach((m) => {
-      const parent = m.parentNode!;
-      while (m.firstChild) parent.insertBefore(m.firstChild, m);
-      parent.removeChild(m);
-    });
-    setHlOpen(false);
-    saveHtml();
-  }
-
-  // ===== Review helpers (GLOBAL numbering + grouped by displayGroup) =====
+  // ===== Review helpers =====
   const isAnswered = (gid: string) => typeof answers[gid] === "number";
   const unansweredCount = questionItems.filter((q) => !isAnswered(q.globalId)).length;
   const bookmarkedCount = questionItems.filter((q) => bookmarks.has(q.globalId)).length;
@@ -715,7 +539,7 @@ export default function ExamRunnerPage() {
                                 }`}
                               />
                               <span className="flex-1">Question {q.globalIndex + 1}</span>
-                              {bookmarked && <span className="text-blue-600" aria-hidden>🔖</span>}
+                              {bookmarked && <BookmarkIcon className="h-3.5 w-3.5" />}
                             </button>
                           );
                         })}
@@ -749,20 +573,7 @@ export default function ExamRunnerPage() {
                 : "Bookmark Question for Review"
             }
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className={`h-4 w-4 ${
-                !current?.isEnd && bookmarks.has(current?.globalId ?? "")
-                  ? "text-blue-700"
-                  : "text-gray-700"
-              }`}
-              fill={!current?.isEnd && bookmarks.has(current?.globalId ?? "") ? "currentColor" : "none"}
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 4h12v16l-6-3-6 3V4z" />
-            </svg>
+            <BookmarkIcon className="h-4 w-4" />
             Bookmark
           </button>
 
@@ -790,12 +601,12 @@ export default function ExamRunnerPage() {
           <div className="flex items-center gap-2 px-6 py-1">
             <span className="font-semibold">{exam.title.toUpperCase()}</span>
             <span>/</span>
-            <span>
-              {current?.isEnd ? "END OF EXAM" : groupLabel(current?.sectionType ?? "")}
-            </span>
+            <span>{current?.isEnd ? "END OF EXAM" : groupLabel(current?.sectionType ?? "")}</span>
             <span>/</span>
             <span>
-              {current?.isEnd ? `${questionCount} OF ${questionCount}` : `${questionOrdinal} OF ${questionCount}`}
+              {current?.isEnd
+                ? `${questionCount} OF ${questionCount}`
+                : `${questionOrdinal} OF ${questionCount}`}
             </span>
             <span>/</span>
             <span>{progressPct}%</span>
@@ -817,13 +628,7 @@ export default function ExamRunnerPage() {
                 <div className="border rounded-md p-6 bg-white">
                   {effectivePassage ? (
                     <div className="prose md:prose-lg max-w-none passage">
-                      {savedHtml ? (
-                        <div ref={passageRef} dangerouslySetInnerHTML={{ __html: savedHtml }} />
-                      ) : (
-                        <div ref={passageRef}>
-                          <ReactMarkdown>{effectivePassage}</ReactMarkdown>
-                        </div>
-                      )}
+                      <ReactMarkdown>{effectivePassage}</ReactMarkdown>
                     </div>
                   ) : current?.image || current?.stemMarkdown ? (
                     <>
@@ -930,14 +735,14 @@ export default function ExamRunnerPage() {
                   Unanswered questions are marked with a dot.
                 </span>
                 <span className="inline-flex items-center gap-2">
-                  <span className="text-blue-600">🔖</span>
+                  <BookmarkIcon />
                   Bookmarked questions are marked with a bookmark symbol.
                 </span>
               </div>
             </div>
 
-            {/* ALL questions (global numbering) */}
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {/* ALL questions (global numbering) — capped at 3 columns */}
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 gap-3">
               {questionItems.map((q) => {
                 const i = items.findIndex((x) => x.globalId === q.globalId);
                 const answered = typeof answers[q.globalId] === "number";
@@ -953,7 +758,11 @@ export default function ExamRunnerPage() {
                       <span className="absolute left-2 top-1.5 h-3 w-3 rounded-full bg-orange-500" />
                     )}
                     <span className="pl-5">Question {q.globalIndex + 1}</span>
-                    {bookmarked && <span className="absolute right-2 top-1 text-blue-600">🔖</span>}
+                    {bookmarked && (
+                      <span className="absolute right-2 top-1.5">
+                        <BookmarkIcon />
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -965,51 +774,7 @@ export default function ExamRunnerPage() {
       {/* Bottom hint */}
       <div className="text-center text-sm text-gray-500">Use ← and → keys to navigate</div>
 
-      {/* ===== Highlighter toolbox ===== */}
-      {hlOpen && !current?.isEnd && (
-        <div
-          data-hl-palette
-          className="fixed z-[1000] -translate-x-1/2"
-          style={{ left: hlPos.x, top: hlPos.y }}
-        >
-          <div className="flex items-center gap-1 rounded-xl border border-gray-300 bg-white shadow-md px-1 py-1">
-            <button
-              onClick={eraseSelection}
-              className="h-7 w-7 rounded border border-gray-200 hover:bg-gray-50"
-              title="Erase highlight"
-              aria-label="Erase highlight"
-            >
-              <span
-                style={{
-                  display: "inline-block",
-                  width: 12,
-                  height: 12,
-                  transform: "rotate(45deg)",
-                  borderTop: "2px solid #b91c1c",
-                }}
-              />
-            </button>
-            <button
-              onClick={() => wrapSelection("blue")}
-              className="h-7 w-7 rounded border border-gray-200 hover:bg-gray-50"
-              title="Highlight blue"
-              aria-label="Highlight blue"
-            >
-              <span style={{ display: "inline-block", width: 14, height: 14, background: "#bfdbfe" }} />
-            </button>
-            <button
-              onClick={() => wrapSelection("pink")}
-              className="h-7 w-7 rounded border border-gray-200 hover:bg-gray-50"
-              title="Highlight pink"
-              aria-label="Highlight pink"
-            >
-              <span style={{ display: "inline-block", width: 14, height: 14, background: "#fbcfe8" }} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ===== Passage & list styling ===== */}
+      {/* ===== Passage & list styling (kept; removed highlighter styles) ===== */}
       <style>{`
         .passage h1, .passage h2, .passage h3 { text-align: center; margin-bottom: 0.25rem; }
         .passage h1 + p, .passage h2 + p, .passage h3 + p { text-align: center; margin-top: 0.25rem; margin-bottom: 1rem; }
@@ -1022,9 +787,6 @@ export default function ExamRunnerPage() {
           border-radius: 9999px; background: #111827; color: #fff; font-weight: 700; font-size: 0.875rem;
           display: inline-flex; align-items: center; justify-content: center;
         }
-        mark.hl { padding: 0 .15em; border-radius: 3px; }
-        mark.hl.hl-blue { background: #bfdbfe; }
-        mark.hl.hl-pink { background: #fbcfe8; }
       `}</style>
     </div>
   );
