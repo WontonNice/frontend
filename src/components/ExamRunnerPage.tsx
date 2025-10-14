@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 
 /** Stores selected choice index per question (keyed by globalId) */
 type AnswerMap = Record<string, number | undefined>;
+type ReviewTab = "all" | "unanswered" | "bookmarked";
 
 export default function ExamRunnerPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -58,12 +59,42 @@ export default function ExamRunnerPage() {
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewTab, setReviewTab] = useState<ReviewTab>("all");
   const reviewWrapRef = useRef<HTMLDivElement>(null);
 
   // fetched passage content (if section provides `passageMd`)
   const [fetchedPassage, setFetchedPassage] = useState<string | undefined>(undefined);
 
-  // ===== Highlighting state (persist to localStorage) =====
+  // ===== Bookmark state (persist per exam) =====
+  const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
+  const bmStorageKey = slug ? `bm:${slug}` : null;
+  useEffect(() => {
+    if (!bmStorageKey) return;
+    try {
+      const raw = localStorage.getItem(bmStorageKey);
+      if (raw) setBookmarks(new Set(JSON.parse(raw)));
+      else setBookmarks(new Set());
+    } catch {
+      setBookmarks(new Set());
+    }
+  }, [bmStorageKey]);
+  const saveBookmarks = (next: Set<string>) => {
+    if (!bmStorageKey) return;
+    localStorage.setItem(bmStorageKey, JSON.stringify(Array.from(next)));
+  };
+  const toggleBookmark = () => {
+    const cur = items[idx];
+    if (!cur) return;
+    setBookmarks((prev) => {
+      const next = new Set(prev);
+      if (next.has(cur.globalId)) next.delete(cur.globalId);
+      else next.add(cur.globalId);
+      saveBookmarks(next);
+      return next;
+    });
+  };
+
+  // ===== Highlighter state (persist to localStorage) =====
   const passageRef = useRef<HTMLDivElement>(null); // inner content container
   const [savedHtml, setSavedHtml] = useState<string | null>(null);
   const [hlOpen, setHlOpen] = useState(false);
@@ -74,6 +105,7 @@ export default function ExamRunnerPage() {
     setIdx(0);
     setAnswers({});
     setReviewOpen(false);
+    setReviewTab("all");
   }, [slug]);
 
   // Keyboard nav + close review on ESC
@@ -151,17 +183,17 @@ export default function ExamRunnerPage() {
   };
 
   // ===== Load saved highlights for this exam/section =====
-  const storageKey = slug && current?.sectionId ? `hl:${slug}:${current.sectionId}` : null;
+  const hlStorageKey = slug && current?.sectionId ? `hl:${slug}:${current.sectionId}` : null;
   useEffect(() => {
-    if (!storageKey) {
+    if (!hlStorageKey) {
       setSavedHtml(null);
       return;
     }
-    const html = localStorage.getItem(storageKey);
+    const html = localStorage.getItem(hlStorageKey);
     setSavedHtml(html);
-  }, [storageKey]);
+  }, [hlStorageKey]);
 
-  // ===== Selection handlers: robust listeners on document =====
+  // ===== Selection handlers: robust listeners on document (fixed-position palette) =====
   useEffect(() => {
     const el = passageRef.current; // inner content element where text lives
     if (!el) return;
@@ -278,9 +310,9 @@ export default function ExamRunnerPage() {
 
   // ===== Apply / remove highlight helpers =====
   function saveHtml() {
-    if (!storageKey || !passageRef.current) return;
+    if (!hlStorageKey || !passageRef.current) return;
     const html = passageRef.current.innerHTML;
-    localStorage.setItem(storageKey, html);
+    localStorage.setItem(hlStorageKey, html);
     setSavedHtml(html);
   }
   function wrapSelection(color: "blue" | "pink") {
@@ -340,6 +372,33 @@ export default function ExamRunnerPage() {
     saveHtml();
   }
 
+  // ===== Helpers for review panel =====
+  const isAnswered = (gid: string) => typeof answers[gid] === "number";
+  const unansweredCount = items.filter((q) => !isAnswered(q.globalId)).length;
+  const bookmarkedCount = items.filter((q) => bookmarks.has(q.globalId)).length;
+
+  const filteredItems = useMemo(() => {
+    switch (reviewTab) {
+      case "unanswered":
+        return items.filter((q) => !isAnswered(q.globalId));
+      case "bookmarked":
+        return items.filter((q) => bookmarks.has(q.globalId));
+      default:
+        return items;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, reviewTab, answers, bookmarks]);
+
+  // group by section for the list view
+  const groupedBySection = useMemo(() => {
+    const groups: Record<string, typeof filteredItems> = {};
+    filteredItems.forEach((q) => {
+      if (!groups[q.sectionId]) (groups as any)[q.sectionId] = [];
+      (groups as any)[q.sectionId].push(q);
+    });
+    return groups;
+  }, [filteredItems]);
+
   return (
     <div className="space-y-4">
       {/* ======= FULL-WIDTH Compact Toolbar + Status Bar ======= */}
@@ -377,7 +436,6 @@ export default function ExamRunnerPage() {
               className="inline-flex items-center gap-1.5 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
               title="Review Questions"
             >
-              {/* List icon */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-4 w-4 text-gray-700"
@@ -392,62 +450,113 @@ export default function ExamRunnerPage() {
             </button>
 
             {reviewOpen && (
-              <div className="absolute left-0 mt-2 w-[520px] rounded-md border border-gray-300 bg-white shadow-lg z-40">
+              <div className="absolute left-0 mt-2 w-[360px] rounded-md border border-gray-300 bg-white shadow-lg z-40">
                 {/* caret */}
                 <div className="absolute -top-1 left-6 h-2 w-2 rotate-45 bg-white border-l border-t border-gray-300" />
                 <div className="p-3 text-sm">
-                  <div className="mb-2 flex justify-between">
-                    <span className="font-semibold">Navigate Questions</span>
-                    <span className="text-gray-500">
-                      {idx + 1}/{total} — answered {Object.values(answers).filter((v) => typeof v === "number").length}
-                    </span>
+                  {/* Tabs */}
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <button
+                      onClick={() => setReviewTab("all")}
+                      className={`flex flex-col items-center rounded border px-2 py-2 ${
+                        reviewTab === "all"
+                          ? "bg-white border-gray-800"
+                          : "bg-gray-50 border-gray-300 hover:bg-gray-100"
+                      }`}
+                    >
+                      <span className="text-[11px] text-gray-600">All Questions</span>
+                      <span className="mt-1 text-base font-semibold">{total}</span>
+                    </button>
+                    <button
+                      onClick={() => setReviewTab("unanswered")}
+                      className={`flex flex-col items-center rounded border px-2 py-2 ${
+                        reviewTab === "unanswered"
+                          ? "bg-white border-gray-800"
+                          : "bg-gray-50 border-gray-300 hover:bg-gray-100"
+                      }`}
+                    >
+                      <span className="text-[11px] text-gray-600">Not Answered</span>
+                      <span className="mt-1 text-base font-semibold">{unansweredCount}</span>
+                    </button>
+                    <button
+                      onClick={() => setReviewTab("bookmarked")}
+                      className={`flex flex-col items-center rounded border px-2 py-2 relative ${
+                        reviewTab === "bookmarked"
+                          ? "bg-white border-gray-800"
+                          : "bg-gray-50 border-gray-300 hover:bg-gray-100"
+                      }`}
+                    >
+                      <span className="text-[11px] text-gray-600">Bookmarks</span>
+                      <span className="mt-1 text-base font-semibold">{bookmarkedCount}</span>
+                    </button>
                   </div>
-                  <div className="grid grid-cols-10 gap-2 max-h-64 overflow-auto">
-                    {items.map((q, i) => {
-                      const answered = typeof answers[q.globalId] === "number";
-                      const active = i === idx;
+
+                  {/* Filtered list grouped by section */}
+                  <div className="max-h-72 overflow-auto rounded border border-gray-200">
+                    {Object.entries(groupedBySection).map(([secId, qs]) => {
+                      const secTitle =
+                        exam.sections.find((s) => s.id === secId)?.title ?? "Section";
                       return (
-                        <button
-                          key={q.globalId}
-                          onClick={() => jumpTo(i)}
-                          className={`h-7 w-7 rounded border text-xs font-medium ${
-                            active
-                              ? "border-blue-500 ring-2 ring-blue-300"
-                              : answered
-                              ? "bg-green-50 border-green-300 text-green-700"
-                              : "bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100"
-                          }`}
-                          title={`${q.sectionTitle} · Q${q.qIndexInSection + 1}`}
-                        >
-                          {i + 1}
-                        </button>
+                        <div key={secId}>
+                          <div className="px-3 py-2 text-[12px] font-semibold bg-gray-50 border-b border-gray-200">
+                            {secTitle}
+                          </div>
+                          {qs.map((q) => {
+                            const i = items.findIndex((x) => x.globalId === q.globalId);
+                            const answered = isAnswered(q.globalId);
+                            const bookmarked = bookmarks.has(q.globalId);
+                            return (
+                              <button
+                                key={q.globalId}
+                                onClick={() => jumpTo(i)}
+                                className={`w-full text-left px-3 py-2 flex items-center gap-2 border-b border-gray-200 hover:bg-gray-50 ${
+                                  i === idx ? "bg-blue-50" : ""
+                                }`}
+                                title={`${q.sectionTitle} · Question ${q.qIndexInSection + 1}`}
+                              >
+                                {/* status dot */}
+                                <span
+                                  className={`h-2.5 w-2.5 rounded-full ${
+                                    answered ? "bg-green-500" : "bg-orange-500"
+                                  }`}
+                                />
+                                <span className="flex-1">
+                                  Question {q.qIndexInSection + 1}
+                                </span>
+                                {bookmarked && (
+                                  <span className="text-blue-600" aria-hidden>🔖</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
                       );
                     })}
-                  </div>
-                  <div className="mt-3 flex items-center gap-3 text-xs text-gray-600">
-                    <span className="inline-flex items-center gap-1">
-                      <span className="h-3 w-3 rounded bg-green-200 border border-green-300 inline-block" />
-                      Answered
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <span className="h-3 w-3 rounded bg-gray-200 border border-gray-300 inline-block" />
-                      Unanswered
-                    </span>
+                    {filteredItems.length === 0 && (
+                      <div className="px-3 py-6 text-center text-gray-500 text-sm">
+                        No questions to show here.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Bookmark (visual) */}
+          {/* Bookmark (toggle) */}
           <button
-            className="inline-flex items-center gap-1.5 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
-            title="Bookmark Question for Review"
+            onClick={toggleBookmark}
+            className={`inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium ${
+              bookmarks.has(current?.globalId ?? "")
+                ? "border-blue-600 bg-blue-50 hover:bg-blue-100"
+                : "border-gray-400 bg-gradient-to-b from-white to-gray-100 hover:bg-gray-50"
+            }`}
+            title={bookmarks.has(current?.globalId ?? "") ? "Remove bookmark" : "Bookmark Question for Review"}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 text-gray-700"
-              fill="none"
+              className={`h-4 w-4 ${bookmarks.has(current?.globalId ?? "") ? "text-blue-700" : "text-gray-700"}`}
+              fill={bookmarks.has(current?.globalId ?? "") ? "currentColor" : "none"}
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2}
