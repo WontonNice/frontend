@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 /** Stores selected choice index per question (keyed by globalId) */
 type AnswerMap = Record<string, number | undefined>;
 type ReviewTab = "all" | "unanswered" | "bookmarked";
+type Tool = "pointer" | "eliminate" | "notepad";
 
 type FlatItem = {
   globalId: string;
@@ -42,10 +43,28 @@ const groupLabel = (type: string) => {
   return type.charAt(0).toUpperCase() + type.slice(1);
 };
 
-const BookmarkIcon = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
+/** Icons */
+const BookmarkFilled = ({ className = "h-4 w-4" }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} aria-hidden fill="#2563EB">
     <path d="M6 2h12a2 2 0 0 1 2 2v18l-8-4-8 4V4a2 2 0 0 1 2-2z" />
   </svg>
+);
+const BookmarkOutline = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} aria-hidden fill="none" stroke="#2563EB" strokeWidth="2">
+    <path d="M6 2h12a2 2 0 0 1 2 2v18l-8-4-8 4V4a2 2 0 0 1 2-2z" />
+  </svg>
+);
+const ListIcon = (props: any) => (
+  <svg viewBox="0 0 24 24" {...props}><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round"/></svg>
+);
+const PointerIcon = (props: any) => (
+  <svg viewBox="0 0 24 24" {...props}><path d="M3 2l18 9-7 2 2 7-5-6-8-12z" fill="currentColor"/></svg>
+);
+const XIcon = (props: any) => (
+  <svg viewBox="0 0 24 24" {...props}><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+);
+const NoteIcon = (props: any) => (
+  <svg viewBox="0 0 24 24" {...props}><path d="M4 4h10l6 6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" strokeWidth="2"/><path d="M14 4v6h6" fill="none" stroke="currentColor" strokeWidth="2"/></svg>
 );
 
 export default function ExamRunnerPage() {
@@ -155,6 +174,36 @@ export default function ExamRunnerPage() {
     });
   };
 
+  // ===== Tools =====
+  const [tool, setTool] = useState<Tool>("pointer");
+  const eliminatorActive = tool === "eliminate";
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesText, setNotesText] = useState("");
+  const notesKey = slug ? `notes:${slug}` : null;
+  useEffect(() => {
+    if (!notesKey) return;
+    const t = localStorage.getItem(notesKey) || "";
+    setNotesText(t);
+  }, [notesKey]);
+  useEffect(() => {
+    if (!notesKey) return;
+    localStorage.setItem(notesKey, notesText);
+  }, [notesKey, notesText]);
+  useEffect(() => {
+    setNotesOpen(tool === "notepad");
+  }, [tool]);
+
+  // ===== Eliminated choices per question =====
+  const [elims, setElims] = useState<Record<string, number[]>>({});
+  const isEliminated = (gid: string, i: number) => new Set(elims[gid] || []).has(i);
+  const toggleElim = (gid: string, i: number) => {
+    setElims((prev) => {
+      const cur = new Set(prev[gid] || []);
+      cur.has(i) ? cur.delete(i) : cur.add(i);
+      return { ...prev, [gid]: Array.from(cur) };
+    });
+  };
+
   // ===== Submission / Results state =====
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState<{
@@ -172,9 +221,9 @@ export default function ExamRunnerPage() {
     setReviewTab("all");
     setSubmitted(false);
     setResults(null);
+    setTool("pointer");
+    setElims({});
   }, [slug]);
-
-  // (Removed keyboard navigation/useEffect per request)
 
   // Click outside to close review
   useEffect(() => {
@@ -469,9 +518,7 @@ export default function ExamRunnerPage() {
               className="inline-flex items-center gap-1.5 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
               title="Review Questions"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+              <ListIcon className="h-4 w-4 text-gray-700" />
               Review
             </button>
 
@@ -504,7 +551,7 @@ export default function ExamRunnerPage() {
                     </button>
                   </div>
 
-                  {/* Filtered list grouped by merged group (Reading / Mathematics). */}
+                  {/* Filtered list */}
                   <div className="max-h-72 overflow-auto rounded border border-gray-200">
                     {Object.entries(groupedByDisplayGroup).map(([group, qs]) => {
                       const isMath = group.toLowerCase() === "mathematics";
@@ -535,9 +582,9 @@ export default function ExamRunnerPage() {
                                 }`}
                                 title={`${group} · Question ${q.globalIndex + 1}`}
                               >
-                                <span className={`h-2.5 w-2.5 rounded-full ${answered ? "bg-green-500" : "bg-orange-500"}`} />
+                                <span className={`h-2 w-2 rounded-full ${answered ? "bg-green-500" : "bg-orange-500"}`} />
                                 <span className="flex-1">Question {q.globalIndex + 1}</span>
-                                {bookmarked && <BookmarkIcon className="h-3.5 w-3.5" />}
+                                {bookmarked && <BookmarkFilled className="h-3.5 w-3.5" />}
                               </button>
                             );
                           })}
@@ -555,43 +602,45 @@ export default function ExamRunnerPage() {
             )}
           </div>
 
-          {/* Bookmark toggle (disabled on special pages) */}
+          {/* Bookmark toggle (outline when off, filled when ON) */}
           <button
             onClick={toggleBookmark}
             disabled={current?.isEnd || current?.isMathIntro}
             className={`inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium ${
-              !current?.isEnd &&
-              !current?.isMathIntro &&
               bookmarks.has(current?.globalId ?? "")
                 ? "border-blue-600 bg-blue-50 hover:bg-blue-100"
                 : "border-gray-400 bg-gradient-to-b from-white to-gray-100 hover:bg-gray-50"
             } ${current?.isEnd || current?.isMathIntro ? "opacity-50 cursor-not-allowed" : ""}`}
-            title={
-              current?.isEnd || current?.isMathIntro
-                ? "No question to bookmark"
-                : bookmarks.has(current?.globalId ?? "")
-                ? "Remove bookmark"
-                : "Bookmark Question for Review"
-            }
+            title="Bookmark Question for Review"
           >
-            <BookmarkIcon className="h-4 w-4" />
+            {bookmarks.has(current?.globalId ?? "") ? <BookmarkFilled /> : <BookmarkOutline />}
             Bookmark
           </button>
 
           <div className="flex-1" />
 
+          {/* Tool buttons */}
           <div className="flex items-center gap-1.5">
-            <button className="h-7 w-7 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 text-sm hover:bg-gray-50" title="Pointer Tool">
-              ·
+            <button
+              className={`h-8 w-8 rounded border ${tool === "pointer" ? "bg-gray-700 text-white border-gray-800" : "border-gray-400 bg-gradient-to-b from-white to-gray-100 hover:bg-gray-50"}`}
+              title="Pointer"
+              onClick={() => setTool("pointer")}
+            >
+              <PointerIcon className="h-4 w-4 mx-auto" />
             </button>
-            <button className="h-7 w-7 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 text-sm hover:bg-gray-50" title="Stop">
-              ▢
+            <button
+              className={`h-8 w-8 rounded border ${tool === "eliminate" ? "bg-gray-700 text-white border-gray-800" : "border-gray-400 bg-gradient-to-b from-white to-gray-100 hover:bg-gray-50"}`}
+              title="Answer Eliminator"
+              onClick={() => setTool(tool === "eliminate" ? "pointer" : "eliminate")}
+            >
+              <XIcon className="h-4 w-4 mx-auto" />
             </button>
-            <button className="h-7 w-7 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 text-sm hover:bg-gray-50" title="Close">
-              ✕
-            </button>
-            <button className="h-7 w-7 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 text-sm hover:bg-gray-50" title="Fullscreen">
-              ⤢
+            <button
+              className={`h-8 w-8 rounded border ${tool === "notepad" ? "bg-gray-700 text-white border-gray-800" : "border-gray-400 bg-gradient-to-b from-white to-gray-100 hover:bg-gray-50"}`}
+              title="Open Notepad"
+              onClick={() => setTool(tool === "notepad" ? "pointer" : "notepad")}
+            >
+              <NoteIcon className="h-4 w-4 mx-auto" />
             </button>
           </div>
         </div>
@@ -655,10 +704,8 @@ export default function ExamRunnerPage() {
           <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
             <div className="rounded-lg border border-gray-200 shadow-sm p-4">
               {current?.stemMarkdown ? (
-                <div className="prose max-w-none mb-4">
-                  <p className="text-sm text-gray-500 mb-2">
-                    Mathematics · Question {current.globalIndex + 1}
-                  </p>
+                <div className="prose max-w-none mb-3">
+                  {/* (Removed "Mathematics · Question N" line per request) */}
                   <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
                 </div>
               ) : null}
@@ -672,20 +719,27 @@ export default function ExamRunnerPage() {
               )}
 
               {current?.choices ? (
-                <ul className="space-y-4 mt-4">
+                <ul className="space-y-3 mt-4">
                   {current.choices.map((choice, i) => {
                     const selected = answers[current.globalId] === i;
+                    const eliminated = isEliminated(current.globalId, i);
                     return (
                       <li key={i}>
-                        <label className="flex items-center gap-3 cursor-pointer">
+                        <label className="flex items-start gap-3 cursor-pointer relative">
                           <input
                             type="radio"
                             name={current.globalId}
-                            className="h-5 w-5"
+                            className="h-4 w-4 mt-1"
                             checked={selected}
-                            onChange={() => selectChoice(i)}
+                            onChange={() => {
+                              if (eliminatorActive) {
+                                toggleElim(current.globalId, i);
+                              } else {
+                                selectChoice(i);
+                              }
+                            }}
                           />
-                          <span className="flex-1 rounded-lg px-3 py-2 bg-gray-50 border border-gray-200">
+                          <span className={`flex-1 choice-line ${eliminated ? "eliminated" : ""}`}>
                             {choice}
                           </span>
                         </label>
@@ -748,29 +802,34 @@ export default function ExamRunnerPage() {
               {/* Right: question */}
               <div className="rounded-lg border border-gray-200 shadow-sm p-4">
                 {current?.stemMarkdown ? (
-                  <div className="prose max-w-none mb-4">
-                    <p className="text-sm text-gray-500 mb-2">
-                      {groupLabel(current.sectionType)} · Question {current.globalIndex + 1}
-                    </p>
+                  <div className="prose max-w-none mb-3">
+                    {/* no "Reading · Question N" badge per request-like styling */}
                     <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
                   </div>
                 ) : null}
 
                 {current?.choices ? (
-                  <ul className="space-y-4">
+                  <ul className="space-y-3">
                     {current.choices.map((choice, i) => {
                       const selected = answers[current.globalId] === i;
+                      const eliminated = isEliminated(current.globalId, i);
                       return (
                         <li key={i}>
-                          <label className="flex items-center gap-3 cursor-pointer">
+                          <label className="flex items-start gap-3 cursor-pointer relative">
                             <input
                               type="radio"
                               name={current.globalId}
-                              className="h-5 w-5"
+                              className="h-4 w-4 mt-1"
                               checked={selected}
-                              onChange={() => selectChoice(i)}
+                              onChange={() => {
+                                if (eliminatorActive) {
+                                  toggleElim(current.globalId, i);
+                                } else {
+                                  selectChoice(i);
+                                }
+                              }}
                             />
-                            <span className="flex-1 rounded-lg px-3 py-2 bg-gray-50 border border-gray-200">
+                            <span className={`flex-1 choice-line ${eliminated ? "eliminated" : ""}`}>
                               {choice}
                             </span>
                           </label>
@@ -815,7 +874,7 @@ export default function ExamRunnerPage() {
                   Unanswered questions are marked with a dot.
                 </span>
                 <span className="inline-flex items-center gap-2">
-                  <BookmarkIcon />
+                  <BookmarkFilled />
                   Bookmarked questions are marked with a bookmark symbol.
                 </span>
               </div>
@@ -840,7 +899,7 @@ export default function ExamRunnerPage() {
                     <span className="pl-5">Question {q.globalIndex + 1}</span>
                     {bookmarked && (
                       <span className="absolute right-2 top-1.5">
-                        <BookmarkIcon />
+                        <BookmarkFilled />
                       </span>
                     )}
                   </button>
@@ -851,9 +910,27 @@ export default function ExamRunnerPage() {
         </div>
       )}
 
-      {/* (Removed bottom hint “Use ← and → keys to navigate”) */}
+      {/* Floating Notepad */}
+      {notesOpen && (
+        <div className="fixed bottom-4 right-4 w-[380px] bg-white border border-gray-300 shadow-xl rounded-lg overflow-hidden z-40">
+          <div className="flex items-center justify-between bg-gray-100 px-3 py-2 border-b">
+            <div className="flex items-center gap-2 font-medium text-gray-700">
+              <NoteIcon className="h-4 w-4" /> Notepad
+            </div>
+            <button className="text-sm text-gray-600 hover:text-gray-900" onClick={() => setTool("pointer")}>
+              Close
+            </button>
+          </div>
+          <textarea
+            className="w-full h-56 p-3 outline-none"
+            value={notesText}
+            onChange={(e) => setNotesText(e.target.value)}
+            placeholder="Type your notes here…"
+          />
+        </div>
+      )}
 
-      {/* ===== Passage & list styling ===== */}
+      {/* ===== Passage & answer styles ===== */}
       <style>{`
         .passage h1, .passage h2, .passage h3 { text-align: center; margin-bottom: 0.25rem; }
         .passage h1 + p, .passage h2 + p, .passage h3 + p { text-align: center; margin-top: 0.25rem; margin-bottom: 1rem; }
@@ -865,6 +942,20 @@ export default function ExamRunnerPage() {
           position: absolute; left: 0; top: 0.1rem; width: 1.5rem; height: 1.5rem;
           border-radius: 9999px; background: #111827; color: #fff; font-weight: 700; font-size: 0.875rem;
           display: inline-flex; align-items: center; justify-content: center;
+        }
+
+        /* Choice line + Eliminator decoration */
+        .choice-line { position: relative; display: inline-block; }
+        .choice-line.eliminated { color: #9ca3af; } /* gray-400 for text */
+        .choice-line.eliminated::after {
+          content: "";
+          position: absolute;
+          left: -4px;
+          right: -4px;
+          top: 50%;
+          border-top: 2px solid #ef4444; /* red-500 */
+          transform: rotate(-6deg);
+          pointer-events: none;
         }
       `}</style>
     </div>
