@@ -1,6 +1,6 @@
 // src/components/ExamRunnerPage.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { getExamBySlug } from "../data/exams";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -67,9 +67,13 @@ const XIcon = (props: any) => (
 const NoteIcon = (props: any) => (
   <svg viewBox="0 0 24 24" {...props}><path d="M4 4h10l6 6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" strokeWidth="2"/><path d="M14 4v6h6" fill="none" stroke="currentColor" strokeWidth="2"/></svg>
 );
+const BackArrowIcon = (props: any) => (
+  <svg viewBox="0 0 24 24" {...props}><path d="M10 19l-7-7 7-7M3 12h18" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+);
 
 export default function ExamRunnerPage() {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
   const exam = slug ? getExamBySlug(slug) : undefined;
 
   // ===== Flatten ALL questions (continuous numbering) and inject a Math intro page =====
@@ -264,7 +268,7 @@ export default function ExamRunnerPage() {
     );
   }
 
-  // Prefer fetched content (from .md), then fall back to inline JSON passage
+  // Prefer fetched content...
   const effectivePassage =
     !current?.isEnd && !current?.isMathIntro && current?.sectionType !== "math"
       ? fetchedPassage ??
@@ -276,7 +280,7 @@ export default function ExamRunnerPage() {
       ? (exam.sections.find((s) => s.id === current.sectionId) as any)?.passageImages
       : undefined;
 
-  // ===== Progress: GLOBAL numbering =====
+  // ===== Progress (GLOBAL) =====
   const questionCount = questionItems.length;
   const questionOrdinal = Math.min(
     current?.isEnd
@@ -326,11 +330,11 @@ export default function ExamRunnerPage() {
     return groups;
   }, [filteredItems]);
 
-  // ===== Submit & Score (uses answerIndex from your JSON) =====
+  // ===== Submit & Score =====
   const letter = (i?: number) => (i == null || i < 0 ? "-" : String.fromCharCode(65 + i));
   const getCorrectIndex = (q: any): number | undefined => {
     const v = (q as any)?.answerIndex;
-    return typeof v === "number" ? v : undefined; // 0-based index
+    return typeof v === "number" ? v : undefined;
   };
 
   const computeResults = () => {
@@ -389,8 +393,8 @@ export default function ExamRunnerPage() {
 
     return (
       <div className="space-y-6">
-        {/* Header/status */}
-        <div className="sticky top-14 z-30">
+        {/* Full-bleed status */}
+        <div className="sticky top-14 z-30 full-bleed">
           <div className="h-[3px] bg-sky-500 border-t border-gray-300" />
           <div className="w-full bg-[#5e5e5e] text-white text-[13px]">
             <div className="flex items-center gap-2 px-6 py-1">
@@ -486,9 +490,10 @@ export default function ExamRunnerPage() {
   // ===== Normal exam UI (includes Math intro and End-of-Exam screen) =====
   return (
     <div className="space-y-4">
-      {/* ======= Toolbar + Status ======= */}
-      <div className="sticky top-14 z-30">
-        <div className="w-full flex items-center gap-2 bg-white border-b border-gray-300 px-4 py-1.5 shadow-sm">
+      {/* ======= Toolbar + Status (full-bleed) ======= */}
+      <div className="sticky top-14 z-30 full-bleed">
+        <div className="w-full flex items-center gap-2 bg-white border-b border-gray-300 px-4 py-1 shadow-sm">
+          {/* Joined Prev/Next */}
           <div className="inline-flex overflow-hidden rounded-md">
             <button
               onClick={goPrev}
@@ -512,7 +517,7 @@ export default function ExamRunnerPage() {
             </button>
           </div>
 
-          {/* Review dropdown */}
+          {/* Review */}
           <div className="relative" ref={reviewWrapRef}>
             <button
               onClick={() => setReviewOpen((v) => !v)}
@@ -603,7 +608,7 @@ export default function ExamRunnerPage() {
             )}
           </div>
 
-          {/* Bookmark toggle (outline when off, filled when ON) */}
+          {/* Bookmark toggle */}
           <button
             onClick={toggleBookmark}
             disabled={current?.isEnd || current?.isMathIntro}
@@ -618,10 +623,8 @@ export default function ExamRunnerPage() {
             Bookmark
           </button>
 
-          <div className="flex-1" />
-
-          {/* Tool buttons */}
-          <div className="flex items-center gap-1.5">
+          {/* Tool buttons — now placed RIGHT NEXT to Bookmark */}
+          <div className="flex items-center gap-1.5 ml-1">
             <button
               className={`h-8 w-8 rounded border ${tool === "pointer" ? "bg-gray-700 text-white border-gray-800" : "border-gray-400 bg-gradient-to-b from-white to-gray-100 hover:bg-gray-50"}`}
               title="Pointer"
@@ -644,6 +647,18 @@ export default function ExamRunnerPage() {
               <NoteIcon className="h-4 w-4 mx-auto" />
             </button>
           </div>
+
+          {/* Spacer then Back to Exams on the far right of same bar */}
+          <div className="flex-1" />
+
+          <button
+            onClick={() => navigate("/")}
+            className="inline-flex items-center gap-1.5 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+            title="Back to Exams"
+          >
+            <BackArrowIcon className="h-4 w-4" />
+            Back to Exams
+          </button>
         </div>
 
         {/* Cyan hairline + Dark status bar */}
@@ -660,7 +675,6 @@ export default function ExamRunnerPage() {
                 : groupLabel(current?.sectionType ?? "")}
             </span>
 
-            {/* Hide the count on the Math intro page */}
             {!current?.isMathIntro && (
               <>
                 <span>/</span>
@@ -673,7 +687,6 @@ export default function ExamRunnerPage() {
             )}
 
             <span>/</span>
-            {/* Progress bar moved to the LEFT of the percentage */}
             <div className="w-40 h-1.5 bg-[#3f3f3f] rounded">
               <div className="h-1.5 rounded bg-[#a0a0a0]" style={{ width: `${progressPct}%` }} />
             </div>
@@ -684,7 +697,6 @@ export default function ExamRunnerPage() {
 
       {/* ======= Main Sheet ======= */}
       {current?.isMathIntro ? (
-        // ---------- Math transition page (Markdown from /exams/mathpage.md) ----------
         <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-8">
           <div className="max-w-5xl mx-auto">
             <div className="prose md:prose-lg max-w-none">
@@ -694,18 +706,14 @@ export default function ExamRunnerPage() {
                 <p className="text-gray-600">Loading Mathematics notes…</p>
               )}
             </div>
-            {/* no “Begin Math Questions” button — proceed with the Next → control */}
           </div>
         </div>
       ) : !current?.isEnd ? (
-        // ---------- Reading vs Math question layouts ----------
         current?.sectionType === "math" ? (
-          // Single-column for math (no passage)
           <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
             <div className="rounded-lg border border-gray-200 shadow-sm p-4">
               {current?.stemMarkdown ? (
                 <div className="prose max-w-none mb-3">
-                  {/* (Removed "Mathematics · Question N" line per request) */}
                   <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
                 </div>
               ) : null}
@@ -753,10 +761,9 @@ export default function ExamRunnerPage() {
             </div>
           </div>
         ) : (
-          // Two-column for reading (passage + question)
           <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left: reading passage */}
+              {/* Left: passage */}
               <div className="rounded-lg border border-gray-200 shadow-sm p-4">
                 <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
                   <div className="border rounded-md p-6 bg-white">
@@ -803,7 +810,6 @@ export default function ExamRunnerPage() {
               <div className="rounded-lg border border-gray-200 shadow-sm p-4">
                 {current?.stemMarkdown ? (
                   <div className="prose max-w-none mb-3">
-                    {/* no "Reading · Question N" badge per request-like styling */}
                     <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
                   </div>
                 ) : null}
@@ -880,7 +886,7 @@ export default function ExamRunnerPage() {
               </div>
             </div>
 
-            {/* ALL questions (global numbering) — capped at 3 columns */}
+            {/* ALL questions — capped at 3 columns */}
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 gap-3">
               {questionItems.map((q) => {
                 const i = items.findIndex((x) => x.globalId === q.globalId);
@@ -930,8 +936,11 @@ export default function ExamRunnerPage() {
         </div>
       )}
 
-      {/* ===== Passage & answer styles ===== */}
+      {/* ===== Helpers & styles ===== */}
       <style>{`
+        /* Full-bleed header/status even inside a centered layout */
+        .full-bleed { margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); width: 100vw; }
+
         .passage h1, .passage h2, .passage h3 { text-align: center; margin-bottom: 0.25rem; }
         .passage h1 + p, .passage h2 + p, .passage h3 + p { text-align: center; margin-top: 0.25rem; margin-bottom: 1rem; }
         .passage em { display: block; text-align: center; color: #6b7280; font-style: italic; }
@@ -946,14 +955,12 @@ export default function ExamRunnerPage() {
 
         /* Choice line + Eliminator decoration */
         .choice-line { position: relative; display: inline-block; }
-        .choice-line.eliminated { color: #9ca3af; } /* gray-400 for text */
+        .choice-line.eliminated { color: #9ca3af; }
         .choice-line.eliminated::after {
           content: "";
           position: absolute;
-          left: -4px;
-          right: -4px;
-          top: 50%;
-          border-top: 2px solid #ef4444; /* red-500 */
+          left: -4px; right: -4px; top: 50%;
+          border-top: 2px solid #ef4444;
           transform: rotate(-6deg);
           pointer-events: none;
         }
