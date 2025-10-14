@@ -221,14 +221,14 @@ export default function ExamRunnerPage() {
   const stickyTopClass = submitted && results ? "top-14" : "top-0";
 
   // Toggle the global layout top bar: hide during exam, show on results
-   useEffect(() => {
-   const bar = document.getElementById("exam-topbar");
-   if (!bar) return;
-   const shouldShow = submitted && !!results;
-   bar.classList.toggle("hidden", !shouldShow);
-   // ensure it’s restored if this component unmounts
-   return () => bar.classList.remove("hidden");
- }, [submitted, results]);
+  useEffect(() => {
+    const bar = document.getElementById("exam-topbar");
+    if (!bar) return;
+    const shouldShow = submitted && !!results;
+    bar.classList.toggle("hidden", !shouldShow);
+    // ensure it’s restored if this component unmounts
+    return () => bar.classList.remove("hidden");
+  }, [submitted, results]);
 
   useEffect(() => {
     setIdx(0);
@@ -286,10 +286,15 @@ export default function ExamRunnerPage() {
         (exam.sections.find((s) => s.id === current.sectionId) as any)?.passageMarkdown
       : undefined;
 
-  const effectivePassageImages =
-    !current?.isEnd && !current?.isMathIntro && current?.sectionType !== "math"
-      ? (exam.sections.find((s) => s.id === current.sectionId) as any)?.passageImages
-      : undefined;
+  // Normalize passage images: treat missing/empty/blank strings as "no images"
+  const effectivePassageImages = (() => {
+    if (current?.isEnd || current?.isMathIntro || current?.sectionType === "math") return undefined;
+    const raw = (exam.sections.find((s) => s.id === current?.sectionId) as any)?.passageImages;
+    const list = Array.isArray(raw)
+      ? raw.filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
+      : [];
+    return list.length ? list : undefined;
+  })();
 
   // ===== Progress (GLOBAL) =====
   const questionCount = questionItems.length;

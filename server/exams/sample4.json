@@ -1,0 +1,60 @@
+{
+  "slug": "digital-shsat-practice-test-form-4",
+  "title": "Digital SHSAT Practice Test Form 4",
+  "description": "Digital SHSAT Practice Test Form 4",
+  "sections": [
+    {
+      "id": "reading-1",
+      "title": "Reading Passage 1",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/Lady-Bird-Johnsonnew.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "reading-2",
+      "title": "Reading Passage 2",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/The-Black-Hand.md",
+      "passageImages": ["/exams/shsat-2025-a/reading-1/figure-1.png"]
+    },
+    {
+      "id": "reading-3",
+      "title": "Reading Passage 3",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/From-Devastation-Beauty.md",
+      "passageImages": ["/exams/shsat-2025-a/reading-1/figure-1.png"]
+    },
+    {
+      "id": "reading-4",
+      "title": "Reading Passage 4",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/Healthier-Choices.md",
+      "passageImages": ["/exams/shsat-2025-a/reading-1/figure-1.png"]
+    },
+    {
+      "id": "math-1",
+      "title": "Math Set 1",
+      "type": "math",
+      "questions": [
+        {
+          "id": "q3",
+          "stemMarkdown": "Find the area of the triangle shown below.",
+          "image": "/exams/shsat-2025-a/math-1/q3.png",
+          "choices": ["10", "12", "15", "18"],
+          "answerIndex": 2
+        },
+        {
+          "id": "q4",
+          "stemMarkdown": "If the length of one side of a square is doubled, how does its area change?",
+          "choices": [
+            "A. It doubles",
+            "B. It triples",
+            "C. It quadruples",
+            "D. It stays the same"
+          ],
+          "answerIndex": 2
+        }
+      ]
+    }
+  ]
+}
