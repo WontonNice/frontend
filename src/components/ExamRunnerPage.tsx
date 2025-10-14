@@ -10,44 +10,57 @@ type ReviewTab = "all" | "unanswered" | "bookmarked";
 
 type FlatItem = {
   globalId: string;
+  // original section ids/titles remain for passage loading,
+  // but we ALSO compute a displayGroup ("Reading" | "Math" | other)
   sectionId: string;
   sectionTitle: string;
   sectionType: "reading" | "math" | string;
-  // Passage sources
+
+  // Passage sources (per original section)
   sectionPassageMarkdown?: string;
   sectionPassageImages?: string[];
   sectionPassageUrl?: string;
+
   // Question props
-  qIndexInSection: number; // 0-based index within the section
-  qTotalInSection: number;
   stemMarkdown?: string;
   image?: string;
   choices?: string[];
-  // Special end marker
+
+  // NEW: global index across the WHOLE EXAM (0-based)
+  globalIndex: number;
+
+  // SPECIAL end marker
   isEnd?: boolean;
 };
 
 type ResultRow = {
   globalId: string;
-  indexInAll: number; // 0-based in flattened list (questions only)
-  sectionTitle: string;
-  qNumberInSection: number; // 1-based
+  globalNumber: number; // 1-based
+  displayGroup: string;
   userIndex: number | undefined;
   correctIndex: number | undefined;
   choices?: string[];
+};
+
+const groupLabel = (type: string) => {
+  if (type === "reading") return "Reading";
+  if (type === "math") return "Math";
+  // fallback for any other type
+  return type.charAt(0).toUpperCase() + type.slice(1);
 };
 
 export default function ExamRunnerPage() {
   const { slug } = useParams<{ slug: string }>();
   const exam = slug ? getExamBySlug(slug) : undefined;
 
-  // ===== Flatten all questions, then append ONE end-of-exam marker at the very end =====
+  // ===== Flatten ALL questions (continuous numbering), append ONE end-of-exam marker =====
   const items = useMemo<FlatItem[]>(() => {
     if (!exam) return [];
     const out: FlatItem[] = [];
+    let globalIndex = 0;
 
     exam.sections.forEach((sec) => {
-      sec.questions.forEach((q, i) => {
+      sec.questions.forEach((q) => {
         out.push({
           globalId: `${sec.id}:${q.id}`,
           sectionId: sec.id,
@@ -56,31 +69,29 @@ export default function ExamRunnerPage() {
           sectionPassageMarkdown: (sec as any).passageMarkdown,
           sectionPassageImages: (sec as any).passageImages,
           sectionPassageUrl: (sec as any).passageMd ?? (sec as any).passageUrl,
-          qIndexInSection: i,
-          qTotalInSection: sec.questions.length,
           stemMarkdown: (q as any).stemMarkdown ?? (q as any).promptMarkdown,
           image: (q as any).image,
           choices: (q as any).choices,
+          globalIndex: globalIndex++,
         });
       });
     });
 
-    // Append one end-of-exam marker
+    // End marker (no passage, no choices)
     out.push({
       globalId: "__END__",
       sectionId: "__END__",
       sectionTitle: "End",
       sectionType: "end",
-      qIndexInSection: 0,
-      qTotalInSection: 0,
+      globalIndex, // not used, but set
       isEnd: true,
     });
 
     return out;
   }, [exam]);
 
-  const questionItems = items.filter((it) => !it.isEnd);
-  const lastIndex = Math.max(0, items.length - 1); // includes the end marker index
+  const questionItems = items.filter((i) => !i.isEnd);
+  const lastIndex = Math.max(0, items.length - 1);
 
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
@@ -98,8 +109,7 @@ export default function ExamRunnerPage() {
     if (!bmStorageKey) return;
     try {
       const raw = localStorage.getItem(bmStorageKey);
-      if (raw) setBookmarks(new Set(JSON.parse(raw)));
-      else setBookmarks(new Set());
+      setBookmarks(raw ? new Set(JSON.parse(raw)) : new Set());
     } catch {
       setBookmarks(new Set());
     }
@@ -121,7 +131,7 @@ export default function ExamRunnerPage() {
   };
 
   // ===== Highlighter state (persist to localStorage) =====
-  const passageRef = useRef<HTMLDivElement>(null); // inner content container
+  const passageRef = useRef<HTMLDivElement>(null);
   const [savedHtml, setSavedHtml] = useState<string | null>(null);
   const [hlOpen, setHlOpen] = useState(false);
   const [hlPos, setHlPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -134,7 +144,7 @@ export default function ExamRunnerPage() {
     correctCount: number;
     incorrectCount: number;
     unansweredCount: number;
-    scoredCount: number; // questions with a known correct answer
+    scoredCount: number;
   } | null>(null);
 
   useEffect(() => {
@@ -195,23 +205,19 @@ export default function ExamRunnerPage() {
     );
   }
 
-  const sectionForCurrent =
-    !current?.isEnd && exam.sections.find((s) => s.id === current?.sectionId);
-
   // Prefer fetched content (from .md), then fall back to inline JSON passage
-  const effectivePassage =
-    !current?.isEnd
-      ? fetchedPassage ?? current?.sectionPassageMarkdown ?? (sectionForCurrent as any)?.passageMarkdown
-      : undefined;
+  const effectivePassage = !current?.isEnd
+    ? fetchedPassage ??
+      (exam.sections.find((s) => s.id === current.sectionId) as any)?.passageMarkdown
+    : undefined;
 
-  const effectivePassageImages =
-    !current?.isEnd
-      ? current?.sectionPassageImages ?? (sectionForCurrent as any)?.passageImages
-      : undefined;
+  const effectivePassageImages = !current?.isEnd
+    ? (exam.sections.find((s) => s.id === current.sectionId) as any)?.passageImages
+    : undefined;
 
-  // Progress (exclude END page)
-  const questionCount = questionItems.length;
-  const questionOrdinal = Math.min(idx + 1, questionCount);
+  // ===== Progress: GLOBAL numbering =====
+  const questionCount = questionItems.length; // all questions, continuous
+  const questionOrdinal = Math.min(current?.isEnd ? questionCount : (current?.globalIndex ?? 0) + 1, questionCount);
   const progressPct = questionCount ? Math.round((questionOrdinal / questionCount) * 100) : 0;
 
   const goPrev = () => setIdx((i) => Math.max(0, i - 1));
@@ -226,8 +232,9 @@ export default function ExamRunnerPage() {
     setAnswers((prev) => ({ ...prev, [current.globalId]: choiceIndex }));
   };
 
-  // ===== Load saved highlights for this exam/section =====
-  const hlStorageKey = slug && !current?.isEnd && current?.sectionId ? `hl:${slug}:${current.sectionId}` : null;
+  // ===== Load saved highlights per ORIGINAL section (passage-based) =====
+  const hlStorageKey =
+    slug && !current?.isEnd && current?.sectionId ? `hl:${slug}:${current.sectionId}` : null;
   useEffect(() => {
     if (!hlStorageKey) {
       setSavedHtml(null);
@@ -237,9 +244,9 @@ export default function ExamRunnerPage() {
     setSavedHtml(html);
   }, [hlStorageKey]);
 
-  // ===== Selection handlers: fixed-position palette (only on question pages) =====
+  // ===== Selection handlers: fixed-position palette =====
   useEffect(() => {
-    if (!current || current.isEnd) return; // no highlighter on END / results page
+    if (!current || current.isEnd) return;
     const el = passageRef.current;
     if (!el) return;
 
@@ -256,7 +263,6 @@ export default function ExamRunnerPage() {
     const getSafeRect = (range: Range): DOMRect => {
       const rect = range.getBoundingClientRect();
       if (rect && (rect.width > 0 || rect.height > 0)) return rect;
-
       const marker = document.createElement("span");
       marker.style.display = "inline-block";
       marker.style.width = "1px";
@@ -281,9 +287,7 @@ export default function ExamRunnerPage() {
         lastShown = false;
         return;
       }
-
       const range = sel.getRangeAt(0);
-
       if (
         range.collapsed ||
         String(sel).trim() === "" ||
@@ -295,7 +299,6 @@ export default function ExamRunnerPage() {
         lastShown = false;
         return;
       }
-
       selectionRangeRef.current = range.cloneRange();
 
       const rect = getSafeRect(range);
@@ -403,40 +406,38 @@ export default function ExamRunnerPage() {
     saveHtml();
   }
 
-  // ===== Helpers for review panel =====
+  // ===== Review helpers (GLOBAL numbering + grouped by displayGroup) =====
   const isAnswered = (gid: string) => typeof answers[gid] === "number";
   const unansweredCount = questionItems.filter((q) => !isAnswered(q.globalId)).length;
   const bookmarkedCount = questionItems.filter((q) => bookmarks.has(q.globalId)).length;
 
   const filteredItems = useMemo(() => {
-    const base = questionItems;
     switch (reviewTab) {
       case "unanswered":
-        return base.filter((q) => !isAnswered(q.globalId));
+        return questionItems.filter((q) => !isAnswered(q.globalId));
       case "bookmarked":
-        return base.filter((q) => bookmarks.has(q.globalId));
+        return questionItems.filter((q) => bookmarks.has(q.globalId));
       default:
-        return base;
+        return questionItems;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [questionItems, reviewTab, answers, bookmarks]);
 
-  // group by section for the list view
-  const groupedBySection = useMemo(() => {
+  const groupedByDisplayGroup = useMemo(() => {
     const groups: Record<string, FlatItem[]> = {};
     filteredItems.forEach((q) => {
-      if (!groups[q.sectionId]) groups[q.sectionId] = [];
-      groups[q.sectionId].push(q);
+      const key = groupLabel(q.sectionType); // "Reading" merges both passages
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(q);
     });
     return groups;
   }, [filteredItems]);
 
-  // ===== Submit & Score =====
+  // ===== Submit & Score (uses answerIndex from your JSON) =====
   const letter = (i?: number) => (i == null || i < 0 ? "-" : String.fromCharCode(65 + i));
-    const getCorrectIndex = (q: any): number | undefined => {
+  const getCorrectIndex = (q: any): number | undefined => {
     const v = (q as any)?.answerIndex;
     return typeof v === "number" ? v : undefined; // expects 0-based index
-    };
+  };
 
   const computeResults = () => {
     const rows: ResultRow[] = [];
@@ -445,10 +446,10 @@ export default function ExamRunnerPage() {
     let unansweredCount = 0;
     let scoredCount = 0;
 
-    // Walk the original exam structure to access raw questions
-    let indexInAll = 0;
+    let g = 0;
     exam?.sections.forEach((sec) => {
-      sec.questions.forEach((q, i) => {
+      const displayGroup = groupLabel(sec.type);
+      sec.questions.forEach((q) => {
         const globalId = `${sec.id}:${q.id}`;
         const userIndex = answers[globalId];
         const correctIndex = getCorrectIndex(q);
@@ -456,28 +457,22 @@ export default function ExamRunnerPage() {
 
         if (correctIndex != null) {
           scoredCount++;
-          if (userIndex == null) {
-            unansweredCount++;
-          } else if (userIndex === correctIndex) {
-            correctCount++;
-          } else {
-            incorrectCount++;
-          }
-        } else {
-          // If we can't score it (no key), count as unanswered in UX but not in scoredCount
           if (userIndex == null) unansweredCount++;
+          else if (userIndex === correctIndex) correctCount++;
+          else incorrectCount++;
+        } else if (userIndex == null) {
+          unansweredCount++;
         }
 
         rows.push({
           globalId,
-          indexInAll,
-          sectionTitle: sec.title,
-          qNumberInSection: i + 1,
+          globalNumber: g + 1,
+          displayGroup,
           userIndex,
           correctIndex,
           choices,
         });
-        indexInAll++;
+        g++;
       });
     });
 
@@ -490,12 +485,13 @@ export default function ExamRunnerPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ===== Render =====
-  // Results page
+  // ===== Results page =====
   if (submitted && results) {
     const { correctCount, incorrectCount, unansweredCount, scoredCount, rows } = results;
     const percent = scoredCount ? Math.round((correctCount / scoredCount) * 100) : 0;
-    const wrongRows = rows.filter((r) => r.correctIndex != null && r.userIndex != null && r.userIndex !== r.correctIndex);
+    const wrongRows = rows.filter(
+      (r) => r.correctIndex != null && r.userIndex != null && r.userIndex !== r.correctIndex
+    );
 
     return (
       <div className="space-y-6">
@@ -516,8 +512,7 @@ export default function ExamRunnerPage() {
             <h2 className="text-4xl font-bold">Your Score</h2>
             <div className="mt-3 text-xl">
               <span className="font-semibold">{correctCount}</span> correct out of{" "}
-              <span className="font-semibold">{scoredCount}</span> scored questions
-              {" · "}
+              <span className="font-semibold">{scoredCount}</span> scored questions ·{" "}
               <span className="font-semibold">{percent}%</span>
             </div>
             <div className="mt-1 text-gray-600 text-sm">
@@ -527,7 +522,6 @@ export default function ExamRunnerPage() {
             <div className="mt-5 flex gap-2 justify-center">
               <button
                 onClick={() => {
-                  // Jump to first wrong if exists
                   const firstWrong = wrongRows[0];
                   if (!firstWrong) return;
                   const i = items.findIndex((x) => x.globalId === firstWrong.globalId);
@@ -535,8 +529,9 @@ export default function ExamRunnerPage() {
                   jumpTo(i);
                 }}
                 disabled={wrongRows.length === 0}
-                className={`px-4 py-2 rounded-md text-white ${wrongRows.length ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-300 cursor-not-allowed"}`}
-                title={wrongRows.length ? "Go to first incorrect question" : "No incorrect questions"}
+                className={`px-4 py-2 rounded-md text-white ${
+                  wrongRows.length ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-300 cursor-not-allowed"
+                }`}
               >
                 Review Incorrect Questions
               </button>
@@ -553,25 +548,6 @@ export default function ExamRunnerPage() {
             </div>
           </div>
 
-          {/* Legend */}
-          <div className="rounded border border-gray-200 bg-gray-50 p-4 mb-4 text-sm">
-            <div className="flex items-center gap-6">
-              <span className="inline-flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-orange-500 inline-block" />
-                Unanswered
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-red-500 inline-block" />
-                Incorrect
-              </span>
-              <span className="inline-flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-green-500 inline-block" />
-                Correct
-              </span>
-            </div>
-          </div>
-
-          {/* Wrong questions list */}
           <div>
             <h3 className="text-xl font-semibold mb-2">Questions you got wrong</h3>
             {wrongRows.length === 0 ? (
@@ -580,8 +556,6 @@ export default function ExamRunnerPage() {
               <div className="divide-y divide-gray-200">
                 {wrongRows.map((r) => {
                   const i = items.findIndex((x) => x.globalId === r.globalId);
-                  const your = letter(r.userIndex);
-                  const correct = letter(r.correctIndex);
                   return (
                     <div key={r.globalId} className="py-3 flex items-center gap-3">
                       <button
@@ -592,16 +566,24 @@ export default function ExamRunnerPage() {
                         className="shrink-0 px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 border border-gray-300"
                         title="Jump to this question"
                       >
-                        {r.sectionTitle}: Q{r.qNumberInSection}
+                        Q{r.globalNumber} · {r.displayGroup}
                       </button>
                       <div className="text-sm">
                         <div>
-                          Your answer: <span className="font-semibold">{your}</span>
+                          Your answer:{" "}
+                          <span className="font-semibold">
+                            {letter(r.userIndex)}
+                          </span>
                           {r.choices && r.userIndex != null ? ` — ${r.choices[r.userIndex]}` : ""}
                         </div>
                         <div>
-                          Correct answer: <span className="font-semibold">{correct}</span>
-                          {r.choices && r.correctIndex != null ? ` — ${r.choices[r.correctIndex]}` : ""}
+                          Correct answer:{" "}
+                          <span className="font-semibold">
+                            {letter(r.correctIndex)}
+                          </span>
+                          {r.choices && r.correctIndex != null
+                            ? ` — ${r.choices[r.correctIndex]}`
+                            : ""}
                         </div>
                       </div>
                     </div>
@@ -615,20 +597,20 @@ export default function ExamRunnerPage() {
     );
   }
 
-  // ===== Normal exam UI (includes End-of-Exam screen before submit) =====
+  // ===== Normal exam UI (includes End-of-Exam screen) =====
   return (
     <div className="space-y-4">
-      {/* ======= FULL-WIDTH Compact Toolbar + Status Bar ======= */}
+      {/* ======= Toolbar + Status ======= */}
       <div className="sticky top-14 z-30">
-        {/* Toolbar (full-width) */}
         <div className="w-full flex items-center gap-2 bg-white border-b border-gray-300 px-4 py-1.5 shadow-sm">
-          {/* Joined blue arrows */}
           <div className="inline-flex overflow-hidden rounded-md">
             <button
               onClick={goPrev}
               disabled={idx === 0}
               className={`px-3 py-1.5 text-white text-sm font-medium border-r ${
-                idx === 0 ? "bg-blue-300 cursor-not-allowed border-blue-300" : "bg-blue-600 hover:bg-blue-500 border-blue-700"
+                idx === 0
+                  ? "bg-blue-300 cursor-not-allowed border-blue-300"
+                  : "bg-blue-600 hover:bg-blue-500 border-blue-700"
               }`}
               title="Previous"
             >
@@ -646,7 +628,7 @@ export default function ExamRunnerPage() {
             </button>
           </div>
 
-          {/* Review (with dropdown) */}
+          {/* Review dropdown */}
           <div className="relative" ref={reviewWrapRef}>
             <button
               onClick={() => setReviewOpen((v) => !v)}
@@ -707,44 +689,38 @@ export default function ExamRunnerPage() {
                     </button>
                   </div>
 
-                  {/* Filtered list grouped by section */}
+                  {/* Filtered list grouped by merged group (Reading / Math) */}
                   <div className="max-h-72 overflow-auto rounded border border-gray-200">
-                    {Object.entries(groupedBySection).map(([secId, qs]) => {
-                      const secTitle =
-                        exam.sections.find((s) => s.id === secId)?.title ?? "Section";
-                      return (
-                        <div key={secId}>
-                          <div className="px-3 py-2 text-[12px] font-semibold bg-gray-50 border-b border-gray-200">
-                            {secTitle}
-                          </div>
-                          {qs.map((q) => {
-                            const i = items.findIndex((x) => x.globalId === q.globalId);
-                            const answered = isAnswered(q.globalId);
-                            const bookmarked = bookmarks.has(q.globalId);
-                            return (
-                              <button
-                                key={q.globalId}
-                                onClick={() => jumpTo(i)}
-                                className={`w-full text-left px-3 py-2 flex items-center gap-2 border-b border-gray-200 hover:bg-gray-50 ${
-                                  i === idx ? "bg-blue-50" : ""
-                                }`}
-                                title={`${q.sectionTitle} · Question ${q.qIndexInSection + 1}`}
-                              >
-                                <span
-                                  className={`h-2.5 w-2.5 rounded-full ${
-                                    answered ? "bg-green-500" : "bg-orange-500"
-                                  }`}
-                                />
-                                <span className="flex-1">
-                                  Question {q.qIndexInSection + 1}
-                                </span>
-                                {bookmarked && <span className="text-blue-600" aria-hidden>🔖</span>}
-                              </button>
-                            );
-                          })}
+                    {Object.entries(groupedByDisplayGroup).map(([group, qs]) => (
+                      <div key={group}>
+                        <div className="px-3 py-2 text-[12px] font-semibold bg-gray-50 border-b border-gray-200">
+                          {group}
                         </div>
-                      );
-                    })}
+                        {qs.map((q) => {
+                          const i = items.findIndex((x) => x.globalId === q.globalId);
+                          const answered = isAnswered(q.globalId);
+                          const bookmarked = bookmarks.has(q.globalId);
+                          return (
+                            <button
+                              key={q.globalId}
+                              onClick={() => jumpTo(i)}
+                              className={`w-full text-left px-3 py-2 flex items-center gap-2 border-b border-gray-200 hover:bg-gray-50 ${
+                                i === idx ? "bg-blue-50" : ""
+                              }`}
+                              title={`${group} · Question ${q.globalIndex + 1}`}
+                            >
+                              <span
+                                className={`h-2.5 w-2.5 rounded-full ${
+                                  answered ? "bg-green-500" : "bg-orange-500"
+                                }`}
+                              />
+                              <span className="flex-1">Question {q.globalIndex + 1}</span>
+                              {bookmarked && <span className="text-blue-600" aria-hidden>🔖</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
                     {filteredItems.length === 0 && (
                       <div className="px-3 py-6 text-center text-gray-500 text-sm">
                         No questions to show here.
@@ -756,7 +732,7 @@ export default function ExamRunnerPage() {
             )}
           </div>
 
-          {/* Bookmark (toggle) */}
+          {/* Bookmark toggle */}
           <button
             onClick={toggleBookmark}
             disabled={current?.isEnd}
@@ -790,10 +766,8 @@ export default function ExamRunnerPage() {
             Bookmark
           </button>
 
-          {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Mini control icons (visual only) */}
           <div className="flex items-center gap-1.5">
             <button className="h-7 w-7 rounded border border-gray-400 bg-gradient-to-b from-white to-gray-100 text-sm hover:bg-gray-50" title="Pointer Tool">
               ·
@@ -810,14 +784,14 @@ export default function ExamRunnerPage() {
           </div>
         </div>
 
-        {/* Cyan hairline + Dark status bar (full-width) */}
+        {/* Cyan hairline + Dark status bar */}
         <div className="h-[3px] bg-sky-500 border-t border-gray-300" />
         <div className="w-full bg-[#5e5e5e] text-white text-[13px]">
           <div className="flex items-center gap-2 px-6 py-1">
             <span className="font-semibold">{exam.title.toUpperCase()}</span>
             <span>/</span>
             <span>
-              {current?.isEnd ? "END OF EXAM" : `SECTION ${current?.sectionTitle ?? "-"}`}
+              {current?.isEnd ? "END OF EXAM" : groupLabel(current?.sectionType ?? "")}
             </span>
             <span>/</span>
             <span>
@@ -837,7 +811,7 @@ export default function ExamRunnerPage() {
       {!current?.isEnd ? (
         <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left: passage */}
+            {/* Left: passage for the ORIGINAL section this question belongs to */}
             <div className="rounded-lg border border-gray-200 shadow-sm p-4">
               <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
                 <div className="border rounded-md p-6 bg-white">
@@ -890,6 +864,10 @@ export default function ExamRunnerPage() {
             <div className="rounded-lg border border-gray-200 shadow-sm p-4">
               {current?.stemMarkdown ? (
                 <div className="prose max-w-none mb-4">
+                  {/* Show GLOBAL number here */}
+                  <p className="text-sm text-gray-500 mb-2">
+                    {groupLabel(current.sectionType)} · Question {current.globalIndex + 1}
+                  </p>
                   <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
                 </div>
               ) : null}
@@ -958,7 +936,7 @@ export default function ExamRunnerPage() {
               </div>
             </div>
 
-            {/* All questions (show unanswered + bookmarks indicators) */}
+            {/* ALL questions (global numbering) */}
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {questionItems.map((q) => {
                 const i = items.findIndex((x) => x.globalId === q.globalId);
@@ -969,12 +947,12 @@ export default function ExamRunnerPage() {
                     key={q.globalId}
                     onClick={() => jumpTo(i)}
                     className="relative text-left px-4 py-2 rounded-md bg-gray-100 hover:bg-gray-200 border border-gray-300"
-                    title={`${q.sectionTitle} · Question ${q.qIndexInSection + 1}`}
+                    title={`${groupLabel(q.sectionType)} · Question ${q.globalIndex + 1}`}
                   >
                     {!answered && (
                       <span className="absolute left-2 top-1.5 h-3 w-3 rounded-full bg-orange-500" />
                     )}
-                    <span className="pl-5">Question {q.qIndexInSection + 1}</span>
+                    <span className="pl-5">Question {q.globalIndex + 1}</span>
                     {bookmarked && <span className="absolute right-2 top-1 text-blue-600">🔖</span>}
                   </button>
                 );
@@ -987,7 +965,7 @@ export default function ExamRunnerPage() {
       {/* Bottom hint */}
       <div className="text-center text-sm text-gray-500">Use ← and → keys to navigate</div>
 
-      {/* ===== Fixed-position floating toolbox ===== */}
+      {/* ===== Highlighter toolbox ===== */}
       {hlOpen && !current?.isEnd && (
         <div
           data-hl-palette
@@ -1031,7 +1009,7 @@ export default function ExamRunnerPage() {
         </div>
       )}
 
-      {/* ===== Passage styling (centered title/author + circled numbers + highlight colors) ===== */}
+      {/* ===== Passage & list styling ===== */}
       <style>{`
         .passage h1, .passage h2, .passage h3 { text-align: center; margin-bottom: 0.25rem; }
         .passage h1 + p, .passage h2 + p, .passage h3 + p { text-align: center; margin-top: 0.25rem; margin-bottom: 1rem; }
