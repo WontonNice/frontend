@@ -162,30 +162,51 @@ export default function ExamRunnerPage() {
   }, [storageKey]);
 
   // ===== Selection handlers: show toolbox on selection inside passage =====
-  useEffect(() => {
+useEffect(() => {
     const el = passageRef.current;
     if (!el) return;
-    const onMouseUp = () => {
+
+    const handleSelection = () => {
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0) {
         setHlOpen(false);
+        selectionRangeRef.current = null;
         return;
       }
       const range = sel.getRangeAt(0);
-      // Only if selection is inside the passage container and has text
+      // Only open if selection is non-empty AND inside the passage
       if (!el.contains(range.commonAncestorContainer) || range.collapsed || String(sel).trim() === "") {
         setHlOpen(false);
         selectionRangeRef.current = null;
         return;
       }
+
       selectionRangeRef.current = range.cloneRange();
       const rect = range.getBoundingClientRect();
       const hostRect = el.getBoundingClientRect();
-      setHlPos({ x: rect.left - hostRect.left + rect.width / 2, y: rect.top - hostRect.top - 8 });
+      // Position the toolbox centered above the selection, clamped to top
+      setHlPos({
+        x: rect.left - hostRect.left + rect.width / 2,
+        y: Math.max(rect.top - hostRect.top - 8, 0),
+      });
       setHlOpen(true);
     };
-    el.addEventListener("mouseup", onMouseUp);
-    return () => el.removeEventListener("mouseup", onMouseUp);
+
+    // Catch mouse, keyboard selection, and programmatic selection changes
+    document.addEventListener("mouseup", handleSelection);
+    document.addEventListener("keyup", handleSelection);
+    document.addEventListener("selectionchange", () => {
+      // Close if selection collapses completely or moves outside
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) {
+        setHlOpen(false);
+        selectionRangeRef.current = null;
+      }
+    });
+    return () => {
+      document.removeEventListener("mouseup", handleSelection);
+      document.removeEventListener("keyup", handleSelection);
+    };
   }, [slug, current?.sectionId]);
 
   // ===== Apply / remove highlight helpers =====
@@ -429,7 +450,7 @@ export default function ExamRunnerPage() {
                     {/* Floating Highlighter Toolbox */}
                     {hlOpen && (
                       <div
-                        className="absolute z-10 -translate-x-1/2"
+                        className="absolute z-50 -translate-x-1/2"
                         style={{ left: hlPos.x, top: Math.max(hlPos.y, 0) }}
                       >
                         <div className="flex items-center gap-1 rounded-xl border border-gray-300 bg-white shadow-md px-1 py-1">
