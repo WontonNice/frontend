@@ -326,13 +326,13 @@ export default function ExamRunnerPage() {
             <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
               <div className="border rounded-md p-6 bg-white">
                 {effectivePassage ? (
-                  <div className="prose max-w-none">
+                  <div className="prose md:prose-lg max-w-none passage">
                     <ReactMarkdown>{effectivePassage}</ReactMarkdown>
                   </div>
                 ) : current?.image || current?.stemMarkdown ? (
                   <>
                     {current.stemMarkdown && (
-                      <div className="prose max-w-none">
+                      <div className="prose md:prose-lg max-w-none passage">
                         <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
                       </div>
                     )}
@@ -403,6 +403,56 @@ export default function ExamRunnerPage() {
 
       {/* Bottom hint */}
       <div className="text-center text-sm text-gray-500">Use ← and → keys to navigate</div>
+
+    {/* ===== Passage styling (centered title/author + circled numbers) ===== */}
+    <style>{`
+    /* Center the title and author */
+    .passage h1, .passage h2, .passage h3 {
+        text-align: center;
+        margin-bottom: 0.25rem;
+    }
+    .passage h1 + p, .passage h2 + p, .passage h3 + p {
+        text-align: center;
+        margin-top: 0.25rem;
+        margin-bottom: 1rem;
+    }
+    /* Optional: center/soften any intro italic paragraph */
+    .passage em {
+        display: block;
+        text-align: center;
+        color: #6b7280; /* gray-500 */
+        font-style: italic;
+    }
+    /* Turn ordered-list numbers into circular badges */
+    .passage ol {
+        counter-reset: item;
+        list-style: none;
+        padding-left: 0;
+        margin-left: 0;
+    }
+    .passage ol > li {
+        counter-increment: item;
+        position: relative;
+        padding-left: 2.525em;
+        margin: 0.75rem 0;
+    }
+    .passage ol > li::before {
+        content: counter(item);
+        position: absolute;
+        left: 0;
+        top: 0.1rem;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 9999px;
+        background: #111827
+        color: #fff
+        font-weight: 700;
+        font-size: 0.875rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    `}</style>
     </div>
   );
 }
