@@ -138,26 +138,213 @@
           "stemMarkdown": "Read these sentences from paragraph 6.\n\n**True to his word, Luigi was waiting for us in the dark hall. With a motion that indicated silence, he led us up the stairs to the second floor, and quickly opened a door into what seemed to be a mid-sized private dining-room.**\n\nHow do the sentences contribute to the development of the setting?",
           "choices": [
             "A. They emphasize how easy it would be for Kennedy and the narrator to get lost in this place on their own.",
-            "B. It introduces Lady Bird Johnson’s adolescent personality in order to later contrast it with the force of her historical impact as an adult.",
-            "C. It provides examples of the ways Lady Bird Johnson’s upbringing was similar to Michelle Obama and Hillary Clinton’s childhoods.",
-            "D. It highlights details from Lady Bird Johnson’s early childhood that explain why she was a fierce opponent of the civil rights movement."
-          ],
-          "answerIndex": 2
-        },
-        {
-          "id": "q3",
-          "stemMarkdown": "What role does paragraph 3 play in the overall structure of the passage?",
-          "choices": [
-            "A. It describes Lady Bird Johnson’s childhood in order to later demonstrate her personal growth as an adult woman.",
-            "B. It introduces Lady Bird Johnson’s adolescent personality in order to later contrast it with the force of her historical impact as an adult.",
-            "C. It provides examples of the ways Lady Bird Johnson’s upbringing was similar to Michelle Obama and Hillary Clinton’s childhoods.",
-            "D. It highlights details from Lady Bird Johnson’s early childhood that explain why she was a fierce opponent of the civil rights movement."
+            "B. They demonstrate that the characters have moved to a private room because they need to discuss a sensitive subject.",
+            "C. They highlight the ordinariness of the moment by describing the everyday appearances of the restaurant.",
+            "D. They reveal that Kennedy and the narrator are now in a section of the restaurant sectioned off for employee use only."
           ],
           "answerIndex": 2
         },
         {
           "id": "q4",
-          "stemMarkdown": "Which statement describes how the author’s use of sequencing in paragraphs 4 and 5 contributes to the overall structure of the passage?",
+          "stemMarkdown": "They reveal that Kennedy and the narrator are now in a section of the restaurant sectioned off for employee use only.",
+          "choices": [
+            "A. It demonstrates that having wealth means having access to more opportunities.",
+            "B. It shows that Lady Bird was aggressive in her pursuit of knowledge and intellect.",
+            "C. It highlights how an ordinary start to life led to an extraordinary lifetime of accomplishments.",
+            "D. It reveals that Lady Bird followed an unconventional path and did not always do what was expected of her."
+          ],
+          "answerIndex": 2
+        },
+        {
+          "id": "q5",
+          "stemMarkdown": "According to paragraph 7, Jim Crow laws",
+          "choices": [
+            "A. guaranteed equal access and equal employment to all Americans, regardless of race.",
+            "B. were signed by President Johnson to help African-Americans with employment.",
+            "C. were also known as Lady Bird’s Bill and were an example of Lady Bird’s political involvement.",
+            "D. were racist laws that were overturned by the Civil Rights Act of 1964."
+          ],
+          "answerIndex": 2
+        },
+        {
+          "id": "q6",
+          "stemMarkdown": "Which of the following excerpts best captures the author’s perspective on Lady Bird Johnson’s role in the civil rights movement?",
+          "choices": [
+            "A. “In the first open political collaboration between President and First Lady, she and her husband pushed through the Highway Beautification Act of 1965, which was quickly dubbed Lady Bird’s Bill.” (paragraph 6)",
+            "B. “President Johnson had recently signed the Civil Rights Act, which shut down Jim Crow laws and guaranteed equal access and equal employment to all African-Americans.” (paragraph 7)",
+            "C. “Eight Southern states were deemed far too dangerous for President Johnson to campaign in.” (paragraph 8)",
+            "D. “Long before feminism, at a time when only 30 percent of married women even had jobs, this timid Texan girl – so shy that she couldn’t even bear the thought of making a speech at her high school graduation – spoke up and spoke out.” (paragraph 10)"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "id": "q7",
+          "stemMarkdown": "Read this excerpt from paragraph 9.\n\n**“This is a country of many viewpoints,” she said calmly, in her unmistakable Southern drawl. “I respect your right to express your own. Now it is my turn to express mine. Thank you.” The crowd realized that this woman spoke their language – and they listened.**\n\nThe author uses the phrase “Southern drawl” to convey how",
+          "choices": [
+            "A. Lady Bird Johnson’s accent made it hard for people to understand her.",
+            "B. Lady Bird Johnson’s dialect helped her connect with a resistant audience.",
+            "C. Lady Bird Johnson was a relatable representation of the average American citizen.",
+            "D. Lady Bird Johnson’s attempts to master the Northern accents of the capital failed."
+          ],
+          "answerIndex": 2
+        },
+        {
+          "id": "q8",
+          "stemMarkdown": "Which statement would the author most likely agree with?",
+          "choices": [
+            "A. Modern female politicians should imitate Lady Bird Johnson’s methods when trying to convince oppositional parties.",
+            "B. Lady Bird Johnson was a contentious figure because of her involvement in politics.",
+            "C. Lady Bird Johnson overcame challenging obstacles to become an influential leader.",
+            "D. Despite her personality, Lady Bird Johnson was a pioneer in political and social roles."
+          ],
+          "answerIndex": 2
+        }
+      ]
+    },
+    {
+      "id": "reading-3",
+      "title": "Reading Passage 2",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/From-Devastation-Beauty.md",
+      "passageImages": [
+        "/exams/shsat-2025-a/reading-1/figure-1.png"
+      ],
+      "questions": [
+        {
+          "id": "q1",
+          "stemMarkdown": "The phrase “I have heard of your wonderful detective work” in paragraph 2 shows that the author is",
+          "choices": [
+            "A. introducing the idea that the narrator’s friend is a competent detective.",
+            "B. explaining that the narrator’s friend has worked on previous cases for Luigi.",
+            "C. suggesting that the case might be dangerous for the narrator to investigate.",
+            "D. emphasizing Luigi’s need for a competent detective."
+          ],
+          "answerIndex": 0
+        },
+        {
+          "id": "q2",
+          "stemMarkdown": "How does the introduction of Gennaro in paragraph 6 affect the development of the plot?",
+          "choices": [
+            "A. It causes the narrator to realize that Gennaro wants help with his daughter’s kidnapping.",
+            "B. It inspires the narrator to hope for an autograph from Gennaro.",
+            "C. It motivates the narrator to share a ransom letter with the other men in the room.",
+            "D. It reminds the narrator of reading about the kidnapping of Gennaro’s daughter in the paper."
+          ],
+          "answerIndex": 2
+        },
+        {
+          "id": "q3",
+          "stemMarkdown": "Read these sentences from paragraph 6.\n\n**True to his word, Luigi was waiting for us in the dark hall. With a motion that indicated silence, he led us up the stairs to the second floor, and quickly opened a door into what seemed to be a mid-sized private dining-room.**\n\nHow do the sentences contribute to the development of the setting?",
+          "choices": [
+            "A. They emphasize how easy it would be for Kennedy and the narrator to get lost in this place on their own.",
+            "B. They demonstrate that the characters have moved to a private room because they need to discuss a sensitive subject.",
+            "C. They highlight the ordinariness of the moment by describing the everyday appearances of the restaurant.",
+            "D. They reveal that Kennedy and the narrator are now in a section of the restaurant sectioned off for employee use only."
+          ],
+          "answerIndex": 2
+        },
+        {
+          "id": "q4",
+          "stemMarkdown": "They reveal that Kennedy and the narrator are now in a section of the restaurant sectioned off for employee use only.",
+          "choices": [
+            "A. It demonstrates that having wealth means having access to more opportunities.",
+            "B. It shows that Lady Bird was aggressive in her pursuit of knowledge and intellect.",
+            "C. It highlights how an ordinary start to life led to an extraordinary lifetime of accomplishments.",
+            "D. It reveals that Lady Bird followed an unconventional path and did not always do what was expected of her."
+          ],
+          "answerIndex": 2
+        },
+        {
+          "id": "q5",
+          "stemMarkdown": "According to paragraph 7, Jim Crow laws",
+          "choices": [
+            "A. guaranteed equal access and equal employment to all Americans, regardless of race.",
+            "B. were signed by President Johnson to help African-Americans with employment.",
+            "C. were also known as Lady Bird’s Bill and were an example of Lady Bird’s political involvement.",
+            "D. were racist laws that were overturned by the Civil Rights Act of 1964."
+          ],
+          "answerIndex": 2
+        },
+        {
+          "id": "q6",
+          "stemMarkdown": "Which of the following excerpts best captures the author’s perspective on Lady Bird Johnson’s role in the civil rights movement?",
+          "choices": [
+            "A. “In the first open political collaboration between President and First Lady, she and her husband pushed through the Highway Beautification Act of 1965, which was quickly dubbed Lady Bird’s Bill.” (paragraph 6)",
+            "B. “President Johnson had recently signed the Civil Rights Act, which shut down Jim Crow laws and guaranteed equal access and equal employment to all African-Americans.” (paragraph 7)",
+            "C. “Eight Southern states were deemed far too dangerous for President Johnson to campaign in.” (paragraph 8)",
+            "D. “Long before feminism, at a time when only 30 percent of married women even had jobs, this timid Texan girl – so shy that she couldn’t even bear the thought of making a speech at her high school graduation – spoke up and spoke out.” (paragraph 10)"
+          ],
+          "answerIndex": 2
+        },
+        {
+          "id": "q7",
+          "stemMarkdown": "Read this excerpt from paragraph 9.\n\n**“This is a country of many viewpoints,” she said calmly, in her unmistakable Southern drawl. “I respect your right to express your own. Now it is my turn to express mine. Thank you.” The crowd realized that this woman spoke their language – and they listened.**\n\nThe author uses the phrase “Southern drawl” to convey how",
+          "choices": [
+            "A. Lady Bird Johnson’s accent made it hard for people to understand her.",
+            "B. Lady Bird Johnson’s dialect helped her connect with a resistant audience.",
+            "C. Lady Bird Johnson was a relatable representation of the average American citizen.",
+            "D. Lady Bird Johnson’s attempts to master the Northern accents of the capital failed."
+          ],
+          "answerIndex": 2
+        },
+        {
+          "id": "q8",
+          "stemMarkdown": "Which statement would the author most likely agree with?",
+          "choices": [
+            "A. Modern female politicians should imitate Lady Bird Johnson’s methods when trying to convince oppositional parties.",
+            "B. Lady Bird Johnson was a contentious figure because of her involvement in politics.",
+            "C. Lady Bird Johnson overcame challenging obstacles to become an influential leader.",
+            "D. Despite her personality, Lady Bird Johnson was a pioneer in political and social roles."
+          ],
+          "answerIndex": 2
+        }
+      ]
+    },
+    {
+      "id": "reading-4",
+      "title": "Reading Passage 4",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/Healthier-Choices.md",
+      "passageImages": [
+        "/exams/shsat-2025-a/reading-1/figure-1.png"
+      ],
+      "questions": [
+        {
+          "id": "q1",
+          "stemMarkdown": "The phrase “I have heard of your wonderful detective work” in paragraph 2 shows that the author is",
+          "choices": [
+            "A. introducing the idea that the narrator’s friend is a competent detective.",
+            "B. explaining that the narrator’s friend has worked on previous cases for Luigi.",
+            "C. suggesting that the case might be dangerous for the narrator to investigate.",
+            "D. emphasizing Luigi’s need for a competent detective."
+          ],
+          "answerIndex": 0
+        },
+        {
+          "id": "q2",
+          "stemMarkdown": "How does the introduction of Gennaro in paragraph 6 affect the development of the plot?",
+          "choices": [
+            "A. It causes the narrator to realize that Gennaro wants help with his daughter’s kidnapping.",
+            "B. It inspires the narrator to hope for an autograph from Gennaro.",
+            "C. It motivates the narrator to share a ransom letter with the other men in the room.",
+            "D. It reminds the narrator of reading about the kidnapping of Gennaro’s daughter in the paper."
+          ],
+          "answerIndex": 2
+        },
+        {
+          "id": "q3",
+          "stemMarkdown": "Read these sentences from paragraph 6.\n\n**True to his word, Luigi was waiting for us in the dark hall. With a motion that indicated silence, he led us up the stairs to the second floor, and quickly opened a door into what seemed to be a mid-sized private dining-room.**\n\nHow do the sentences contribute to the development of the setting?",
+          "choices": [
+            "A. They emphasize how easy it would be for Kennedy and the narrator to get lost in this place on their own.",
+            "B. They demonstrate that the characters have moved to a private room because they need to discuss a sensitive subject.",
+            "C. They highlight the ordinariness of the moment by describing the everyday appearances of the restaurant.",
+            "D. They reveal that Kennedy and the narrator are now in a section of the restaurant sectioned off for employee use only."
+          ],
+          "answerIndex": 2
+        },
+        {
+          "id": "q4",
+          "stemMarkdown": "They reveal that Kennedy and the narrator are now in a section of the restaurant sectioned off for employee use only.",
           "choices": [
             "A. It demonstrates that having wealth means having access to more opportunities.",
             "B. It shows that Lady Bird was aggressive in her pursuit of knowledge and intellect.",
