@@ -218,6 +218,7 @@ export default function ExamRunnerPage() {
     unansweredCount: number;
     scoredCount: number;
   } | null>(null);
+  const stickyTopClass = submitted && results ? "top-14" : "top-0";
 
   // Toggle the global layout top bar: hide during exam, show on results
    useEffect(() => {
@@ -404,7 +405,7 @@ export default function ExamRunnerPage() {
     return (
       <div className="space-y-6">
         {/* Full-bleed status */}
-        <div className="sticky top-14 z-30 full-bleed">
+        <div className={`sticky ${stickyTopClass} z-30 full-bleed`}>
           <div className="h-[3px] bg-sky-500 border-t border-gray-300" />
           <div className="w-full bg-[#5e5e5e] text-white text-[13px]">
             <div className="flex items-center gap-2 px-6 py-1">
@@ -501,7 +502,7 @@ export default function ExamRunnerPage() {
   return (
     <div className="space-y-4">
       {/* ======= Toolbar + Status (full-bleed) ======= */}
-      <div className="sticky top-14 z-30 full-bleed">
+      <div className={`sticky ${stickyTopClass} z-30 full-bleed`}>
         <div className="w-full flex items-center gap-2 bg-white border-b border-gray-300 px-4 py-1 shadow-sm">
           {/* Joined Prev/Next */}
           <div className="inline-flex overflow-hidden rounded-md">
