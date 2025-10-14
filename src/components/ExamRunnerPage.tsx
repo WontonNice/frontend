@@ -161,78 +161,117 @@ export default function ExamRunnerPage() {
     setSavedHtml(html);
   }, [storageKey]);
 
-  // ===== Selection handlers: show toolbox on selection inside passage =====
-// ===== Selection handlers: robust listeners on document =====
-useEffect(() => {
-  const el = passageRef.current;
-  if (!el) return;
+  // ===== Selection handlers: robust listeners on document =====
+  useEffect(() => {
+    const el = passageRef.current;
+    if (!el) return;
 
-  let lastShown = false;
+    // helper: is a DOM node inside `el`?
+    const isInside = (node: Node | null) => {
+      if (!node) return false;
+      let cur: Node | null = node;
+      while (cur) {
+        if (cur === el) return true;
+        // support shadow hosts
+        cur = (cur as any).parentNode || (cur as any).host || null;
+      }
+      return false;
+    };
 
-  const openIfValidSelection = () => {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) {
-      setHlOpen(false);
-      selectionRangeRef.current = null;
-      lastShown = false;
-      return;
-    }
-    const range = sel.getRangeAt(0);
+    // helper: get a reliable rect for selection range (fallback span if needed)
+    const getSafeRect = (range: Range): DOMRect => {
+      const rect = range.getBoundingClientRect();
+      if (rect && (rect.width > 0 || rect.height > 0)) return rect;
 
-    // Must be non-empty and inside passage container
-    if (!el.contains(range.commonAncestorContainer) || range.collapsed || String(sel).trim() === "") {
-      setHlOpen(false);
-      selectionRangeRef.current = null;
-      lastShown = false;
-      return;
-    }
+      // fallback: insert a tiny marker to measure
+      const marker = document.createElement("span");
+      marker.style.display = "inline-block";
+      marker.style.width = "1px";
+      marker.style.height = "1em";
+      marker.style.verticalAlign = "text-bottom";
+      const clone = range.cloneRange();
+      clone.collapse(false);
+      clone.insertNode(marker);
+      const safe = marker.getBoundingClientRect();
+      const parent = marker.parentNode!;
+      parent.removeChild(marker);
+      return safe;
+    };
 
-    // Keep a stable clone to act on later
-    selectionRangeRef.current = range.cloneRange();
+    let lastShown = false;
 
-    // Position palette centered above selection (relative to passage container)
-    const rect = range.getBoundingClientRect();
-    const hostRect = el.getBoundingClientRect();
-    const x = rect.left - hostRect.left + rect.width / 2;
-    const y = Math.max(rect.top - hostRect.top - 8, 0); // clamp to top of container
+    const openIfValidSelection = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) {
+        setHlOpen(false);
+        selectionRangeRef.current = null;
+        lastShown = false;
+        return;
+      }
 
-    setHlPos({ x, y });
-    setHlOpen(true);
-    lastShown = true;
-  };
+      const range = sel.getRangeAt(0);
 
-  const onMouseUp = () => {
-    // Defer to let selection settle
-    requestAnimationFrame(openIfValidSelection);
-  };
-  const onKeyUp = () => {
-    requestAnimationFrame(openIfValidSelection);
-  };
-  const onSelectionChange = () => {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) {
+      // Must be non-empty and BOTH ends inside the passage container
+      if (
+        range.collapsed ||
+        String(sel).trim() === "" ||
+        !isInside(sel.anchorNode) ||
+        !isInside(sel.focusNode)
+      ) {
+        setHlOpen(false);
+        selectionRangeRef.current = null;
+        lastShown = false;
+        return;
+      }
+
+      // Keep a stable clone we can mutate later
+      selectionRangeRef.current = range.cloneRange();
+
+      // Position toolbox centered above selection (relative to passage container)
+      const rect = getSafeRect(range);
+      const hostRect = el.getBoundingClientRect();
+      const x = rect.left - hostRect.left + rect.width / 2;
+      const y = Math.max(rect.top - hostRect.top - 8, 0);
+      setHlPos({ x, y });
+      setHlOpen(true);
+      lastShown = true;
+    };
+
+    const onMouseUp = () => requestAnimationFrame(openIfValidSelection);
+    const onKeyUp = () => requestAnimationFrame(openIfValidSelection);
+    const onSelectionChange = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) {
+        if (lastShown) setHlOpen(false);
+        selectionRangeRef.current = null;
+        lastShown = false;
+      }
+    };
+    const onScroll = () => {
       if (lastShown) setHlOpen(false);
-      selectionRangeRef.current = null;
-      lastShown = false;
-    }
-  };
-  const onScroll = () => {
-    // hide while scrolling the passage to avoid orphaned palette
-    if (lastShown) setHlOpen(false);
-  };
+    };
+    const onDocMouseDown = (e: MouseEvent) => {
+      // close if clicking outside the passage; ignore clicks on the palette
+      const palette = el.querySelector("[data-hl-palette]");
+      const t = e.target as Node | null;
+      if (palette && t && (palette === t || palette.contains(t))) return;
+      if (!t || !isInside(t)) setHlOpen(false);
+    };
 
-  document.addEventListener("mouseup", onMouseUp);
-  document.addEventListener("keyup", onKeyUp);
-  document.addEventListener("selectionchange", onSelectionChange);
-  el.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("mouseup", onMouseUp);
+    document.addEventListener("keyup", onKeyUp);
+    document.addEventListener("selectionchange", onSelectionChange);
+    document.addEventListener("mousedown", onDocMouseDown);
+    el.addEventListener("scroll", onScroll, { passive: true });
 
-  return () => {
-    document.removeEventListener("mouseup", onMouseUp);
-    document.removeEventListener("keyup", onKeyUp);
-    document.removeEventListener("selectionchange", onSelectionChange);
-    el.removeEventListener("scroll", onScroll);
-  };
-}, [slug, current?.sectionId]);
+    return () => {
+      document.removeEventListener("mouseup", onMouseUp);
+      document.removeEventListener("keyup", onKeyUp);
+      document.removeEventListener("selectionchange", onSelectionChange);
+      document.removeEventListener("mousedown", onDocMouseDown);
+      el.removeEventListener("scroll", onScroll);
+    };
+  }, [slug, current?.sectionId]);
 
   // ===== Apply / remove highlight helpers =====
   function saveHtml() {
@@ -278,7 +317,8 @@ useEffect(() => {
     // Unwrap any <mark.hl> that overlaps with the selection
     const toUnwrap: HTMLElement[] = [];
     const ancestor = range.commonAncestorContainer;
-    const container: Element = ancestor.nodeType === 1 ? (ancestor as Element) : (ancestor.parentElement!);
+    const container: Element =
+      ancestor.nodeType === 1 ? (ancestor as Element) : (ancestor.parentElement!);
     container.querySelectorAll("mark.hl").forEach((m) => {
       const r = document.createRange();
       r.selectNodeContents(m);
@@ -475,6 +515,7 @@ useEffect(() => {
                     {/* Floating Highlighter Toolbox */}
                     {hlOpen && (
                       <div
+                        data-hl-palette
                         className="absolute z-50 -translate-x-1/2"
                         style={{ left: hlPos.x, top: Math.max(hlPos.y, 0) }}
                       >
