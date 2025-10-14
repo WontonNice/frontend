@@ -686,15 +686,6 @@ export default function ExamRunnerPage() {
                 <p className="text-gray-600">Loading Mathematics notes…</p>
               )}
             </div>
-
-            <div className="mt-8 text-center">
-              <button
-                onClick={() => setIdx((i) => Math.min(i + 1, lastIndex))}
-                className="inline-block bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-md"
-              >
-                Begin Math Questions
-              </button>
-            </div>
           </div>
         </div>
       ) : !current?.isEnd ? (
