@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getExamBySlug } from "../data/exams";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 
 /** Stores selected choice index per question (keyed by globalId) */
 type AnswerMap = Record<string, number | undefined>;
@@ -658,18 +659,25 @@ export default function ExamRunnerPage() {
                 ? "MATHEMATICS"
                 : groupLabel(current?.sectionType ?? "")}
             </span>
+
+            {/* Hide the count on the Math intro page */}
+            {!current?.isMathIntro && (
+              <>
+                <span>/</span>
+                <span>
+                  {current?.isEnd
+                    ? `${questionCount} OF ${questionCount}`
+                    : `${questionOrdinal} OF ${questionCount}`}
+                </span>
+              </>
+            )}
+
             <span>/</span>
-            <span>
-              {current?.isEnd
-                ? `${questionCount} OF ${questionCount}`
-                : `${questionOrdinal} OF ${questionCount}`}
-            </span>
-            <span>/</span>
-            <span>{progressPct}%</span>
-            <div className="flex-1" />
+            {/* Progress bar moved to the LEFT of the percentage */}
             <div className="w-40 h-1.5 bg-[#3f3f3f] rounded">
               <div className="h-1.5 rounded bg-[#a0a0a0]" style={{ width: `${progressPct}%` }} />
             </div>
+            <span>{progressPct}%</span>
           </div>
         </div>
       </div>
@@ -681,11 +689,12 @@ export default function ExamRunnerPage() {
           <div className="max-w-5xl mx-auto">
             <div className="prose md:prose-lg max-w-none">
               {mathIntroMd ? (
-                <ReactMarkdown>{mathIntroMd}</ReactMarkdown>
+                <ReactMarkdown rehypePlugins={[rehypeRaw]}>{mathIntroMd}</ReactMarkdown>
               ) : (
                 <p className="text-gray-600">Loading Mathematics notes…</p>
               )}
             </div>
+            {/* no “Begin Math Questions” button — proceed with the Next → control */}
           </div>
         </div>
       ) : !current?.isEnd ? (
