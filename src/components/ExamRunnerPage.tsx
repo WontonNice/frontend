@@ -162,52 +162,77 @@ export default function ExamRunnerPage() {
   }, [storageKey]);
 
   // ===== Selection handlers: show toolbox on selection inside passage =====
+// ===== Selection handlers: robust listeners on document =====
 useEffect(() => {
-    const el = passageRef.current;
-    if (!el) return;
+  const el = passageRef.current;
+  if (!el) return;
 
-    const handleSelection = () => {
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) {
-        setHlOpen(false);
-        selectionRangeRef.current = null;
-        return;
-      }
-      const range = sel.getRangeAt(0);
-      // Only open if selection is non-empty AND inside the passage
-      if (!el.contains(range.commonAncestorContainer) || range.collapsed || String(sel).trim() === "") {
-        setHlOpen(false);
-        selectionRangeRef.current = null;
-        return;
-      }
+  let lastShown = false;
 
-      selectionRangeRef.current = range.cloneRange();
-      const rect = range.getBoundingClientRect();
-      const hostRect = el.getBoundingClientRect();
-      // Position the toolbox centered above the selection, clamped to top
-      setHlPos({
-        x: rect.left - hostRect.left + rect.width / 2,
-        y: Math.max(rect.top - hostRect.top - 8, 0),
-      });
-      setHlOpen(true);
-    };
+  const openIfValidSelection = () => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) {
+      setHlOpen(false);
+      selectionRangeRef.current = null;
+      lastShown = false;
+      return;
+    }
+    const range = sel.getRangeAt(0);
 
-    // Catch mouse, keyboard selection, and programmatic selection changes
-    document.addEventListener("mouseup", handleSelection);
-    document.addEventListener("keyup", handleSelection);
-    document.addEventListener("selectionchange", () => {
-      // Close if selection collapses completely or moves outside
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0) {
-        setHlOpen(false);
-        selectionRangeRef.current = null;
-      }
-    });
-    return () => {
-      document.removeEventListener("mouseup", handleSelection);
-      document.removeEventListener("keyup", handleSelection);
-    };
-  }, [slug, current?.sectionId]);
+    // Must be non-empty and inside passage container
+    if (!el.contains(range.commonAncestorContainer) || range.collapsed || String(sel).trim() === "") {
+      setHlOpen(false);
+      selectionRangeRef.current = null;
+      lastShown = false;
+      return;
+    }
+
+    // Keep a stable clone to act on later
+    selectionRangeRef.current = range.cloneRange();
+
+    // Position palette centered above selection (relative to passage container)
+    const rect = range.getBoundingClientRect();
+    const hostRect = el.getBoundingClientRect();
+    const x = rect.left - hostRect.left + rect.width / 2;
+    const y = Math.max(rect.top - hostRect.top - 8, 0); // clamp to top of container
+
+    setHlPos({ x, y });
+    setHlOpen(true);
+    lastShown = true;
+  };
+
+  const onMouseUp = () => {
+    // Defer to let selection settle
+    requestAnimationFrame(openIfValidSelection);
+  };
+  const onKeyUp = () => {
+    requestAnimationFrame(openIfValidSelection);
+  };
+  const onSelectionChange = () => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) {
+      if (lastShown) setHlOpen(false);
+      selectionRangeRef.current = null;
+      lastShown = false;
+    }
+  };
+  const onScroll = () => {
+    // hide while scrolling the passage to avoid orphaned palette
+    if (lastShown) setHlOpen(false);
+  };
+
+  document.addEventListener("mouseup", onMouseUp);
+  document.addEventListener("keyup", onKeyUp);
+  document.addEventListener("selectionchange", onSelectionChange);
+  el.addEventListener("scroll", onScroll, { passive: true });
+
+  return () => {
+    document.removeEventListener("mouseup", onMouseUp);
+    document.removeEventListener("keyup", onKeyUp);
+    document.removeEventListener("selectionchange", onSelectionChange);
+    el.removeEventListener("scroll", onScroll);
+  };
+}, [slug, current?.sectionId]);
 
   // ===== Apply / remove highlight helpers =====
   function saveHtml() {
