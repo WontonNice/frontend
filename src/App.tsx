@@ -14,7 +14,7 @@ import LiveActivitiesPage from "./components/LiveActivitiesPage";
 import LiveSessionPage from "./components/LiveSessionPage";
 import ExamsPage from "./components/ExamsPage";
 import ExamRunnerPage from "./components/ExamRunnerPage";           // ⬅️ new
-//import ExamFullscreenLayout from "./components/ExamFullscreenLayout";
+import ExamFullscreenLayout from "./components/ExamFullscreenLayout";
 
 export default function App() {
   return (
@@ -67,9 +67,9 @@ export default function App() {
         path="/exam/:slug"
         element={
           <RequireAuth>
-
+            <ExamFullscreenLayout>
               <ExamRunnerPage />
-
+            </ExamFullscreenLayout>
           </RequireAuth>
         }
       />
