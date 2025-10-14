@@ -433,34 +433,10 @@ export default function ExamRunnerPage() {
 
   // ===== Submit & Score =====
   const letter = (i?: number) => (i == null || i < 0 ? "-" : String.fromCharCode(65 + i));
-  const parseLetterToIndex = (val: string) => {
-    const s = val.trim().toUpperCase();
-    if (/^\d+$/.test(s)) return Number(s); // treat as numeric index if provided
-    if (/^[A-Z]$/.test(s)) return s.charCodeAt(0) - 65;
-    return undefined;
+    const getCorrectIndex = (q: any): number | undefined => {
+    const v = (q as any)?.answerIndex;
+    return typeof v === "number" ? v : undefined; // expects 0-based index
     };
-  const getCorrectIndex = (q: any): number | undefined => {
-    // Try common fields
-    const fields = [
-      "correctIndex",
-      "answerIndex",
-      "correctChoiceIndex",
-      "solutionIndex",
-      "solution",
-      "correct",
-      "answer",
-      "key",
-    ];
-    for (const f of fields) {
-      if (q == null || !(f in q)) continue;
-      const v = (q as any)[f];
-      if (typeof v === "number") return v;
-      if (typeof v === "string") return parseLetterToIndex(v);
-      // some structures might be like { index: 2 }
-      if (typeof v === "object" && v && "index" in v && typeof v.index === "number") return v.index;
-    }
-    return undefined;
-  };
 
   const computeResults = () => {
     const rows: ResultRow[] = [];
