@@ -64,8 +64,7 @@ export default function ExamRunnerPage() {
   const [fetchedPassage, setFetchedPassage] = useState<string | undefined>(undefined);
 
   // ===== Highlighting state (persist to localStorage) =====
-  const passageRef = useRef<HTMLDivElement>(null);        // inner content container
-  const passageHostRef = useRef<HTMLDivElement>(null);    // positioned host (palette's coordinate space)
+  const passageRef = useRef<HTMLDivElement>(null); // inner content container
   const [savedHtml, setSavedHtml] = useState<string | null>(null);
   const [hlOpen, setHlOpen] = useState(false);
   const [hlPos, setHlPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -164,9 +163,8 @@ export default function ExamRunnerPage() {
 
   // ===== Selection handlers: robust listeners on document =====
   useEffect(() => {
-    const el = passageRef.current;       // inner content element where text lives
-    const host = passageHostRef.current; // `.passage.relative` container (palette is absolutely positioned here)
-    if (!el || !host) return;
+    const el = passageRef.current; // inner content element where text lives
+    if (!el) return;
 
     // helper: is a DOM node inside `el`?
     const isInside = (node: Node | null) => {
@@ -229,11 +227,13 @@ export default function ExamRunnerPage() {
       // Keep a stable clone we can mutate later
       selectionRangeRef.current = range.cloneRange();
 
-      // Position toolbox centered above selection (relative to the HOST container)
+      // Position toolbox centered above selection using viewport coords (FIXED palette)
       const rect = getSafeRect(range);
-      const hostRect = host.getBoundingClientRect();
-      const x = rect.left - hostRect.left + rect.width / 2;
-      const y = Math.max(rect.top - hostRect.top - 8, 0);
+
+      // Clamp a bit to keep on-screen
+      const x = Math.max(8, Math.min(rect.left + rect.width / 2, window.innerWidth - 8));
+      const y = Math.max(8, rect.top - 8); // sit just above selection
+
       setHlPos({ x, y });
       setHlOpen(true);
       lastShown = true;
@@ -254,7 +254,7 @@ export default function ExamRunnerPage() {
     };
     const onDocMouseDown = (e: MouseEvent) => {
       // close if clicking outside the passage; ignore clicks on the palette
-      const palette = host.querySelector("[data-hl-palette]");
+      const palette = document.querySelector("[data-hl-palette]");
       const t = e.target as Node | null;
       if (palette && t && (palette === t || palette.contains(t))) return;
       if (!t || !isInside(t)) setHlOpen(false);
@@ -264,14 +264,15 @@ export default function ExamRunnerPage() {
     document.addEventListener("keyup", onKeyUp);
     document.addEventListener("selectionchange", onSelectionChange);
     document.addEventListener("mousedown", onDocMouseDown);
-    el.addEventListener("scroll", onScroll, { passive: true });
+    // hide on scroll of the window or any container
+    window.addEventListener("scroll", onScroll, { passive: true });
 
     return () => {
       document.removeEventListener("mouseup", onMouseUp);
       document.removeEventListener("keyup", onKeyUp);
       document.removeEventListener("selectionchange", onSelectionChange);
       document.removeEventListener("mousedown", onDocMouseDown);
-      el.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScroll);
     };
   }, [slug, current?.sectionId]);
 
@@ -505,59 +506,13 @@ export default function ExamRunnerPage() {
             <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
               <div className="border rounded-md p-6 bg-white">
                 {effectivePassage ? (
-                  <div
-                    className="prose md:prose-lg max-w-none passage relative"
-                    ref={passageHostRef}
-                  >
+                  <div className="prose md:prose-lg max-w-none passage">
                     {/* Render saved HTML if exists, else markdown; both go into the same ref container */}
                     {savedHtml ? (
                       <div ref={passageRef} dangerouslySetInnerHTML={{ __html: savedHtml }} />
                     ) : (
                       <div ref={passageRef}>
                         <ReactMarkdown>{effectivePassage}</ReactMarkdown>
-                      </div>
-                    )}
-                    {/* Floating Highlighter Toolbox */}
-                    {hlOpen && (
-                      <div
-                        data-hl-palette
-                        className="absolute z-50 -translate-x-1/2"
-                        style={{ left: hlPos.x, top: Math.max(hlPos.y, 0) }}
-                      >
-                        <div className="flex items-center gap-1 rounded-xl border border-gray-300 bg-white shadow-md px-1 py-1">
-                          <button
-                            onClick={eraseSelection}
-                            className="h-7 w-7 rounded border border-gray-200 hover:bg-gray-50"
-                            title="Erase highlight"
-                            aria-label="Erase highlight"
-                          >
-                            <span
-                              style={{
-                                display: "inline-block",
-                                width: 12,
-                                height: 12,
-                                transform: "rotate(45deg)",
-                                borderTop: "2px solid #b91c1c",
-                              }}
-                            />
-                          </button>
-                          <button
-                            onClick={() => wrapSelection("blue")}
-                            className="h-7 w-7 rounded border border-gray-200 hover:bg-gray-50"
-                            title="Highlight blue"
-                            aria-label="Highlight blue"
-                          >
-                            <span style={{ display: "inline-block", width: 14, height: 14, background: "#bfdbfe" }} />
-                          </button>
-                          <button
-                            onClick={() => wrapSelection("pink")}
-                            className="h-7 w-7 rounded border border-gray-200 hover:bg-gray-50"
-                            title="Highlight pink"
-                            aria-label="Highlight pink"
-                          >
-                            <span style={{ display: "inline-block", width: 14, height: 14, background: "#fbcfe8" }} />
-                          </button>
-                        </div>
                       </div>
                     )}
                   </div>
@@ -635,6 +590,50 @@ export default function ExamRunnerPage() {
 
       {/* Bottom hint */}
       <div className="text-center text-sm text-gray-500">Use ← and → keys to navigate</div>
+
+      {/* ===== Fixed-position floating toolbox ===== */}
+      {hlOpen && (
+        <div
+          data-hl-palette
+          className="fixed z-[1000] -translate-x-1/2"
+          style={{ left: hlPos.x, top: hlPos.y }}
+        >
+          <div className="flex items-center gap-1 rounded-xl border border-gray-300 bg-white shadow-md px-1 py-1">
+            <button
+              onClick={eraseSelection}
+              className="h-7 w-7 rounded border border-gray-200 hover:bg-gray-50"
+              title="Erase highlight"
+              aria-label="Erase highlight"
+            >
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 12,
+                  height: 12,
+                  transform: "rotate(45deg)",
+                  borderTop: "2px solid #b91c1c",
+                }}
+              />
+            </button>
+            <button
+              onClick={() => wrapSelection("blue")}
+              className="h-7 w-7 rounded border border-gray-200 hover:bg-gray-50"
+              title="Highlight blue"
+              aria-label="Highlight blue"
+            >
+              <span style={{ display: "inline-block", width: 14, height: 14, background: "#bfdbfe" }} />
+            </button>
+            <button
+              onClick={() => wrapSelection("pink")}
+              className="h-7 w-7 rounded border border-gray-200 hover:bg-gray-50"
+              title="Highlight pink"
+              aria-label="Highlight pink"
+            >
+              <span style={{ display: "inline-block", width: 14, height: 14, background: "#fbcfe8" }} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ===== Passage styling (centered title/author + circled numbers + highlight colors) ===== */}
       <style>{`
