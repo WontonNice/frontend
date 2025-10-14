@@ -71,10 +71,86 @@ const BackArrowIcon = (props: any) => (
   <svg viewBox="0 0 24 24" {...props}><path d="M10 19l-7-7 7-7M3 12h18" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
 );
 
+/** ---------- Frontmatter helpers ---------- */
+type MdFrontmatter = {
+  title?: string;
+  source?: string;
+  questions?: Array<{
+    id: string;
+    type?: "global" | "function" | "detail" | "inference" | string;
+    stemMarkdown?: string;
+    choices?: string[];
+    answerIndex?: number;
+    explanationMarkdown?: string;
+    image?: string;
+  }>;
+};
+
+function splitFrontmatter(md: string): { fm: string | null; body: string } {
+  if (!md.startsWith("---")) return { fm: null, body: md };
+  const end = md.indexOf("\n---", 3);
+  if (end === -1) return { fm: null, body: md };
+  const fm = md.slice(3, end + 1).trim(); // between the --- lines
+  const body = md.slice(end + 4).trimStart();
+  return { fm, body };
+}
+
+async function parseYaml(yamlText: string | null): Promise<MdFrontmatter> {
+  if (!yamlText) return {};
+  try {
+    // Dynamic import so this file works even if js-yaml isn’t bundled yet.
+    const mod = await import(/* @vite-ignore */ "js-yaml");
+    const data = mod.load(yamlText) as any;
+    return (data ?? {}) as MdFrontmatter;
+  } catch {
+    // Fallback: no parser available -> return empty meta (renders passage, but no questions)
+    return {};
+  }
+}
+
 export default function ExamRunnerPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const exam = slug ? getExamBySlug(slug) : undefined;
+
+  /** Cache reading MD bodies and questions by section.id */
+  const [readingBodies, setReadingBodies] = useState<Record<string, string>>({});
+  const [readingQs, setReadingQs] = useState<Record<string, MdFrontmatter["questions"]>>({});
+
+  /** Load all reading sections’ MD on exam change */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!exam) return;
+      const bodies: Record<string, string> = {};
+      const qsMap: Record<string, MdFrontmatter["questions"]> = {};
+
+      const tasks = exam.sections
+        .filter((s: any) => s.type === "reading" && s.passageMd)
+        .map(async (s: any) => {
+          try {
+            const url: string = s.passageMd.startsWith("/") ? s.passageMd : `/exams/readingpassages/${s.passageMd}`;
+            const txt = await fetch(url).then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))));
+            const { fm, body } = splitFrontmatter(txt);
+            const meta = await parseYaml(fm);
+            bodies[s.id] = body;
+            if (Array.isArray(meta.questions)) qsMap[s.id] = meta.questions as any[];
+          } catch {
+            bodies[s.id] = "";
+            qsMap[s.id] = [];
+          }
+        });
+
+      await Promise.all(tasks);
+      if (!cancelled) {
+        setReadingBodies(bodies);
+        setReadingQs(qsMap);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [exam?.slug]); // reload when switching exams
 
   // ===== Flatten ALL questions (continuous numbering) and inject a Math intro page =====
   const { items, mathIntroIndex } = useMemo(() => {
@@ -85,7 +161,7 @@ export default function ExamRunnerPage() {
     let insertedMathIntro = false;
     let mathIntroIdx = -1;
 
-    exam.sections.forEach((sec) => {
+    exam.sections.forEach((sec: any) => {
       // Insert a math transition page BEFORE the first math question
       if (sec.type === "math" && !insertedMathIntro) {
         mathIntroIdx = out.length;
@@ -100,18 +176,29 @@ export default function ExamRunnerPage() {
         insertedMathIntro = true;
       }
 
-      sec.questions.forEach((q) => {
+      // Choose the question source per section
+      const sectionQuestions =
+        sec.type === "reading"
+          ? (readingQs[sec.id] ?? [])
+          : (sec.questions ?? []);
+
+      // Fall back to empty list if not yet loaded (reading) to avoid crashes
+      (sectionQuestions as any[]).forEach((q: any) => {
         out.push({
           globalId: `${sec.id}:${q.id}`,
           sectionId: sec.id,
           sectionTitle: sec.title,
           sectionType: sec.type,
-          sectionPassageMarkdown: (sec as any).passageMarkdown,
+          // for reading: use preloaded body + images; for math: use the JSON fields
+          sectionPassageMarkdown:
+            sec.type === "reading"
+              ? readingBodies[sec.id] ?? ""
+              : (sec as any).passageMarkdown,
           sectionPassageImages: (sec as any).passageImages,
-          sectionPassageUrl: (sec as any).passageMd ?? (sec as any).passageUrl,
-          stemMarkdown: (q as any).stemMarkdown ?? (q as any).promptMarkdown,
-          image: (q as any).image,
-          choices: (q as any).choices,
+          sectionPassageUrl: sec.passageMd ?? (sec as any).passageUrl,
+          stemMarkdown: q.stemMarkdown ?? q.promptMarkdown,
+          image: q.image,
+          choices: q.choices,
           globalIndex: globalIndex++,
         });
       });
@@ -128,7 +215,7 @@ export default function ExamRunnerPage() {
     });
 
     return { items: out, mathIntroIndex: mathIntroIdx };
-  }, [exam]);
+  }, [exam, readingBodies, readingQs]);
 
   const questionItems = items.filter((i) => !i.isEnd && !i.isMathIntro);
   const lastIndex = Math.max(0, items.length - 1);
@@ -139,7 +226,7 @@ export default function ExamRunnerPage() {
   const [reviewTab, setReviewTab] = useState<ReviewTab>("all");
   const reviewWrapRef = useRef<HTMLDivElement>(null);
 
-  // fetched passage content (if section provides `passageMd`)
+  // fetched passage content (legacy path if section provides `passageMd` string URL; we now prefer preloaded body)
   const [fetchedPassage, setFetchedPassage] = useState<string | undefined>(undefined);
 
   // ===== Math intro markdown (from public/exams/mathpage.md) =====
@@ -226,7 +313,6 @@ export default function ExamRunnerPage() {
     if (!bar) return;
     const shouldShow = submitted && !!results;
     bar.classList.toggle("hidden", !shouldShow);
-    // ensure it’s restored if this component unmounts
     return () => bar.classList.remove("hidden");
   }, [submitted, results]);
 
@@ -251,24 +337,33 @@ export default function ExamRunnerPage() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  // ===== fetch external passage if section provides a `passageMd`/`passageUrl` =====
+  // ===== Current item + passage selection =====
   const current = items[idx];
+
+  // Prefer preloaded body for reading; else fall back to fetch (legacy)
   useEffect(() => {
     setFetchedPassage(undefined);
     if (!current || current.isEnd || current.isMathIntro) return;
-
+    const sec = exam?.sections.find((s: any) => s.id === current.sectionId) as any;
+    if (sec?.type === "reading") {
+      const body = readingBodies[current.sectionId];
+      if (body != null) {
+        setFetchedPassage(body);
+        return;
+      }
+    }
+    // legacy/fallback
     let url = current.sectionPassageUrl;
     if (!url) return;
-
-    if (!url.startsWith("/")) {
-      url = `/exams/readingpassages/${url}`;
-    }
-
+    if (!url.startsWith("/")) url = `/exams/readingpassages/${url}`;
     fetch(url)
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((txt) => setFetchedPassage(txt))
+      .then((txt) => {
+        const { body } = splitFrontmatter(txt);
+        setFetchedPassage(body || txt);
+      })
       .catch(() => setFetchedPassage(undefined));
-  }, [current?.sectionId, current?.sectionPassageUrl, current?.isEnd, current?.isMathIntro]);
+  }, [current?.sectionId, current?.sectionPassageUrl, current?.isEnd, current?.isMathIntro, exam?.sections, readingBodies]);
 
   if (!exam) {
     return (
@@ -279,7 +374,7 @@ export default function ExamRunnerPage() {
     );
   }
 
-  // Prefer fetched content...
+  // Prefer fetched/preloaded content for reading
   const effectivePassage =
     !current?.isEnd && !current?.isMathIntro && current?.sectionType !== "math"
       ? fetchedPassage ??
@@ -289,11 +384,12 @@ export default function ExamRunnerPage() {
   // Normalize passage images: treat missing/empty/blank strings as "no images"
   const effectivePassageImages = (() => {
     if (current?.isEnd || current?.isMathIntro || current?.sectionType === "math") return undefined;
-    const raw = (exam.sections.find((s) => s.id === current?.sectionId) as any)?.passageImages;
+    const sec = exam.sections.find((s: any) => s.id === current?.sectionId) as any;
+    const raw = sec?.passageImages;
     const list = Array.isArray(raw)
       ? raw.filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
       : [];
-    return list.length ? list : undefined;
+    return list.length ? list : undefined; // undefined => render is skipped
   })();
 
   // ===== Progress (GLOBAL) =====
@@ -361,9 +457,11 @@ export default function ExamRunnerPage() {
     let scoredCount = 0;
 
     let g = 0;
-    exam?.sections.forEach((sec) => {
+    exam?.sections.forEach((sec: any) => {
       const displayGroup = groupLabel(sec.type);
-      sec.questions.forEach((q) => {
+      const sectionQuestions =
+        sec.type === "reading" ? (readingQs[sec.id] ?? []) : (sec.questions ?? []);
+      (sectionQuestions as any[]).forEach((q: any) => {
         const globalId = `${sec.id}:${q.id}`;
         const userIndex = answers[globalId];
         const correctIndex = getCorrectIndex(q);
