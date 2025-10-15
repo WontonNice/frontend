@@ -29,7 +29,28 @@
       "title": "Reading Passage 4",
       "type": "reading",
       "passageMd": "/exams/readingpassages/Healthier-Choices.md",
-      "passageImages": ["/exams/shsat-2025-a/reading-1/figure-1.png"]
+      "passageImages": ["/exams/readingpassages/imgsrc/Healthier-Choices.png"]
+    },
+    {
+      "id": "reading-5",
+      "title": "Reading Passage 5",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/Merry-Autumn.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "reading-6",
+      "title": "Reading Passage 6",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/Happy-Little-Accidents.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "reading-7",
+      "title": "Reading Passage 7",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/All-About-The-Seeds.md",
+      "passageImages": [""]
     },
     {
       "id": "math-1",
