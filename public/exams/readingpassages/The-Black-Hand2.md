@@ -72,7 +72,7 @@ questions:
   - id: q6
     type: single_select
     skillType: global
-    stemMarkdown: "Which of the following excerpts best captures the author’s perspective on Lady Bird Johnson’s role in the civil rights movement?"
+    stemMarkdown: ""
     choices: 
     - "A. “In the first open political collaboration between President and First Lady, she and her husband pushed through the Highway Beautification Act of 1965, which was quickly dubbed Lady Bird’s Bill.” (paragraph 6)",
     - "B. “President Johnson had recently signed the Civil Rights Act, which shut down Jim Crow laws and guaranteed equal access and equal employment to all African-Americans.” (paragraph 7)",
