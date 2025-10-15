@@ -5,11 +5,12 @@ import { getExamBySlug } from "../data/exams";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 
-/** Typed numeric comparator (fixes implicit 'any' in sort callbacks) */
+/** Typed numeric comparator */
 const numAsc = (x: number, y: number) => x - y;
 
 /** Stores selected value per question (keyed by globalId) */
-type AnswerValue = number | number[] | undefined;
+type DragMap = Record<string, string>; // optionId -> binId
+type AnswerValue = number | number[] | DragMap | undefined;
 type AnswerMap = Record<string, AnswerValue>;
 type ReviewTab = "all" | "unanswered" | "bookmarked";
 type Tool = "pointer" | "eliminate" | "notepad";
@@ -30,11 +31,9 @@ type MdFrontmatter = {
   questions?: Array<{
     id: string;
 
-    /** NEW: interaction type (UI) + skill category (reporting) */
     type?: InteractionType;
     skillType?: SkillType;
 
-    /** Common fields */
     stemMarkdown?: string;
     image?: string;
 
@@ -69,7 +68,7 @@ function splitFrontmatter(md: string): { fm: string | null; body: string } {
   if (!md.startsWith("---")) return { fm: null, body: md };
   const end = md.indexOf("\n---", 3);
   if (end === -1) return { fm: null, body: md };
-  const fm = md.slice(3, end + 1).trim(); // between the --- lines
+  const fm = md.slice(3, end + 1).trim();
   const body = md.slice(end + 4).trimStart();
   return { fm, body };
 }
@@ -81,7 +80,6 @@ async function parseYaml(yamlText: string | null): Promise<MdFrontmatter> {
     const data = mod.load(yamlText) as any;
     return (data ?? {}) as MdFrontmatter;
   } catch {
-    // Fallback: no parser available -> return empty meta (renders passage, but no questions)
     return {};
   }
 }
@@ -99,23 +97,30 @@ type FlatItem = {
 
   stemMarkdown?: string;
   image?: string;
+
+  /** Choice interactions */
   choices?: string[];
 
-  /** NEW: interaction + skill on each item */
+  /** Drag-to-bins interactions */
+  bins?: { id: string; label: string }[];
+  options?: { id: string; label: string }[];
+  correctBins?: Record<string, string>;
+
+  /** Interaction + skill on each item */
   interactionType?: InteractionType;
   skillType?: SkillType;
 
-  globalIndex: number; // 0-based across entire exam
+  globalIndex: number;
   isEnd?: boolean;
-  isMathIntro?: boolean; // special math transition page
+  isMathIntro?: boolean;
 };
 
 type ResultRow = {
   globalId: string;
-  globalNumber: number; // 1-based
+  globalNumber: number;
   displayGroup: string;
-  userIndex: number | undefined;   // only for single-select in compact view
-  correctIndex: number | undefined; // only for single-select in compact view
+  userIndex: number | undefined; // compact for single-select
+  correctIndex: number | undefined;
   choices?: string[];
 };
 
@@ -194,9 +199,9 @@ export default function ExamRunnerPage() {
     return () => {
       cancelled = true;
     };
-  }, [exam?.slug]); // reload when switching exams
+  }, [exam?.slug]);
 
-  // ===== Flatten ALL questions (continuous numbering) and inject a Math intro page =====
+  // ===== Flatten ALL questions and inject a Math intro page =====
   const { items, mathIntroIndex } = useMemo(() => {
     if (!exam) return { items: [] as FlatItem[], mathIntroIndex: -1 };
 
@@ -206,7 +211,6 @@ export default function ExamRunnerPage() {
     let mathIntroIdx = -1;
 
     exam.sections.forEach((sec: any) => {
-      // Insert a math transition page BEFORE the first math question
       if (sec.type === "math" && !insertedMathIntro) {
         mathIntroIdx = out.length;
         out.push({
@@ -220,20 +224,17 @@ export default function ExamRunnerPage() {
         insertedMathIntro = true;
       }
 
-      // Choose the question source per section
       const sectionQuestions =
         sec.type === "reading"
           ? (readingQs[sec.id] ?? [])
           : (sec.questions ?? []);
 
-      // Fall back to empty list if not yet loaded (reading) to avoid crashes
       (sectionQuestions as any[]).forEach((q: any) => {
         out.push({
           globalId: `${sec.id}:${q.id}`,
           sectionId: sec.id,
           sectionTitle: sec.title,
           sectionType: sec.type,
-          // for reading: use preloaded body + images; for math: use the JSON fields
           sectionPassageMarkdown:
             sec.type === "reading"
               ? readingBodies[sec.id] ?? ""
@@ -242,9 +243,15 @@ export default function ExamRunnerPage() {
           sectionPassageUrl: sec.passageMd ?? (sec as any).passageUrl,
           stemMarkdown: q.stemMarkdown ?? q.promptMarkdown,
           image: q.image,
+
+          // choice
           choices: q.choices,
 
-          // NEW: carry interaction + skill
+          // drag_to_bins
+          bins: q.bins,
+          options: q.options,
+          correctBins: q.correctBins,
+
           interactionType: q.type ?? "single_select",
           skillType: q.skillType,
 
@@ -253,7 +260,6 @@ export default function ExamRunnerPage() {
       });
     });
 
-    // End marker
     out.push({
       globalId: "__END__",
       sectionId: "__END__",
@@ -274,11 +280,9 @@ export default function ExamRunnerPage() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewTab, setReviewTab] = useState<ReviewTab>("all");
   const reviewWrapRef = useRef<HTMLDivElement>(null);
-
-  // fetched passage content (legacy path if section provides `passageMd` string URL; we now prefer preloaded body)
   const [fetchedPassage, setFetchedPassage] = useState<string | undefined>(undefined);
 
-  // ===== Math intro markdown (from public/exams/mathpage.md) =====
+  // ===== Math intro markdown =====
   const [mathIntroMd, setMathIntroMd] = useState<string | undefined>(undefined);
   useEffect(() => {
     fetch("/exams/mathpage.md")
@@ -287,7 +291,7 @@ export default function ExamRunnerPage() {
       .catch(() => setMathIntroMd(undefined));
   }, []);
 
-  // ===== Bookmark state (persist per exam) =====
+  // ===== Bookmark state =====
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
   const bmStorageKey = slug ? `bm:${slug}` : null;
   useEffect(() => {
@@ -334,7 +338,7 @@ export default function ExamRunnerPage() {
     setNotesOpen(tool === "notepad");
   }, [tool]);
 
-  // ===== Eliminated choices per question =====
+  // ===== Eliminated choices per question (for choice interactions) =====
   const [elims, setElims] = useState<Record<string, number[]>>({});
   const isEliminated = (gid: string, i: number) => new Set(elims[gid] || []).has(i);
   const toggleElim = (gid: string, i: number) => {
@@ -430,7 +434,7 @@ export default function ExamRunnerPage() {
         (exam.sections.find((s) => s.id === current.sectionId) as any)?.passageMarkdown
       : undefined;
 
-  // Normalize passage images: treat missing/empty/blank strings as "no images"
+  // Normalize passage images
   const effectivePassageImages = (() => {
     if (current?.isEnd || current?.isMathIntro || current?.sectionType === "math") return undefined;
     const sec = exam.sections.find((s: any) => s.id === current?.sectionId) as any;
@@ -438,7 +442,7 @@ export default function ExamRunnerPage() {
     const list = Array.isArray(raw)
       ? raw.filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
       : [];
-    return list.length ? list : undefined; // undefined => render is skipped
+    return list.length ? list : undefined;
   })();
 
   // ===== Progress (GLOBAL) =====
@@ -472,6 +476,7 @@ export default function ExamRunnerPage() {
     const v = answers[gid];
     if (typeof v === "number") return true;
     if (Array.isArray(v)) return v.length > 0;
+    if (v && typeof v === "object") return Object.keys(v as DragMap).length > 0;
     return false;
   };
   const unansweredCount = questionItems.filter((q) => !isAnsweredGid(q.globalId)).length;
@@ -541,7 +546,6 @@ export default function ExamRunnerPage() {
               incorrectCount++;
             }
           } else {
-            // No key — treat empty as unanswered for completeness
             if (!user || user.length === 0) unansweredCountLocal++;
           }
 
@@ -552,6 +556,30 @@ export default function ExamRunnerPage() {
             userIndex: undefined,
             correctIndex: undefined,
             choices,
+          });
+        } else if (kind === "drag_to_bins") {
+          const correctBins = q?.correctBins as Record<string, string> | undefined;
+          const user = answers[globalId] as DragMap | undefined;
+          if (correctBins) {
+            scoredCount++;
+            const hasAny = user && Object.keys(user).length > 0;
+            const fullyCorrect =
+              hasAny &&
+              Object.keys(correctBins).length === Object.keys(user!).length &&
+              Object.entries(correctBins).every(([opt, bin]) => user?.[opt] === bin);
+            if (!hasAny) unansweredCountLocal++;
+            else if (fullyCorrect) correctCount++;
+            else incorrectCount++;
+          } else {
+            if (!user || Object.keys(user).length === 0) unansweredCountLocal++;
+          }
+          rows.push({
+            globalId,
+            globalNumber: g + 1,
+            displayGroup,
+            userIndex: undefined,
+            correctIndex: undefined,
+            choices: undefined,
           });
         } else {
           // single_select (default)
@@ -599,14 +627,6 @@ export default function ExamRunnerPage() {
   // ===== Choice renderer (single + multi) =====
   const renderChoices = (it: FlatItem) => {
     if (!Array.isArray(it.choices)) {
-      // For non-choice interactions, show a friendly message
-      if (it.interactionType && it.interactionType !== "single_select") {
-        return (
-          <p className="text-gray-500">
-            Renderer for "<span className="font-mono">{it.interactionType}</span>" not implemented yet.
-          </p>
-        );
-      }
       return <p className="text-gray-500">No choices for this item.</p>;
     }
 
@@ -676,6 +696,88 @@ export default function ExamRunnerPage() {
           );
         })}
       </ul>
+    );
+  };
+
+  // ===== Drag to bins renderer =====
+  const renderDragToBins = (it: FlatItem) => {
+    const bins = it.bins ?? [];
+    const options = it.options ?? [];
+    const currentMap: DragMap = (answers[it.globalId] as DragMap) ?? {};
+
+    // options not yet placed
+    const unassigned = options.filter((o) => !currentMap[o.id]);
+
+    const onDragStart = (e: React.DragEvent<HTMLDivElement>, optionId: string) => {
+      e.dataTransfer.setData("text/plain", optionId);
+    };
+    const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+    };
+    const dropTo = (binId: string | null) => (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const optionId = e.dataTransfer.getData("text/plain");
+      if (!optionId) return;
+      setAnswers((prev) => {
+        const prevMap: DragMap = { ...(prev[it.globalId] as DragMap) };
+        if (binId) prevMap[optionId] = binId;
+        else delete prevMap[optionId]; // back to unassigned
+        return { ...prev, [it.globalId]: prevMap };
+      });
+    };
+
+    const OptionCard = ({ opt }: { opt: { id: string; label: string } }) => (
+      <div
+        draggable
+        onDragStart={(e) => onDragStart(e, opt.id)}
+        className="select-none bg-[#e6f0ff] text-[#0b4fd6] border border-[#a7c4ff] rounded-lg px-4 py-3 shadow-sm cursor-grab active:cursor-grabbing"
+      >
+        {opt.label}
+      </div>
+    );
+
+    return (
+      <div className="space-y-4">
+        {/* Unassigned strip (acts as a drop zone too) */}
+        <div
+          className="rounded-md border border-gray-200 bg-white p-3"
+          onDragOver={onDragOver}
+          onDrop={dropTo(null)}
+        >
+          <div className="text-sm text-gray-600 mb-2">Drag each quote into a box below.</div>
+          <div className="grid gap-3">
+            {unassigned.length ? (
+              unassigned.map((o) => <OptionCard key={o.id} opt={o} />)
+            ) : (
+              <div className="text-sm text-gray-400">All items placed.</div>
+            )}
+          </div>
+        </div>
+
+        {/* Bins */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {bins.map((b) => {
+            const placed = options.filter((o) => currentMap[o.id] === b.id);
+            return (
+              <div
+                key={b.id}
+                className="min-h-[160px] rounded-lg border-2 border-gray-300 bg-gray-100 p-3"
+                onDragOver={onDragOver}
+                onDrop={dropTo(b.id)}
+              >
+                <div className="text-sm font-semibold text-gray-700 mb-2">{b.label}</div>
+                <div className="grid gap-3">
+                  {placed.length ? (
+                    placed.map((o) => <OptionCard key={o.id} opt={o} />)
+                  ) : (
+                    <div className="text-xs text-gray-400">Drop here</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     );
   };
 
@@ -783,7 +885,7 @@ export default function ExamRunnerPage() {
     );
   }
 
-  // ===== Normal exam UI (includes Math intro and End-of-Exam screen) =====
+  // ===== Normal exam UI =====
   return (
     <div className="space-y-4">
       {/* ======= Toolbar + Status (full-bleed) ======= */}
@@ -919,7 +1021,7 @@ export default function ExamRunnerPage() {
             Bookmark
           </button>
 
-          {/* Tool buttons — now placed RIGHT NEXT to Bookmark */}
+          {/* Tool buttons */}
           <div className="flex items-center gap-1.5 ml-1">
             <button
               className={`h-8 w-8 rounded border ${tool === "pointer" ? "bg-gray-700 text-white border-gray-800" : "border-gray-400 bg-gradient-to-b from-white to-gray-100 hover:bg-gray-50"}`}
@@ -944,7 +1046,6 @@ export default function ExamRunnerPage() {
             </button>
           </div>
 
-          {/* Spacer then Back to Exams on the far right of same bar */}
           <div className="flex-1" />
 
           <button
@@ -1080,8 +1181,10 @@ export default function ExamRunnerPage() {
                   </div>
                 ) : null}
 
-                {/* Choices (single + multi) */}
-                {renderChoices(current)}
+                {/* Interaction renderer */}
+                {current.interactionType === "drag_to_bins"
+                  ? renderDragToBins(current)
+                  : renderChoices(current)}
               </div>
             </div>
           </div>
