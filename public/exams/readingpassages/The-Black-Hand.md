@@ -3,7 +3,6 @@ title: "The Black Hand"
 source: "Tutorverse"
 
 questions:
-  # ==== Your originals (now typed) ====
   - id: q1
     type: single_select
     skillType: function
