@@ -5,12 +5,16 @@ import { getExamBySlug } from "../data/exams";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 
+/** Tech-enhanced interactions */
+import DragToBins from "./techenhanced/DragtoBins";
+import TableMatch from "./techenhanced/TableMatch";
+import type { DragAnswer as DragMap, TableAnswer } from "./techenhanced/types";
+
 /** Typed numeric comparator */
 const numAsc = (x: number, y: number) => x - y;
 
 /** Stores selected value per question (keyed by globalId) */
-type DragMap = Record<string, string>; // optionId -> binId
-type AnswerValue = number | number[] | DragMap | undefined;
+type AnswerValue = number | number[] | DragMap | TableAnswer | undefined;
 type AnswerMap = Record<string, AnswerValue>;
 type ReviewTab = "all" | "unanswered" | "bookmarked";
 type Tool = "pointer" | "eliminate" | "notepad";
@@ -105,6 +109,12 @@ type FlatItem = {
   bins?: { id: string; label: string }[];
   options?: { id: string; label: string }[];
   correctBins?: Record<string, string>;
+
+  /** Table-match interactions */
+  tableColumns?: { key: string; header: string }[];
+  tableRows?: { id: string; header: string }[];
+  tableOptions?: { id: string; label: string }[];
+  correctCells?: Record<string, string>;
 
   /** Interaction + skill on each item */
   interactionType?: InteractionType;
@@ -251,6 +261,12 @@ export default function ExamRunnerPage() {
           bins: q.bins,
           options: q.options,
           correctBins: q.correctBins,
+
+          // table_match
+          tableColumns: q.table?.columns,
+          tableRows: q.table?.rows,
+          tableOptions: q.options, // reuse the same pool
+          correctCells: q.correctCells,
 
           interactionType: q.type ?? "single_select",
           skillType: q.skillType,
@@ -476,7 +492,7 @@ export default function ExamRunnerPage() {
     const v = answers[gid];
     if (typeof v === "number") return true;
     if (Array.isArray(v)) return v.length > 0;
-    if (v && typeof v === "object") return Object.keys(v as DragMap).length > 0;
+    if (v && typeof v === "object") return Object.keys(v as Record<string, unknown>).length > 0;
     return false;
   };
   const unansweredCount = questionItems.filter((q) => !isAnsweredGid(q.globalId)).length;
@@ -567,6 +583,31 @@ export default function ExamRunnerPage() {
               hasAny &&
               Object.keys(correctBins).length === Object.keys(user!).length &&
               Object.entries(correctBins).every(([opt, bin]) => user?.[opt] === bin);
+            if (!hasAny) unansweredCountLocal++;
+            else if (fullyCorrect) correctCount++;
+            else incorrectCount++;
+          } else {
+            if (!user || Object.keys(user).length === 0) unansweredCountLocal++;
+          }
+          rows.push({
+            globalId,
+            globalNumber: g + 1,
+            displayGroup,
+            userIndex: undefined,
+            correctIndex: undefined,
+            choices: undefined,
+          });
+        } else if (kind === "table_match") {
+          // Optional scoring if you provide correctCells in MD
+          const key = q?.correctCells as Record<string, string> | undefined;
+          const user = answers[globalId] as TableAnswer | undefined;
+          if (key) {
+            scoredCount++;
+            const hasAny = user && Object.keys(user).length > 0;
+            const fullyCorrect =
+              hasAny &&
+              Object.keys(key).length === Object.keys(user!).length &&
+              Object.entries(key).every(([rowId, optId]) => user?.[rowId] === optId);
             if (!hasAny) unansweredCountLocal++;
             else if (fullyCorrect) correctCount++;
             else incorrectCount++;
@@ -696,88 +737,6 @@ export default function ExamRunnerPage() {
           );
         })}
       </ul>
-    );
-  };
-
-  // ===== Drag to bins renderer =====
-  const renderDragToBins = (it: FlatItem) => {
-    const bins = it.bins ?? [];
-    const options = it.options ?? [];
-    const currentMap: DragMap = (answers[it.globalId] as DragMap) ?? {};
-
-    // options not yet placed
-    const unassigned = options.filter((o) => !currentMap[o.id]);
-
-    const onDragStart = (e: React.DragEvent<HTMLDivElement>, optionId: string) => {
-      e.dataTransfer.setData("text/plain", optionId);
-    };
-    const onDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-    };
-    const dropTo = (binId: string | null) => (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      const optionId = e.dataTransfer.getData("text/plain");
-      if (!optionId) return;
-      setAnswers((prev) => {
-        const prevMap: DragMap = { ...(prev[it.globalId] as DragMap) };
-        if (binId) prevMap[optionId] = binId;
-        else delete prevMap[optionId]; // back to unassigned
-        return { ...prev, [it.globalId]: prevMap };
-      });
-    };
-
-    const OptionCard = ({ opt }: { opt: { id: string; label: string } }) => (
-      <div
-        draggable
-        onDragStart={(e) => onDragStart(e, opt.id)}
-        className="select-none bg-[#e6f0ff] text-[#0b4fd6] border border-[#a7c4ff] rounded-lg px-4 py-3 shadow-sm cursor-grab active:cursor-grabbing"
-      >
-        {opt.label}
-      </div>
-    );
-
-    return (
-      <div className="space-y-4">
-        {/* Unassigned strip (acts as a drop zone too) */}
-        <div
-          className="rounded-md border border-gray-200 bg-white p-3"
-          onDragOver={onDragOver}
-          onDrop={dropTo(null)}
-        >
-          <div className="text-sm text-gray-600 mb-2">Drag each quote into a box below.</div>
-          <div className="grid gap-3">
-            {unassigned.length ? (
-              unassigned.map((o) => <OptionCard key={o.id} opt={o} />)
-            ) : (
-              <div className="text-sm text-gray-400">All items placed.</div>
-            )}
-          </div>
-        </div>
-
-        {/* Bins */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {bins.map((b) => {
-            const placed = options.filter((o) => currentMap[o.id] === b.id);
-            return (
-              <div
-                key={b.id}
-                className="min-h-[160px] rounded-lg border-2 border-gray-300 bg-gray-100 p-3"
-                onDragOver={onDragOver}
-                onDrop={dropTo(b.id)}
-              >
-                <div className="text-sm font-semibold text-gray-700 mb-2">{b.label}</div>
-                <div className="grid gap-3">
-                  {placed.length ? (
-                    placed.map((o) => <OptionCard key={o.id} opt={o} />)
-                  ) : (
-                    <div className="text-xs text-gray-400">Drop here</div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
     );
   };
 
@@ -1182,9 +1141,24 @@ export default function ExamRunnerPage() {
                 ) : null}
 
                 {/* Interaction renderer */}
-                {current.interactionType === "drag_to_bins"
-                  ? renderDragToBins(current)
-                  : renderChoices(current)}
+                {current.interactionType === "drag_to_bins" ? (
+                  <DragToBins
+                    bins={current.bins ?? []}
+                    options={current.options ?? []}
+                    value={(answers[current.globalId] as DragMap) ?? {}}
+                    onChange={(next) => setAnswers((prev) => ({ ...prev, [current.globalId]: next }))}
+                  />
+                ) : current.interactionType === "table_match" ? (
+                  <TableMatch
+                    columns={current.tableColumns ?? [{ key: "desc", header: "Best Description" }]}
+                    rows={current.tableRows ?? []}
+                    options={current.tableOptions ?? []}
+                    value={(answers[current.globalId] as TableAnswer) ?? {}}
+                    onChange={(next) => setAnswers((prev) => ({ ...prev, [current.globalId]: next }))}
+                  />
+                ) : (
+                  renderChoices(current)
+                )}
               </div>
             </div>
           </div>
