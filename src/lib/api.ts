@@ -1,5 +1,6 @@
 // src/lib/api.ts
-const BASE_URL = "https://frontend-tgl3.onrender.com";
+//const BASE_URL = "https://frontend-tgl3.onrender.com";
+const BASE_URL = "https://frontend-0s8v.onrender.com";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
