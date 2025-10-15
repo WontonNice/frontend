@@ -8,11 +8,11 @@ questions:
     type: single_select
     skillType: function
     stemMarkdown: "The phrase “I have heard of your wonderful detective work” in paragraph 2 shows that the author is"
-    choices":
-        - "A. introducing the idea that the narrator’s friend is a competent detective."
-        -   "B. explaining that the narrator’s friend has worked on previous cases for Luigi."
-        -   "C. suggesting that the case might be dangerous for the narrator to investigate."
-        -   "D. emphasizing Luigi’s need for a competent detective." 
+    choices:
+      - "A. introducing the idea that the narrator’s friend is a competent detective."
+      - "B. explaining that the narrator’s friend has worked on previous cases for Luigi."
+      - "C. suggesting that the case might be dangerous for the narrator to investigate."
+      - "D. emphasizing Luigi’s need for a competent detective." 
     answerIndex: 0
     explanationMarkdown: ""
 
