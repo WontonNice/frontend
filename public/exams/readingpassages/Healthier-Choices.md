@@ -97,10 +97,22 @@ questions:
 
 3. Not only are these health problems dangerous and potentially fatal, but they are also extremely expensive to manage. According to the Centers for Disease Control, in 2008 alone, obesity cost Americans nearly $150 billion in medical expenses. On top of this explicit cost are hidden costs associated with a loss of work productivity, estimated to be between $3-6 billion annually.
 
-4. With such a high cost – to health, society, and economy – the question becomes: what can be done to reduce the rate of obesity in the country?
+<ol start="4">
+  <li>With such a high cost — to health, society, and economy — the question becomes:
+      what can be done to reduce the rate of obesity in the country?</li>
+</ol>
 
-A Simple Idea
-5. One step taken to address obesity has been to require that certain restaurants and food retailers label their menus with the number of calories their foods and drinks contain. The United States Food and Drug Administration (FDA) passed this regulation in December of 2014. With this rule, the FDA hoped to address one of the greatest factors contributing to obesity in America: the popularity of inexpensive, high-calorie food and drinks.
+### A Simple Idea
+
+<ol start="5">
+  <li>One step taken to address obesity has been to require that certain restaurants
+      and food retailers label their menus with the number of calories their foods and
+      drinks contain. The United States Food and Drug Administration (FDA) passed this
+      regulation in December of 2014. With this rule, the FDA hoped to address one of
+      the greatest factors contributing to obesity in America: the popularity of
+      inexpensive, high-calorie food and drinks.</li>
+  <li>A person’s weight is the result of many different factors that work together…</li>
+</ol>
 
 6. A person’s weight is the result of many different factors that work together. These factors range from those that cannot be controlled – like a person’s natural metabolism – to those that can. One controllable factor is a person’s diet. In the United States, food portions often contain more energy (i.e. calories) than they need to, or that people are aware of. Combined with the fact that Americans spend less and less time staying active, high-calorie foods and drinks – which are also inexpensive, convenient, and available in large quantities – have contributed to America’s soaring obesity rates.
 
