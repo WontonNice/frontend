@@ -109,7 +109,102 @@ questions:
       - "D. Despite her personality, Lady Bird Johnson was a pioneer in political and social roles."
     answerIndex: 2
     explanationMarkdown: ""
-    
+
+  # ==== Interactive examples you can use (optional) ====
+
+  - id: q9
+    type: multi_select
+    skillType: function
+    selectCount: 2
+    stemMarkdown: |
+      In which **two** ways does the author develop the point of view in paragraph 9?
+      Select the **two** correct answers.
+    choices:
+      - "A. by showing Lady Bird’s calm, respectful tone toward critics"
+      - "B. by listing statistics about the 1964 campaign"
+      - "C. by criticizing Southern audiences for intolerance"
+      - "D. by describing how her speech makes the crowd listen"
+      - "E. by quoting Lyndon Johnson’s remarks about the South"
+    correctIndices: [0, 3]
+    explanationMarkdown: ""
+
+  - id: q10
+    type: drag_to_bins
+    skillType: global
+    stemMarkdown: "Move each quote to the theme it best supports."
+    bins:
+      - id: themeA
+        label: "Nature’s Unspoiled Beauty is Splendid"
+      - id: themeB
+        label: "Human Creations Detract from Natural Wonder"
+    options:
+      - id: o1
+        label: "“Above the dingy city-roofs / Blue-white like angels with broad wings,”"
+      - id: o2
+        label: "“Pillars of the sky at rest / The mountains … Uprise.”"
+      - id: o3
+        label: "“Tunnels their granite cliffs, / Splits down their shining sides,”"
+      - id: o4
+        label: "“Wilderness still untamed, / To which the future is as was the past,”"
+      - id: o5
+        label: "“The south horizon … wide floors of blue-green ice”"
+    correctBins:
+      o1: themeB
+      o2: themeA
+      o3: themeB
+      o4: themeA
+      o5: themeA
+    explanationMarkdown: ""
+
+  - id: q11
+    type: table_match
+    skillType: inference
+    stemMarkdown: "Match each part of Lady Bird’s career to the best description."
+    table:
+      columns:
+        - key: desc
+          header: "Best Description"
+      rows:
+        - id: r1
+          header: "Business investment in radio"
+        - id: r2
+          header: "Whistle-Stop Tour (1964)"
+        - id: r3
+          header: "Highway Beautification Act"
+    options:
+      - id: courage
+        label: "Public courage amid hostility"
+      - id: strategy
+        label: "Strategic political partnership"
+      - id: acumen
+        label: "Financial and managerial acumen"
+    correctCells:
+      r1: acumen
+      r2: courage
+      r3: strategy
+    explanationMarkdown: ""
+
+  - id: q12
+    type: cloze_drag
+    skillType: function
+    stemMarkdown: |
+      Which transition best strengthens the connection?
+      Move the correct answer to the box.
+
+      (5) [blank:tran1] spending prolonged periods of time indoors, away from plants, deprives people of these benefits.
+    options:
+      - id: as_a_result
+        label: "As a result,"
+      - id: primarily
+        label: "Primarily,"
+      - id: in_contrast
+        label: "In contrast,"
+      - id: unfortunately
+        label: "Unfortunately,"
+    blanks:
+      - id: tran1
+        correctOptionId: as_a_result
+    explanationMarkdown: ""
 ---
 
 ### Lady Bird Johnson
@@ -117,19 +212,3 @@ questions:
 1. Claudia Alta Taylor – or, Lady Bird Johnson, as she was commonly known – arguably created the modern idea of what it means to be the First Lady of the United States.
 
 2. Nowadays, it’s not uncommon for accomplished, powerful women like Michelle Obama or Hillary Clinton to be influential public figures in their own right. But it was not always so. In the mid-1900s, First Ladies were largely ornamental; it was expected, or even required, that they be seen and rarely heard. Ms. Johnson, though, stepped outside the restrictive social conventions of her time. In her own quiet way, she reinvented the role of political wife – so charmingly, so discreetly – that no one realized she had turned traditional gender roles on their head until long after upside-down already seemed right-side-up.
-
-3. Born in Karnack, Texas, in 1912, Claudia Taylor was officially named after her uncle, Claud. But when a nursemaid declared that the infant was as “purty as a ladybird,” the nickname stuck. Quiet, introverted and exceedingly shy, Lady Bird proved to be a gifted student and thinker. After her mother died when Lady Bird was five, the little girl was raised by her maternal aunt, with whom she spent her summers in Alabama. She was a child of the Deep South – a Southern Texan and an honorary Alabaman who, against all odds, would spend much of her adult life fighting for civil rights during one of the most racially inflammatory eras of the century.
-
-4. Because there was no high school in Karnack, Lady Bird chose to move in with a family in the nearby town of Johnson, Texas during the week so she could continue her education. During her senior year, she realized that she was at the top of her class and might very well graduate as valedictorian. As the months marched toward spring, she purposefully let her grades slip just so she could avoid having to deliver a speech at graduation. Eventually, she attended the University of Texas, where she graduated in 1934 with honors, earning a double degree in history and journalism.
-
-5. That summer, she met a young congressional aide named Lyndon Baines Johnson. On their first date, he informed her that he wanted to marry her. After ten weeks of desisting, she finally agreed; they were married the next day. In accepting his proposal, the normally tentative and cautious Lady Bird made what might have been the only reckless decision of her life. It would change – and forge – her path in history forever.
-
-6. Throughout the Johnsons’ journey from Congress to White House, Lady Bird would consistently demonstrate the grit and resourcefulness usually reserved for men of her generation. An astonishingly shrewd businesswoman, she used her inheritance from her mother – about $40,000 – to buy a failing radio station, and parlayed its net worth into $150,000,000. That money would go on to help fund her husband’s congressional campaign. Lady Bird helped run her husband’s campaign office for several pivotal years. She was there to persuade her husband to accept John F. Kennedy’s offer to be his vice-president. When Kennedy was assassinated, she stood by Lyndon has he took the Oath of Office. As First Lady, she helped spearhead the Head Start program for children in public schools. She was also one of the first environmental activists, crusading for highway and park cleanups and the control of overloaded garbage dumps. In the first open political collaboration between President and First Lady, she and her husband pushed through the Highway Beautification Act of 1965, which was quickly dubbed Lady Bird’s Bill.
-
-7. Perhaps the best example of Lady Bird’s steely determination, though, would be her Whistle-Stop Tour in the fall of 1964, during her husband’s presidential campaign. President Johnson had recently signed the Civil Rights Act, which shut down Jim Crow laws and guaranteed equal access and equal employment to all African-Americans. Many in the Deep South were furious.
-
-8. Eight Southern states were deemed far too dangerous for President Johnson to campaign in. Lady Bird decided to travel to those eight states herself, in a four-day, 1,628-mile tour on a train called the Lady Bird Special. It was the first time a First Lady had ever campaigned without being accompanied by her husband. “I knew the Civil Rights Act was right, and I didn’t mind saying so,” she later said to a reporter. “But I also loved the South.” Planning every detail of the trip without the help of Lyndon, she drew on her own heritage to coax her fellow southerners to shun segregation and participate in a new, modern world. Her trip elicited so many assassination threats that a separate train had to run in front of hers to sweep the train tracks for bombs.
-
-9. Still, she was undeterred. For those historical 96 hours, Lady Bird faced angry mobs and hostile placards. In Charleston, SC (a city which every other Democrat avoided that year), hecklers were so loud and aggressive that at first she couldn’t be heard. Ever smiling, ever gracious, Lady Bird raised a demurely gloved hand. “This is a country of many viewpoints,” she said calmly, in her unmistakable Southern drawl. “I respect your right to express your own. Now it is my turn to express mine. Thank you.” The crowd realized that this woman spoke their language – and they listened.
-
-10. By the end of the tour, Lady Bird Johnson had delivered 47 speeches in 47 towns to over half a million Southerners. At a time when only 30 percent of married women even had jobs, this timid Texan girl – so shy that she couldn’t even bear the thought of making a speech at her high school graduation – spoke up and spoke out. Over fifty years later, she’s still being heard.
