@@ -1,3 +1,106 @@
+---
+title: "From Devastation Beauty"
+source: "Tutorverse"
+
+questions:
+  - id: q1
+    type: single_select
+    skillType: function
+    stemMarkdown: "Which of the following best tells what this passage is about?"
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q2
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q3
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q4
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q5
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q6
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q7
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q8
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+---
+
 ### From Devastation, Beauty
 
 1. Pablo Picasso was a prodigious producer of art. During his illustrious career, he often crossed artistic boundaries, creating everything from costumes and theater sets to ceramics, sculptures, drawings, and paintings. By some estimates, Picasso created more than 20,000 works of art in his lifetime. Despite this wide range of artistic pursuits, today, Picasso is perhaps most widely known for his paintings. Picasso’s paintings reflect his revolutionary sense of style and often tell important personal or political stories. There is perhaps no better example of Picasso’s artistry than Guernica, one of his most famous paintings.

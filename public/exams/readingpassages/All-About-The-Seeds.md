@@ -1,3 +1,94 @@
+---
+title: "All About The Seeds"
+source: "Tutorverse"
+
+questions:
+  - id: q1
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q2
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q3
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q4
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q5
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q6
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q7
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+---
+
 ### All About the Seeds
 
 (1) According to the scientific definition, a fruit is the part of a plant’s flower that, when developed, contains the seed of that plant. (2) Mostly, what science says is a fruit matches with our normal, usual understanding of what a fruit is. (3) After all, apples, watermelon, oranges, and countless other fruits fit this definition neatly. (4) Fruits are, after all, full of the vitamins and nutrients that are an essential part of a healthy diet.

@@ -1,3 +1,130 @@
+---
+title: "Merry Autumn"
+source: "Tutorverse"
+
+questions:
+  - id: q1
+    type: single_select
+    skillType: function
+    stemMarkdown: "Which of the following best tells what this passage is about?"
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q2
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q3
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q4
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q5
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q6
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q7
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q8
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q9
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q10
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+---
+
 ### Merry Autumn
 
 by Paul Laurence Dunbar

@@ -1,3 +1,94 @@
+---
+title: "Healthier Choices"
+source: "Tutorverse"
+
+questions:
+  - id: q1
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q2
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q3
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q4
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q5
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q6
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q7
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+---
+
 ### Healthier Choices
 
 1. According to the National Heart, Lung, and Blood Institute, 69% of adult Americans are either overweight or obese. Obesity is not only a problem facing adults. Some 17% of American children ages 2 to 19 are obese, as well.

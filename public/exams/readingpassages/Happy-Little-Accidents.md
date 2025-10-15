@@ -1,3 +1,82 @@
+---
+title: "Healthier Choices"
+source: "Tutorverse"
+
+questions:
+  - id: q1
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q2
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q3
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q4
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q5
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q6
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+---
+
 ### Happy Little Accidents
 
 1. When you think of a scientist, what qualities come to mind? Intelligence probably comes to mind, as many scientists have demonstrated a prodigious capacity to learn new things and think critically. As the life story of many scientists tells us, curiosity is also a plausible trait. But what about luck? It’s not often that we compare scientists to gamblers, but many of the most famous discoveries in science have been attributable to luck!
