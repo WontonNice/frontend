@@ -1,0 +1,94 @@
+---
+title: "Healthier Choices"
+source: "Tutorverse"
+
+questions:
+  - id: q1
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q2
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q3
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q4
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q5
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q6
+    type: single_select
+    skillType: function
+    stemMarkdown: ""
+    choices:
+      - "A. "
+      - "B. "
+      - "C. "
+      - "D. "
+    answerIndex: 0
+    explanationMarkdown: ""
+
+---
+
+### Happy Little Accidents
+
+1. When you think of a scientist, what qualities come to mind? Intelligence probably comes to mind, as many scientists have demonstrated a prodigious capacity to learn new things and think critically. As the life story of many scientists tells us, curiosity is also a plausible trait. But what about luck? It’s not often that we compare scientists to gamblers, but many of the most famous discoveries in science have been attributable to luck!
+
+2. Take the discovery of radioactivity as an example. Co-winner of the 1903 Nobel Prize in Physics, Antoine Henri Becquerel is widely credited with the discovery of radioactivity. But like many scientists before him, Becquerel did not set out with the deliberate intention of making a discovery. Becquerel’s discovery was a combination of intelligence, open-mindedness, and luck.
+
+3. Becquerel’s early experiments dealt primarily with light and the phenomenon of phosphorescence. Today, we know that phosphorescence occurs when a substance absorbs energy and releases it as an emission of light. A glow-in-the-dark toy, for example, soaks up light during the day and glows at night. In Becquerel’s day, however, phosphorescence was still very much a mystery. In order to better understand it, Becquerel conceived of an experiment.
+
+4. Becquerel had a theory that suggested that x-rays, which pass through most substances, might play a role in phosphorescence. To test this, Becquerel covered photographic film (which is very sensitive to light) with heavy black paper. He then placed a phosphorescent substance on top of the paper (in this case, a uranium salt substance), and then left the whole thing out in the sun. Becquerel developed the film and saw that there was an image of the substance on the film. When Becquerel repeated the process, this time inserting a patterned metal sheet between the paper and the phosphorescent substance, he found that only an image of the pattern made an impression on the film. The result, Becquerel concluded, was that phosphorescent substances emitted rays that could pierce through paper and make an impression on film.
+
+5. As he continued his experiment, however, Becquerel came across a few cloudy days. During these days, he expected that there would not be enough sunlight to activate the uranium salt’s phosphorescence. He expected, upon developing the film from these days, that he would find only a weak image of the substance on the film.
+
+6. To Becquerel’s surprise, the image of the substance appeared much more clearly than expected.
+
+7. Becquerel reasoned that the phenomenon causing the image to appear on the film operated independently of light, so he conducted one more experiment. Becquerel prepared his usual equipment, only this time, in a darkroom. He put the film and uranium salt substance inside a cardboard box, and then put the box in a dark drawer. Becquerel then developed the plates. He saw that despite the darkness, the image was in fact imprinted on the film. Becquerel concluded that the source of energy activating the photographic film was the uranium salt itself and not phosphorescent light.
