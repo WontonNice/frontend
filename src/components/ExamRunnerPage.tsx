@@ -5,11 +5,88 @@ import { getExamBySlug } from "../data/exams";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 
-/** Stores selected choice index per question (keyed by globalId) */
-type AnswerMap = Record<string, number | undefined>;
+/** Typed numeric comparator (fixes implicit 'any' in sort callbacks) */
+const numAsc = (x: number, y: number) => x - y;
+
+/** Stores selected value per question (keyed by globalId) */
+type AnswerValue = number | number[] | undefined;
+type AnswerMap = Record<string, AnswerValue>;
 type ReviewTab = "all" | "unanswered" | "bookmarked";
 type Tool = "pointer" | "eliminate" | "notepad";
 
+/** ---------- Frontmatter helpers ---------- */
+type InteractionType =
+  | "single_select"
+  | "multi_select"
+  | "drag_to_bins"
+  | "table_match"
+  | "cloze_drag";
+
+type SkillType = "global" | "function" | "detail" | "inference";
+
+type MdFrontmatter = {
+  title?: string;
+  source?: string;
+  questions?: Array<{
+    id: string;
+
+    /** NEW: interaction type (UI) + skill category (reporting) */
+    type?: InteractionType;
+    skillType?: SkillType;
+
+    /** Common fields */
+    stemMarkdown?: string;
+    image?: string;
+
+    /** Single-select */
+    choices?: string[];
+    answerIndex?: number;
+
+    /** Multi-select */
+    selectCount?: number;
+    correctIndices?: number[];
+
+    /** Drag to bins */
+    bins?: { id: string; label: string }[];
+    options?: { id: string; label: string }[];
+    correctBins?: Record<string, string>;
+
+    /** Table match */
+    table?: {
+      columns: { key: string; header: string }[];
+      rows: { id: string; header: string }[];
+    };
+    correctCells?: Record<string, string>;
+
+    /** Cloze drag */
+    blanks?: { id: string; correctOptionId: string }[];
+
+    explanationMarkdown?: string;
+  }>;
+};
+
+function splitFrontmatter(md: string): { fm: string | null; body: string } {
+  if (!md.startsWith("---")) return { fm: null, body: md };
+  const end = md.indexOf("\n---", 3);
+  if (end === -1) return { fm: null, body: md };
+  const fm = md.slice(3, end + 1).trim(); // between the --- lines
+  const body = md.slice(end + 4).trimStart();
+  return { fm, body };
+}
+
+async function parseYaml(yamlText: string | null): Promise<MdFrontmatter> {
+  if (!yamlText) return {};
+  try {
+    const mod = await import(/* @vite-ignore */ "js-yaml");
+    const data = mod.load(yamlText) as any;
+    return (data ?? {}) as MdFrontmatter;
+  } catch {
+    // Fallback: no parser available -> return empty meta (renders passage, but no questions)
+    return {};
+  }
+}
+
+/** ---------- Flattened "item" used by the runner ---------- */
 type FlatItem = {
   globalId: string;
   sectionId: string;
@@ -24,6 +101,10 @@ type FlatItem = {
   image?: string;
   choices?: string[];
 
+  /** NEW: interaction + skill on each item */
+  interactionType?: InteractionType;
+  skillType?: SkillType;
+
   globalIndex: number; // 0-based across entire exam
   isEnd?: boolean;
   isMathIntro?: boolean; // special math transition page
@@ -33,8 +114,8 @@ type ResultRow = {
   globalId: string;
   globalNumber: number; // 1-based
   displayGroup: string;
-  userIndex: number | undefined;
-  correctIndex: number | undefined;
+  userIndex: number | undefined;   // only for single-select in compact view
+  correctIndex: number | undefined; // only for single-select in compact view
   choices?: string[];
 };
 
@@ -70,43 +151,6 @@ const NoteIcon = (props: any) => (
 const BackArrowIcon = (props: any) => (
   <svg viewBox="0 0 24 24" {...props}><path d="M10 19l-7-7 7-7M3 12h18" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
 );
-
-/** ---------- Frontmatter helpers ---------- */
-type MdFrontmatter = {
-  title?: string;
-  source?: string;
-  questions?: Array<{
-    id: string;
-    type?: "global" | "function" | "detail" | "inference" | string;
-    stemMarkdown?: string;
-    choices?: string[];
-    answerIndex?: number;
-    explanationMarkdown?: string;
-    image?: string;
-  }>;
-};
-
-function splitFrontmatter(md: string): { fm: string | null; body: string } {
-  if (!md.startsWith("---")) return { fm: null, body: md };
-  const end = md.indexOf("\n---", 3);
-  if (end === -1) return { fm: null, body: md };
-  const fm = md.slice(3, end + 1).trim(); // between the --- lines
-  const body = md.slice(end + 4).trimStart();
-  return { fm, body };
-}
-
-async function parseYaml(yamlText: string | null): Promise<MdFrontmatter> {
-  if (!yamlText) return {};
-  try {
-    // Dynamic import so this file works even if js-yaml isn’t bundled yet.
-    const mod = await import(/* @vite-ignore */ "js-yaml");
-    const data = mod.load(yamlText) as any;
-    return (data ?? {}) as MdFrontmatter;
-  } catch {
-    // Fallback: no parser available -> return empty meta (renders passage, but no questions)
-    return {};
-  }
-}
 
 export default function ExamRunnerPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -199,6 +243,11 @@ export default function ExamRunnerPage() {
           stemMarkdown: q.stemMarkdown ?? q.promptMarkdown,
           image: q.image,
           choices: q.choices,
+
+          // NEW: carry interaction + skill
+          interactionType: q.type ?? "single_select",
+          skillType: q.skillType,
+
           globalIndex: globalIndex++,
         });
       });
@@ -416,15 +465,22 @@ export default function ExamRunnerPage() {
     setAnswers((prev) => ({ ...prev, [current.globalId]: choiceIndex }));
   };
 
-  // ===== Review helpers =====
-  const isAnswered = (gid: string) => typeof answers[gid] === "number";
-  const unansweredCount = questionItems.filter((q) => !isAnswered(q.globalId)).length;
+  // ===== Helpers =====
+  const letter = (i?: number) => (i == null || i < 0 ? "-" : String.fromCharCode(65 + i));
+
+  const isAnsweredGid = (gid: string) => {
+    const v = answers[gid];
+    if (typeof v === "number") return true;
+    if (Array.isArray(v)) return v.length > 0;
+    return false;
+  };
+  const unansweredCount = questionItems.filter((q) => !isAnsweredGid(q.globalId)).length;
   const bookmarkedCount = questionItems.filter((q) => bookmarks.has(q.globalId)).length;
 
   const filteredItems = useMemo(() => {
     switch (reviewTab) {
       case "unanswered":
-        return questionItems.filter((q) => !isAnswered(q.globalId));
+        return questionItems.filter((q) => !isAnsweredGid(q.globalId));
       case "bookmarked":
         return questionItems.filter((q) => bookmarks.has(q.globalId));
       default:
@@ -442,18 +498,22 @@ export default function ExamRunnerPage() {
     return groups;
   }, [filteredItems]);
 
-  // ===== Submit & Score =====
-  const letter = (i?: number) => (i == null || i < 0 ? "-" : String.fromCharCode(65 + i));
-  const getCorrectIndex = (q: any): number | undefined => {
-    const v = (q as any)?.answerIndex;
-    return typeof v === "number" ? v : undefined;
-  };
+  // ===== Scoring helpers =====
+  const getCorrectIndex = (q: any): number | undefined =>
+    typeof q?.answerIndex === "number" ? q.answerIndex : undefined;
 
+  const getCorrectIndices = (q: any): number[] | undefined =>
+    Array.isArray(q?.correctIndices) ? q.correctIndices.slice().sort(numAsc) : undefined;
+
+  const equalNumberArrays = (a?: number[], b?: number[]) =>
+    Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => v === b[i]);
+
+  // ===== Submit & Score =====
   const computeResults = () => {
     const rows: ResultRow[] = [];
     let correctCount = 0;
     let incorrectCount = 0;
-    let unansweredCount = 0;
+    let unansweredCountLocal = 0;
     let scoredCount = 0;
 
     let g = 0;
@@ -461,40 +521,162 @@ export default function ExamRunnerPage() {
       const displayGroup = groupLabel(sec.type);
       const sectionQuestions =
         sec.type === "reading" ? (readingQs[sec.id] ?? []) : (sec.questions ?? []);
+
       (sectionQuestions as any[]).forEach((q: any) => {
         const globalId = `${sec.id}:${q.id}`;
-        const userIndex = answers[globalId];
-        const correctIndex = getCorrectIndex(q);
+        const kind: InteractionType = q?.type ?? "single_select";
         const choices = (q as any).choices as string[] | undefined;
 
-        if (correctIndex != null) {
-          scoredCount++;
-          if (userIndex == null) unansweredCount++;
-          else if (userIndex === correctIndex) correctCount++;
-          else incorrectCount++;
-        } else if (userIndex == null) {
-          unansweredCount++;
+        if (kind === "multi_select") {
+          const correct = getCorrectIndices(q);
+          const user = answers[globalId] as number[] | undefined;
+          if (correct) {
+            scoredCount++;
+            const sortedUser = (user ?? []).slice().sort(numAsc);
+            if (!user || user.length === 0) {
+              unansweredCountLocal++;
+            } else if (equalNumberArrays(sortedUser, correct)) {
+              correctCount++;
+            } else {
+              incorrectCount++;
+            }
+          } else {
+            // No key — treat empty as unanswered for completeness
+            if (!user || user.length === 0) unansweredCountLocal++;
+          }
+
+          rows.push({
+            globalId,
+            globalNumber: g + 1,
+            displayGroup,
+            userIndex: undefined,
+            correctIndex: undefined,
+            choices,
+          });
+        } else {
+          // single_select (default)
+          const userIndex = answers[globalId] as number | undefined;
+          const correctIndex = getCorrectIndex(q);
+
+          if (correctIndex != null) {
+            scoredCount++;
+            if (userIndex == null) unansweredCountLocal++;
+            else if (userIndex === correctIndex) correctCount++;
+            else incorrectCount++;
+          } else if (userIndex == null) {
+            unansweredCountLocal++;
+          }
+
+          rows.push({
+            globalId,
+            globalNumber: g + 1,
+            displayGroup,
+            userIndex,
+            correctIndex,
+            choices,
+          });
         }
 
-        rows.push({
-          globalId,
-          globalNumber: g + 1,
-          displayGroup,
-          userIndex,
-          correctIndex,
-          choices,
-        });
         g++;
       });
     });
 
-    setResults({ rows, correctCount, incorrectCount, unansweredCount, scoredCount });
+    setResults({
+      rows,
+      correctCount,
+      incorrectCount,
+      unansweredCount: unansweredCountLocal,
+      scoredCount,
+    });
   };
 
   const onSubmit = () => {
     computeResults();
     setSubmitted(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // ===== Choice renderer (single + multi) =====
+  const renderChoices = (it: FlatItem) => {
+    if (!Array.isArray(it.choices)) {
+      // For non-choice interactions, show a friendly message
+      if (it.interactionType && it.interactionType !== "single_select") {
+        return (
+          <p className="text-gray-500">
+            Renderer for "<span className="font-mono">{it.interactionType}</span>" not implemented yet.
+          </p>
+        );
+      }
+      return <p className="text-gray-500">No choices for this item.</p>;
+    }
+
+    if (it.interactionType === "multi_select") {
+      return (
+        <ul className="space-y-3">
+          {it.choices.map((choice, i) => {
+            const currentAns = (answers[it.globalId] as number[] | undefined) ?? [];
+            const checked = currentAns.includes(i);
+            const eliminated = isEliminated(it.globalId, i);
+            return (
+              <li key={i}>
+                <label className="flex items-start gap-3 cursor-pointer relative">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 mt-1"
+                    checked={checked}
+                    onChange={() => {
+                      if (eliminatorActive) {
+                        toggleElim(it.globalId, i);
+                      } else {
+                        setAnswers((prev) => {
+                          const set = new Set((prev[it.globalId] as number[] | undefined) ?? []);
+                          checked ? set.delete(i) : set.add(i);
+                          return {
+                            ...prev,
+                            [it.globalId]: Array.from(set).sort(numAsc),
+                          };
+                        });
+                      }
+                    }}
+                  />
+                  <span className={`flex-1 choice-line ${eliminated ? "eliminated" : ""}`}>{choice}</span>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      );
+    }
+
+    // default: single_select
+    return (
+      <ul className="space-y-3">
+        {it.choices.map((choice, i) => {
+          const selected = answers[it.globalId] === i;
+          const eliminated = isEliminated(it.globalId, i);
+          return (
+            <li key={i}>
+              <label className="flex items-start gap-3 cursor-pointer relative">
+                <input
+                  type="radio"
+                  name={it.globalId}
+                  className="h-4 w-4 mt-1"
+                  checked={!!selected}
+                  onChange={() => {
+                    if (eliminatorActive) {
+                      toggleElim(it.globalId, i);
+                    } else {
+                      selectChoice(i);
+                    }
+                  }}
+                />
+                <span className={`flex-1 choice-line ${eliminated ? "eliminated" : ""}`}>{choice}</span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    );
   };
 
   // ===== Results page =====
@@ -691,7 +873,7 @@ export default function ExamRunnerPage() {
                           {qs.map((q) => {
                             const i = items.findIndex((x) => x.globalId === q.globalId);
                             const active = i === idx;
-                            const answered = isAnswered(q.globalId);
+                            const answered = isAnsweredGid(q.globalId);
                             const bookmarked = bookmarks.has(q.globalId);
                             return (
                               <button
@@ -840,38 +1022,8 @@ export default function ExamRunnerPage() {
                 />
               )}
 
-              {current?.choices ? (
-                <ul className="space-y-3 mt-4">
-                  {current.choices.map((choice, i) => {
-                    const selected = answers[current.globalId] === i;
-                    const eliminated = isEliminated(current.globalId, i);
-                    return (
-                      <li key={i}>
-                        <label className="flex items-start gap-3 cursor-pointer relative">
-                          <input
-                            type="radio"
-                            name={current.globalId}
-                            className="h-4 w-4 mt-1"
-                            checked={selected}
-                            onChange={() => {
-                              if (eliminatorActive) {
-                                toggleElim(current.globalId, i);
-                              } else {
-                                selectChoice(i);
-                              }
-                            }}
-                          />
-                          <span className={`flex-1 choice-line ${eliminated ? "eliminated" : ""}`}>
-                            {choice}
-                          </span>
-                        </label>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="text-gray-500">No choices for this item.</p>
-              )}
+              {/* Choices (single + multi) */}
+              {renderChoices(current)}
             </div>
           </div>
         ) : (
@@ -928,38 +1080,8 @@ export default function ExamRunnerPage() {
                   </div>
                 ) : null}
 
-                {current?.choices ? (
-                  <ul className="space-y-3">
-                    {current.choices.map((choice, i) => {
-                      const selected = answers[current.globalId] === i;
-                      const eliminated = isEliminated(current.globalId, i);
-                      return (
-                        <li key={i}>
-                          <label className="flex items-start gap-3 cursor-pointer relative">
-                            <input
-                              type="radio"
-                              name={current.globalId}
-                              className="h-4 w-4 mt-1"
-                              checked={selected}
-                              onChange={() => {
-                                if (eliminatorActive) {
-                                  toggleElim(current.globalId, i);
-                                } else {
-                                  selectChoice(i);
-                                }
-                              }}
-                            />
-                            <span className={`flex-1 choice-line ${eliminated ? "eliminated" : ""}`}>
-                              {choice}
-                            </span>
-                          </label>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <p className="text-gray-500">No choices for this item.</p>
-                )}
+                {/* Choices (single + multi) */}
+                {renderChoices(current)}
               </div>
             </div>
           </div>
@@ -1004,7 +1126,7 @@ export default function ExamRunnerPage() {
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 gap-3">
               {questionItems.map((q) => {
                 const i = items.findIndex((x) => x.globalId === q.globalId);
-                const answered = typeof answers[q.globalId] === "number";
+                const answered = isAnsweredGid(q.globalId);
                 const bookmarked = bookmarks.has(q.globalId);
                 return (
                   <button
