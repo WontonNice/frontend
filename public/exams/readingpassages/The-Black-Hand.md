@@ -20,10 +20,10 @@ questions:
     skillType: function
     stemMarkdown: "How does the introduction of Gennaro in paragraph 6 affect the development of the plot?"
     choices:
-    - "A. It causes the narrator to realize that Gennaro wants help with his daughter’s kidnapping."
-    - "B. It inspires the narrator to hope for an autograph from Gennaro."
-    - "C. It motivates the narrator to share a ransom letter with the other men in the room."
-    - "D. It reminds the narrator of reading about the kidnapping of Gennaro’s daughter in the paper."
+        - "A. It causes the narrator to realize that Gennaro wants help with his daughter’s kidnapping."
+        - "B. It inspires the narrator to hope for an autograph from Gennaro."
+        - "C. It motivates the narrator to share a ransom letter with the other men in the room."
+        - "D. It reminds the narrator of reading about the kidnapping of Gennaro’s daughter in the paper."
     answerIndex: 2
     explanationMarkdown: ""
 
@@ -37,10 +37,10 @@ questions:
         
         How do the sentences contribute to the development of the setting?",
     choices:
-    - "A. They emphasize how easy it would be for Kennedy and the narrator to get lost in this place on their own."
-    - "B. They demonstrate that the characters have moved to a private room because they need to discuss a sensitive subject."
-    - "C. They highlight the ordinariness of the moment by describing the everyday appearances of the restaurant."
-    - "D. They reveal that Kennedy and the narrator are now in a section of the restaurant sectioned off for employee use only."
+        - "A. They emphasize how easy it would be for Kennedy and the narrator to get lost in this place on their own."
+        - "B. They demonstrate that the characters have moved to a private room because they need to discuss a sensitive subject."
+        - "C. They highlight the ordinariness of the moment by describing the everyday appearances of the restaurant."
+        - "D. They reveal that Kennedy and the narrator are now in a section of the restaurant sectioned off for employee use only."
     answerIndex: 2
     explanationMarkdown: ""
 
@@ -49,10 +49,10 @@ questions:
     skillType: function
     stemMarkdown: "How does paragraph 9 contribute to the plot of the excerpt?"
     choices:
-    - "A. It shows that Kennedy and the narrator are effective partners."
-    - "B. It introduces the details of the kidnapping of Gennaro’s daughter."
-    - "C. It emphasizes Kennedy’s intelligence as he accurately predicts Gennaro’s request."
-    - "D. It details the contents of the blackmail letter that Gennaro received."
+        - "A. It shows that Kennedy and the narrator are effective partners."
+        - "B. It introduces the details of the kidnapping of Gennaro’s daughter."
+        - "C. It emphasizes Kennedy’s intelligence as he accurately predicts Gennaro’s request."
+        - "D. It details the contents of the blackmail letter that Gennaro received."
     answerIndex: 2
     explanationMarkdown: ""
 
@@ -66,10 +66,10 @@ questions:
 
         What is the most likely reason the kidnapper includes this last sentence in the note?
     choices:
-    - "A. to hint that the culprit is connected to politicians"
-    - "B. to remind Gennaro about the time and date of the meeting"
-    - "C. to provoke Gennaro to contact the police about Adelina’s disappearance"
-    - "D. to motivate Gennaro to bring the ransom money by adding an additional threat"
+        - "A. to hint that the culprit is connected to politicians"
+        - "B. to remind Gennaro about the time and date of the meeting"
+        - "C. to provoke Gennaro to contact the police about Adelina’s disappearance"
+        - "D. to motivate Gennaro to bring the ransom money by adding an additional threat"
     answerIndex: 2
     explanationMarkdown: ""
 
@@ -83,10 +83,10 @@ questions:
 
         How does this excerpt contribute to the development of the plot?
     choices:
-    - "A. It shows how Gennaro has already contacted the police previously."
-    - "B. It highlights the effectiveness of the police in responding to crime."
-    - "C. It reveals an essential clue about the identity of the kidnapper."
-    - "D. It emphasizes the long and vengeful history that Gennaro has with the Black Hand."
+        - "A. It shows how Gennaro has already contacted the police previously."
+        - "B. It highlights the effectiveness of the police in responding to crime."
+        - "C. It reveals an essential clue about the identity of the kidnapper."
+        - "D. It emphasizes the long and vengeful history that Gennaro has with the Black Hand."
     answerIndex: 2
     explanationMarkdown: ""
 
@@ -95,10 +95,10 @@ questions:
     skillType: inference
     stemMarkdown: "Which conclusion is best supported by the information in paragraph 14?"
     choices:
-    - "A. The Black Hand is a criminal who Kennedy and the narrator have been trying to catch."
-    - "B. Kennedy and the narrator have discovered a clue that will help them solve the case."
-    - "C. The Black Hand is a criminal who has not been caught despite several years of activity."
-    - "D. Kennedy and Gennaro have personally countered the Black Hand before."
+        - "A. The Black Hand is a criminal who Kennedy and the narrator have been trying to catch."
+        - "B. Kennedy and the narrator have discovered a clue that will help them solve the case."
+        - "C. The Black Hand is a criminal who has not been caught despite several years of activity."
+        - "D. Kennedy and Gennaro have personally countered the Black Hand before."
     answerIndex: 2
     explanationMarkdown: ""
 
@@ -108,11 +108,11 @@ questions:
     selectCount: 2
     stemMarkdown: "Which sentence(s) from the excerpt best support the idea that Gennaro’s main motivation was not revenge?"
     choices:
-    - "A. “As the door opened I thought he started as if in fear, and I am sure his dark face blanched, if only for an instant.” (paragraph 6)"
-    - "B. “You want someone to help you catch the criminals who are holding your little girl.” (paragraph 10)"
-    - "C. “No, no!” exclaimed Gennaro excitedly. “Not that. I want to get my daughter first. After that, catch them if you can – yes, I should like to have someone do it. But read this first and tell me what you think of it.\" (paragraph 11)"
-    - "D. “‘How should I act to get my little Adelina back without harming a hair of her head?’” (paragraph 11)"
-    - "E. “Honorable sir: your daughter is in safe hands. But if you give this letter to the police as you did the other, you will regret it.” (paragraph 13)
+        - "A. “As the door opened I thought he started as if in fear, and I am sure his dark face blanched, if only for an instant.” (paragraph 6)"
+        - "B. “You want someone to help you catch the criminals who are holding your little girl.” (paragraph 10)"
+        - "C. “No, no!” exclaimed Gennaro excitedly. “Not that. I want to get my daughter first. After that, catch them if you can – yes, I should like to have someone do it. But read this first and tell me what you think of it.\" (paragraph 11)"
+        - "D. “‘How should I act to get my little Adelina back without harming a hair of her head?’” (paragraph 11)"
+        - "E. “Honorable sir: your daughter is in safe hands. But if you give this letter to the police as you did the other, you will regret it.” (paragraph 13)
     correctIndices: [0, 3]
     explanationMarkdown: ""
     
