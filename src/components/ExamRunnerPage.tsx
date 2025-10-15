@@ -83,7 +83,8 @@ async function parseYaml(yamlText: string | null): Promise<MdFrontmatter> {
     const mod = await import(/* @vite-ignore */ "js-yaml");
     const data = mod.load(yamlText) as any;
     return (data ?? {}) as MdFrontmatter;
-  } catch {
+  } catch (e) {
+    console.error("YAML parse error:", e);
     return {};
   }
 }
