@@ -35,7 +35,7 @@ questions:
         
         **True to his word, Luigi was waiting for us in the dark hall. With a motion that indicated silence, he led us up the stairs to the second floor, and quickly opened a door into what seemed to be a mid-sized private dining-room.**
         
-        How do the sentences contribute to the development of the setting?",
+        How do the sentences contribute to the development of the setting?
     choices:
         - "A. They emphasize how easy it would be for Kennedy and the narrator to get lost in this place on their own."
         - "B. They demonstrate that the characters have moved to a private room because they need to discuss a sensitive subject."
@@ -112,7 +112,7 @@ questions:
         - "B. “You want someone to help you catch the criminals who are holding your little girl.” (paragraph 10)"
         - "C. “No, no!” exclaimed Gennaro excitedly. “Not that. I want to get my daughter first. After that, catch them if you can – yes, I should like to have someone do it. But read this first and tell me what you think of it.\" (paragraph 11)"
         - "D. “‘How should I act to get my little Adelina back without harming a hair of her head?’” (paragraph 11)"
-        - "E. “Honorable sir: your daughter is in safe hands. But if you give this letter to the police as you did the other, you will regret it.” (paragraph 13)
+        - "E. “Honorable sir: your daughter is in safe hands. But if you give this letter to the police as you did the other, you will regret it.” (paragraph 13)"
     correctIndices: [0, 3]
     explanationMarkdown: ""
     
