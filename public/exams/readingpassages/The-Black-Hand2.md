@@ -48,163 +48,75 @@ questions:
   - id: q4
     type: single_select
     skillType: function
-    stemMarkdown: "They reveal that Kennedy and the narrator are now in a section of the restaurant sectioned off for employee use only."
+    stemMarkdown: "How does paragraph 9 contribute to the plot of the excerpt?"
     choices:
-    - "A. It demonstrates that having wealth means having access to more opportunities."
-    - "B. It shows that Lady Bird was aggressive in her pursuit of knowledge and intellect."
-    - "C. It highlights how an ordinary start to life led to an extraordinary lifetime of accomplishments."
-    - "D. It reveals that Lady Bird followed an unconventional path and did not always do what was expected of her."
+    - "A. It shows that Kennedy and the narrator are effective partners."
+    - "B. It introduces the details of the kidnapping of Gennaro’s daughter."
+    - "C. It emphasizes Kennedy’s intelligence as he accurately predicts Gennaro’s request."
+    - "D. It details the contents of the blackmail letter that Gennaro received."
     answerIndex: 2
     explanationMarkdown: ""
 
   - id: q5
     type: single_select
     skillType: detail
-    stemMarkdown: "According to paragraph 7, Jim Crow laws"
-    choices: 
-    - "A. guaranteed equal access and equal employment to all Americans, regardless of race."
-    - "B. were signed by President Johnson to help African-Americans with employment."
-    - "C. were also known as Lady Bird’s Bill and were an example of Lady Bird’s political involvement."
-    - "D. were racist laws that were overturned by the Civil Rights Act of 1964."
+    stemMarkdown: |
+        Read this excerpt from paragraph 13.
+
+        **In case you forget, we will show you one other sign of our power tomorrow.**
+
+        What is the most likely reason the kidnapper includes this last sentence in the note?
+    choices:
+    - "A. to hint that the culprit is connected to politicians"
+    - "B. to remind Gennaro about the time and date of the meeting"
+    - "C. to provoke Gennaro to contact the police about Adelina’s disappearance"
+    - "D. to motivate Gennaro to bring the ransom money by adding an additional threat"
     answerIndex: 2
     explanationMarkdown: ""
 
   - id: q6
     type: single_select
     skillType: global
-    stemMarkdown: ""
-    choices: 
-    - "A. “In the first open political collaboration between President and First Lady, she and her husband pushed through the Highway Beautification Act of 1965, which was quickly dubbed Lady Bird’s Bill.” (paragraph 6)",
-    - "B. “President Johnson had recently signed the Civil Rights Act, which shut down Jim Crow laws and guaranteed equal access and equal employment to all African-Americans.” (paragraph 7)",
-    - "C. “Eight Southern states were deemed far too dangerous for President Johnson to campaign in.” (paragraph 8)",
-    - "D. “Long before feminism, at a time when only 30 percent of married women even had jobs, this timid Texan girl – so shy that she couldn’t even bear the thought of making a speech at her high school graduation – spoke up and spoke out.” (paragraph 10)"
+    stemMarkdown: |
+        Read this excerpt from paragraph 13.
+
+        **Honorable sir: your daughter is in safe hands. But if you give this letter to the police as you did the other, you will regret it. We will not fail as we did Wednesday.**
+
+        How does this excerpt contribute to the development of the plot?
+    choices:
+    - "A. It shows how Gennaro has already contacted the police previously."
+    - "B. It highlights the effectiveness of the police in responding to crime."
+    - "C. It reveals an essential clue about the identity of the kidnapper."
+    - "D. It emphasizes the long and vengeful history that Gennaro has with the Black Hand."
     answerIndex: 2
     explanationMarkdown: ""
 
   - id: q7
     type: single_select
     skillType: inference
-    stemMarkdown: |
-      Read this excerpt from paragraph 9.
-
-      **“This is a country of many viewpoints,” she said calmly, in her unmistakable Southern drawl. “I respect your right to express your own. Now it is my turn to express mine. Thank you.” The crowd realized that this woman spoke their language – and they listened.**
-
-      The author uses the phrase “Southern drawl” to convey how
+    stemMarkdown: "Which conclusion is best supported by the information in paragraph 14?"
     choices:
-      - "A. Lady Bird Johnson’s accent made it hard for people to understand her."
-      - "B. Lady Bird Johnson’s dialect helped her connect with a resistant audience."
-      - "C. Lady Bird Johnson was a relatable representation of the average American citizen."
-      - "D. Lady Bird Johnson’s attempts to master the Northern accents of the capital failed."
+    - "A. The Black Hand is a criminal who Kennedy and the narrator have been trying to catch."
+    - "B. Kennedy and the narrator have discovered a clue that will help them solve the case."
+    - "C. The Black Hand is a criminal who has not been caught despite several years of activity."
+    - "D. Kennedy and Gennaro have personally countered the Black Hand before."
     answerIndex: 2
     explanationMarkdown: ""
 
   - id: q8
-    type: single_select
-    skillType: inference
-    stemMarkdown: "Which statement would the author most likely agree with?"
-    choices:
-      - "A. Modern female politicians should imitate Lady Bird Johnson’s methods when trying to convince oppositional parties."
-      - "B. Lady Bird Johnson was a contentious figure because of her involvement in politics."
-      - "C. Lady Bird Johnson overcame challenging obstacles to become an influential leader."
-      - "D. Despite her personality, Lady Bird Johnson was a pioneer in political and social roles."
-    answerIndex: 2
-    explanationMarkdown: ""
-
-  # ==== Interactive examples you can use (optional) ====
-
-  - id: q9
     type: multi_select
-    skillType: function
+    skillType: inference
     selectCount: 2
-    stemMarkdown: |
-      In which **two** ways does the author develop the point of view in paragraph 9?
-      Select the **two** correct answers.
+    stemMarkdown: "Which sentence(s) from the excerpt best support the idea that Gennaro’s main motivation was not revenge?"
     choices:
-      - "A. by showing Lady Bird’s calm, respectful tone toward critics"
-      - "B. by listing statistics about the 1964 campaign"
-      - "C. by criticizing Southern audiences for intolerance"
-      - "D. by describing how her speech makes the crowd listen"
-      - "E. by quoting Lyndon Johnson’s remarks about the South"
+    - "A. “As the door opened I thought he started as if in fear, and I am sure his dark face blanched, if only for an instant.” (paragraph 6)"
+    - "B. “You want someone to help you catch the criminals who are holding your little girl.” (paragraph 10)"
+    - "C. “No, no!” exclaimed Gennaro excitedly. “Not that. I want to get my daughter first. After that, catch them if you can – yes, I should like to have someone do it. But read this first and tell me what you think of it.\" (paragraph 11)"
+    - "D. “‘How should I act to get my little Adelina back without harming a hair of her head?’” (paragraph 11)"
+    - "E. “Honorable sir: your daughter is in safe hands. But if you give this letter to the police as you did the other, you will regret it.” (paragraph 13)
     correctIndices: [0, 3]
     explanationMarkdown: ""
-
-  - id: q10
-    type: drag_to_bins
-    skillType: global
-    stemMarkdown: "Move each quote to the theme it best supports."
-    bins:
-      - id: themeA
-        label: "Nature’s Unspoiled Beauty is Splendid"
-      - id: themeB
-        label: "Human Creations Detract from Natural Wonder"
-    options:
-      - id: o1
-        label: "“Above the dingy city-roofs / Blue-white like angels with broad wings,”"
-      - id: o2
-        label: "“Pillars of the sky at rest / The mountains … Uprise.”"
-      - id: o3
-        label: "“Tunnels their granite cliffs, / Splits down their shining sides,”"
-      - id: o4
-        label: "“Wilderness still untamed, / To which the future is as was the past,”"
-      - id: o5
-        label: "“The south horizon … wide floors of blue-green ice”"
-    correctBins:
-      o1: themeB
-      o2: themeA
-      o3: themeB
-      o4: themeA
-      o5: themeA
-    explanationMarkdown: ""
-
-  - id: q11
-    type: table_match
-    skillType: inference
-    stemMarkdown: "Match each part of Lady Bird’s career to the best description."
-    table:
-      columns:
-        - key: desc
-          header: "Best Description"
-      rows:
-        - id: r1
-          header: "Business investment in radio"
-        - id: r2
-          header: "Whistle-Stop Tour (1964)"
-        - id: r3
-          header: "Highway Beautification Act"
-    options:
-      - id: courage
-        label: "Public courage amid hostility"
-      - id: strategy
-        label: "Strategic political partnership"
-      - id: acumen
-        label: "Financial and managerial acumen"
-    correctCells:
-      r1: acumen
-      r2: courage
-      r3: strategy
-    explanationMarkdown: ""
-
-  - id: q12
-    type: cloze_drag
-    skillType: function
-    stemMarkdown: |
-      Which transition best strengthens the connection?
-      Move the correct answer to the box.
-
-      (5) [blank:tran1] spending prolonged periods of time indoors, away from plants, deprives people of these benefits.
-    options:
-      - id: as_a_result
-        label: "As a result,"
-      - id: primarily
-        label: "Primarily,"
-      - id: in_contrast
-        label: "In contrast,"
-      - id: unfortunately
-        label: "Unfortunately,"
-    blanks:
-      - id: tran1
-        correctOptionId: as_a_result
-    explanationMarkdown: ""
+    
 ---
 
 ### Adapted from The Black Hand
