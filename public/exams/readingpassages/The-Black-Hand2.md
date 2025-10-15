@@ -48,12 +48,12 @@ questions:
   - id: q4
     type: single_select
     skillType: function
-    stemMarkdown: "Which statement describes how the author’s use of sequencing in paragraphs 4 and 5 contributes to the overall structure of the passage?"
+    stemMarkdown: "They reveal that Kennedy and the narrator are now in a section of the restaurant sectioned off for employee use only."
     choices:
-      - "A. It demonstrates that having wealth means having access to more opportunities."
-      - "B. It shows that Lady Bird was aggressive in her pursuit of knowledge and intellect."
-      - "C. It highlights how an ordinary start to life led to an extraordinary lifetime of accomplishments."
-      - "D. It reveals that Lady Bird followed an unconventional path and did not always do what was expected of her."
+    - "A. It demonstrates that having wealth means having access to more opportunities."
+    - "B. It shows that Lady Bird was aggressive in her pursuit of knowledge and intellect."
+    - "C. It highlights how an ordinary start to life led to an extraordinary lifetime of accomplishments."
+    - "D. It reveals that Lady Bird followed an unconventional path and did not always do what was expected of her."
     answerIndex: 2
     explanationMarkdown: ""
 
@@ -61,11 +61,11 @@ questions:
     type: single_select
     skillType: detail
     stemMarkdown: "According to paragraph 7, Jim Crow laws"
-    choices:
-      - "A. guaranteed equal access and equal employment to all Americans, regardless of race."
-      - "B. were signed by President Johnson to help African-Americans with employment."
-      - "C. were also known as Lady Bird’s Bill and were an example of Lady Bird’s political involvement."
-      - "D. were racist laws that were overturned by the Civil Rights Act of 1964."
+    choices: 
+    - "A. guaranteed equal access and equal employment to all Americans, regardless of race."
+    - "B. were signed by President Johnson to help African-Americans with employment."
+    - "C. were also known as Lady Bird’s Bill and were an example of Lady Bird’s political involvement."
+    - "D. were racist laws that were overturned by the Civil Rights Act of 1964."
     answerIndex: 2
     explanationMarkdown: ""
 
@@ -73,11 +73,11 @@ questions:
     type: single_select
     skillType: global
     stemMarkdown: "Which of the following excerpts best captures the author’s perspective on Lady Bird Johnson’s role in the civil rights movement?"
-    choices:
-      - "A. “In the first open political collaboration between President and First Lady, she and her husband pushed through the Highway Beautification Act of 1965, which was quickly dubbed Lady Bird’s Bill.” (paragraph 6)"
-      - "B. “President Johnson had recently signed the Civil Rights Act, which shut down Jim Crow laws and guaranteed equal access and equal employment to all African-Americans.” (paragraph 7)"
-      - "C. “Eight Southern states were deemed far too dangerous for President Johnson to campaign in.” (paragraph 8)"
-      - "D. “Long before feminism, at a time when only 30 percent of married women even had jobs, this timid Texan girl – so shy that she couldn’t even bear the thought of making a speech at her high school graduation – spoke up and spoke out.” (paragraph 10)"
+    choices: 
+    - "A. “In the first open political collaboration between President and First Lady, she and her husband pushed through the Highway Beautification Act of 1965, which was quickly dubbed Lady Bird’s Bill.” (paragraph 6)",
+    - "B. “President Johnson had recently signed the Civil Rights Act, which shut down Jim Crow laws and guaranteed equal access and equal employment to all African-Americans.” (paragraph 7)",
+    - "C. “Eight Southern states were deemed far too dangerous for President Johnson to campaign in.” (paragraph 8)",
+    - "D. “Long before feminism, at a time when only 30 percent of married women even had jobs, this timid Texan girl – so shy that she couldn’t even bear the thought of making a speech at her high school graduation – spoke up and spoke out.” (paragraph 10)"
     answerIndex: 2
     explanationMarkdown: ""
 
