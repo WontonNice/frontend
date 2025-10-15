@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 
 /** Tech-enhanced interactions */
-import DragToBins from "./techenhanced/DragtoBins";
+import DragToBins from "../components/techenhanced/DragtoBins";
 import TableMatch from "./techenhanced/TableMatch";
 import type { DragAnswer as DragMap, TableAnswer } from "./techenhanced/types";
 
