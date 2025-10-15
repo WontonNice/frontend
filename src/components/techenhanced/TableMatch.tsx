@@ -27,7 +27,6 @@ const pillClasses =
   "select-none inline-block bg-[#e6f0ff] text-[#0b4fd6] border border-[#a7c4ff] rounded-lg px-4 py-2 shadow-sm cursor-grab active:cursor-grabbing";
 
 export default function TableMatch({
-  globalId,
   table,
   options,
   value,
