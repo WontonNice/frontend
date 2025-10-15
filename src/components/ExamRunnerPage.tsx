@@ -1149,14 +1149,22 @@ export default function ExamRunnerPage() {
                     onChange={(next) => setAnswers((prev) => ({ ...prev, [current.globalId]: next }))}
                   />
                 ) : current.interactionType === "table_match" ? (
-                  <TableMatch
-                    columns={current.tableColumns ?? [{ key: "desc", header: "Best Description" }]}
-                    rows={current.tableRows ?? []}
+                <TableMatch
+                    globalId={current.globalId}
+                    table={{
+                    columns: current.tableColumns ?? [{ key: "desc", header: "Best Description" }],
+                    rows: current.tableRows ?? [],
+                    }}
                     options={current.tableOptions ?? []}
-                    value={(answers[current.globalId] as TableAnswer) ?? {}}
+                    value={Object.fromEntries(
+                    Object.entries((answers[current.globalId] as TableAnswer) ?? {}).filter(
+                        (entry): entry is [string, string] => typeof entry[1] === "string"
+                    )
+                    )}
                     onChange={(next) => setAnswers((prev) => ({ ...prev, [current.globalId]: next }))}
-                  />
+                />
                 ) : (
+
                   renderChoices(current)
                 )}
               </div>
