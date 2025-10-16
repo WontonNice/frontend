@@ -1018,7 +1018,6 @@ export default function ExamRunnerPage() {
           left: -6px;
           right: -6px;
           top: 50%;
-          height: 0;
           border-top: 2px solid #ef4444;
           transform-origin: center;
           pointer-events: none;
