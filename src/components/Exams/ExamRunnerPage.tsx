@@ -334,7 +334,7 @@ export default function ExamRunnerPage() {
   const [tool, setTool] = useState<Tool>("pointer");
   const { isEliminated, toggleElim, resetElims } = useEliminator();
 
-  // ✅ eliminator flag used in renderChoices()
+  // eliminator flag used in renderChoices()
   const eliminatorActive = tool === "eliminate";
 
   // Reset eliminations when exam changes
@@ -533,8 +533,10 @@ export default function ExamRunnerPage() {
                       });
                     }}
                   />
-                  <span className={`flex-1 choice-line ${eliminated ? "eliminated" : ""}`}>
-                    {choice}
+                  <span className="flex-1">
+                    <span className={`choice-strike ${eliminated ? "eliminated" : ""}`}>
+                      {choice}
+                    </span>
                   </span>
                 </label>
               </li>
@@ -575,8 +577,10 @@ export default function ExamRunnerPage() {
                     setAnswers((prev) => ({ ...prev, [it.globalId]: i }));
                   }}
                 />
-                <span className={`flex-1 choice-line ${eliminated ? "eliminated" : ""}`}>
-                  {choice}
+                <span className="flex-1">
+                  <span className={`choice-strike ${eliminated ? "eliminated" : ""}`}>
+                    {choice}
+                  </span>
                 </span>
               </label>
             </li>
@@ -1008,22 +1012,26 @@ export default function ExamRunnerPage() {
           display: inline-flex; align-items: center; justify-content: center;
         }
 
-        /* Choice line + Eliminator decoration (red X) */
-        .choice-line { position: relative; display: inline-block; }
-        .choice-line.eliminated { color: #9ca3af; }
-        .choice-line.eliminated::before,
-        .choice-line.eliminated::after {
+        /* Compact red X only over the option text */
+        .choice-strike {
+          position: relative;
+          display: inline-block;   /* shrink to fit the text */
+          overflow: hidden;        /* clip the rotated lines to the text box */
+        }
+        .choice-strike.eliminated { color: #9ca3af; }
+        .choice-strike.eliminated::before,
+        .choice-strike.eliminated::after {
           content: "";
           position: absolute;
-          left: -6px;
-          right: -6px;
+          left: 2px;               /* slight inset so lines don't overshoot */
+          right: 2px;
           top: 50%;
           border-top: 2px solid #ef4444;
-          transform-origin: center;
+          transform-origin: 50% 50%;
           pointer-events: none;
         }
-        .choice-line.eliminated::before { transform: translateY(-50%) rotate(12deg); }
-        .choice-line.eliminated::after  { transform: translateY(-50%) rotate(-12deg); }
+        .choice-strike.eliminated::before { transform: translateY(-50%) rotate(9deg); }
+        .choice-strike.eliminated::after  { transform: translateY(-50%) rotate(-9deg); }
       `}</style>
     </div>
   );
