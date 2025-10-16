@@ -16,7 +16,7 @@ type Props = {
   setTool: (t: Tool) => void;
 };
 
-export default function ExamToolButtons({ tool, setTool }: Props) {
+function ExamToolButtons({ tool, setTool }: Props) {
   return (
     <div className="flex items-center gap-1.5 ml-1">
       <button
@@ -57,3 +57,6 @@ export default function ExamToolButtons({ tool, setTool }: Props) {
     </div>
   );
 }
+
+export default ExamToolButtons;
+export { ExamToolButtons };
