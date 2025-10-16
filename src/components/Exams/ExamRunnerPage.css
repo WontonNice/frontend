@@ -62,8 +62,8 @@
   content: "";
   position: absolute;
   /* overshoot slightly inside the card; adjust if you want more/less margin */
-  left: 8px;
-  right: 8px;
+  left: calc(1rem + 0.75rem);
+  right: 0.25rem;  
   top: 50%;
   border-top: 2px solid #ef4444;
   transform-origin: center;
