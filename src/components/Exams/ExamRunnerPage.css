@@ -54,20 +54,26 @@
   justify-content: center;
 }
 
-/* Compact red X only over the option text */
-.choice-row { position: relative; }
+/* Compact red X only over the option row */
+.choice-row {
+  position: relative;
+  display: block;
+  overflow: hidden;                    /* clip the X to this row */
+  --x-left: calc(1rem + 0.75rem);      /* radio/checkbox (1rem) + gap-3 (0.75rem) */
+  --x-right: 0.5rem;                   /* small right inset */
+}
 .choice-row.eliminated { color: #9ca3af; }
+
 .choice-row.eliminated::before,
 .choice-row.eliminated::after {
   content: "";
   position: absolute;
-  /* overshoot slightly inside the card; adjust if you want more/less margin */
-  left: calc(1rem + 0.75rem);
-  right: 0.25rem;  
+  left: var(--x-left);
+  right: var(--x-right);
   top: 50%;
   border-top: 2px solid #ef4444;
   transform-origin: center;
   pointer-events: none;
 }
-.choice-row.eliminated::before { transform: translateY(-50%) rotate(10deg); }
-.choice-row.eliminated::after  { transform: translateY(-50%) rotate(-10deg); }
+.choice-row.eliminated::before { transform: translateY(-50%) rotate(9deg); }
+.choice-row.eliminated::after  { transform: translateY(-50%) rotate(-9deg); }

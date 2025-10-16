@@ -504,9 +504,12 @@ export default function ExamRunnerPage() {
             const eliminated = isEliminated(it.globalId, i);
 
             return (
-              <li key={i}>
+              <li
+                key={i}
+                className={`choice-row ${eliminated ? "eliminated" : ""}`}
+              >
                 <label
-                  className={`choice-row w-full flex items-start gap-3 cursor-pointer relative ${eliminated ? "eliminated" : ""}`}
+                  className="w-full flex items-start gap-3 cursor-pointer"
                   onClick={(e) => {
                     if (eliminatorActive) {
                       e.preventDefault();
@@ -551,9 +554,12 @@ export default function ExamRunnerPage() {
           const eliminated = isEliminated(it.globalId, i);
 
           return (
-            <li key={i}>
-              <label
-                className={`choice-row w-full flex items-start gap-3 cursor-pointer relative ${eliminated ? "eliminated" : ""}`}
+              <li
+                key={i}
+                className={`choice-row ${eliminated ? "eliminated" : ""}`}
+              >
+                <label
+                  className="w-full flex items-start gap-3 cursor-pointer"
                 onClick={(e) => {
                   if (eliminatorActive) {
                     e.preventDefault();
