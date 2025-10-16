@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 const API =
   (import.meta as any)?.env?.VITE_API_URL ??
+  //"https://backend-3wuq.onrender.com";
   "https://backend-tv8i.onrender.com";
 
 type Role = "teacher" | "student" | (string & {});

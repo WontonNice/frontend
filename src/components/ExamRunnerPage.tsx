@@ -5,6 +5,9 @@ import { getExamBySlug } from "../data/exams";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 
+/** Results page (new, extracted) */
+import ExamResultsPage from "./ExamResultsPage";
+
 /** Tech-enhanced interactions */
 import DragToBins from "./techenhanced/DragToBins";
 import TableMatch from "./techenhanced/TableMatch";
@@ -70,10 +73,12 @@ type MdFrontmatter = {
 
 function splitFrontmatter(md: string): { fm: string | null; body: string } {
   if (!md.startsWith("---")) return { fm: null, body: md };
-  const end = md.indexOf("\n---", 3);
-  if (end === -1) return { fm: null, body: md };
-  const fm = md.slice(3, end + 1).trim();
-  const body = md.slice(end + 4).trimStart();
+  const rest = md.slice(3);
+  const match = rest.match(/\r?\n---\r?\n/);
+  if (!match) return { fm: null, body: md };
+  const end = match.index!;
+  const fm = rest.slice(0, end).trim();
+  const body = rest.slice(end + match[0].length).replace(/^\s+/, "");
   return { fm, body };
 }
 
@@ -121,6 +126,9 @@ type FlatItem = {
   interactionType?: InteractionType;
   skillType?: SkillType;
 
+  selectCount?: number;
+  explanationMarkdown?: string;
+
   globalIndex: number;
   isEnd?: boolean;
   isMathIntro?: boolean;
@@ -129,9 +137,14 @@ type FlatItem = {
 type ResultRow = {
   globalId: string;
   globalNumber: number;
-  displayGroup: string;
-  userIndex: number | undefined; // compact for single-select
-  correctIndex: number | undefined;
+  displayGroup: string;        // "Reading" or "Mathematics"
+  sectionType: "reading" | "math";
+  kind: InteractionType;
+  isScored: boolean;
+  isUnanswered: boolean;
+  isCorrect: boolean | null;   // null when not scored
+  user?: number | number[] | DragMap | TableAnswer;
+  correct?: number | number[] | Record<string, string> | undefined;
   choices?: string[];
 };
 
@@ -271,6 +284,8 @@ export default function ExamRunnerPage() {
 
           interactionType: q.type ?? "single_select",
           skillType: q.skillType,
+          selectCount: q.selectCount,
+          explanationMarkdown: q.explanationMarkdown,
 
           globalIndex: globalIndex++,
         });
@@ -322,7 +337,7 @@ export default function ExamRunnerPage() {
   }, [bmStorageKey]);
   const saveBookmarks = (next: Set<string>) => {
     if (!bmStorageKey) return;
-    localStorage.setItem(bmStorageKey, JSON.stringify(Array.from(next)));
+    try { localStorage.setItem(bmStorageKey, JSON.stringify(Array.from(next))); } catch {}
   };
   const toggleBookmark = () => {
     const cur = items[idx];
@@ -349,7 +364,7 @@ export default function ExamRunnerPage() {
   }, [notesKey]);
   useEffect(() => {
     if (!notesKey) return;
-    localStorage.setItem(notesKey, notesText);
+    try { localStorage.setItem(notesKey, notesText); } catch {}
   }, [notesKey, notesText]);
   useEffect(() => {
     setNotesOpen(tool === "notepad");
@@ -357,7 +372,7 @@ export default function ExamRunnerPage() {
 
   // ===== Eliminated choices per question (for choice interactions) =====
   const [elims, setElims] = useState<Record<string, number[]>>({});
-  const isEliminated = (gid: string, i: number) => new Set(elims[gid] || []).has(i);
+  const isEliminated = (gid: string, i: number) => (elims[gid] || []).includes(i);
   const toggleElim = (gid: string, i: number) => {
     setElims((prev) => {
       const cur = new Set(prev[gid] || []);
@@ -374,6 +389,10 @@ export default function ExamRunnerPage() {
     incorrectCount: number;
     unansweredCount: number;
     scoredCount: number;
+    sectionTotals: {
+      reading: { correct: number; scored: number };
+      math: { correct: number; scored: number };
+    };
   } | null>(null);
   const stickyTopClass = submitted && results ? "top-14" : "top-0";
 
@@ -487,8 +506,6 @@ export default function ExamRunnerPage() {
   };
 
   // ===== Helpers =====
-  const letter = (i?: number) => (i == null || i < 0 ? "-" : String.fromCharCode(65 + i));
-
   const isAnsweredGid = (gid: string) => {
     const v = answers[gid];
     if (typeof v === "number") return true;
@@ -538,9 +555,15 @@ export default function ExamRunnerPage() {
     let unansweredCountLocal = 0;
     let scoredCount = 0;
 
+    let secStats = {
+      reading: { correct: 0, scored: 0 },
+      math: { correct: 0, scored: 0 },
+    };
+
     let g = 0;
     exam?.sections.forEach((sec: any) => {
       const displayGroup = groupLabel(sec.type);
+      const sectionType = (sec.type === "math" ? "math" : "reading") as "reading" | "math";
       const sectionQuestions =
         sec.type === "reading" ? (readingQs[sec.id] ?? []) : (sec.questions ?? []);
 
@@ -549,102 +572,126 @@ export default function ExamRunnerPage() {
         const kind: InteractionType = q?.type ?? "single_select";
         const choices = (q as any).choices as string[] | undefined;
 
+        const pushRow = (
+          row: Omit<ResultRow, "displayGroup" | "sectionType" | "globalNumber">
+        ) => {
+          const full: ResultRow = {
+            ...row,                    // carries globalId (only once)
+            globalNumber: g + 1,
+            displayGroup,
+            sectionType,
+          };
+          rows.push(full);
+        };
+
         if (kind === "multi_select") {
           const correct = getCorrectIndices(q);
-          const user = answers[globalId] as number[] | undefined;
-          if (correct) {
+          const user = (answers[globalId] as number[] | undefined) ?? [];
+          const isScored = Array.isArray(correct);
+          const isUnanswered = user.length === 0;
+          const isCorrect = isScored
+            ? (!isUnanswered && equalNumberArrays(user.slice().sort(numAsc), (correct ?? []).slice().sort(numAsc)))
+            : null;
+
+          if (isScored) {
             scoredCount++;
-            const sortedUser = (user ?? []).slice().sort(numAsc);
-            if (!user || user.length === 0) {
+            secStats[sectionType].scored += 1;
+            if (isUnanswered) {
               unansweredCountLocal++;
-            } else if (equalNumberArrays(sortedUser, correct)) {
+            } else if (isCorrect) {
               correctCount++;
+              secStats[sectionType].correct += 1;
             } else {
               incorrectCount++;
             }
-          } else {
-            if (!user || user.length === 0) unansweredCountLocal++;
-          }
-
-          rows.push({
-            globalId,
-            globalNumber: g + 1,
-            displayGroup,
-            userIndex: undefined,
-            correctIndex: undefined,
-            choices,
-          });
-        } else if (kind === "drag_to_bins") {
-          const correctBins = q?.correctBins as Record<string, string> | undefined;
-          const user = answers[globalId] as DragMap | undefined;
-          if (correctBins) {
-            scoredCount++;
-            const hasAny = user && Object.keys(user).length > 0;
-            const fullyCorrect =
-              hasAny &&
-              Object.keys(correctBins).length === Object.keys(user!).length &&
-              Object.entries(correctBins).every(([opt, bin]) => user?.[opt] === bin);
-            if (!hasAny) unansweredCountLocal++;
-            else if (fullyCorrect) correctCount++;
-            else incorrectCount++;
-          } else {
-            if (!user || Object.keys(user).length === 0) unansweredCountLocal++;
-          }
-          rows.push({
-            globalId,
-            globalNumber: g + 1,
-            displayGroup,
-            userIndex: undefined,
-            correctIndex: undefined,
-            choices: undefined,
-          });
-        } else if (kind === "table_match") {
-          // Optional scoring if you provide correctCells in MD
-          const key = q?.correctCells as Record<string, string> | undefined;
-          const user = answers[globalId] as TableAnswer | undefined;
-          if (key) {
-            scoredCount++;
-            const hasAny = user && Object.keys(user).length > 0;
-            const fullyCorrect =
-              hasAny &&
-              Object.keys(key).length === Object.keys(user!).length &&
-              Object.entries(key).every(([rowId, optId]) => user?.[rowId] === optId);
-            if (!hasAny) unansweredCountLocal++;
-            else if (fullyCorrect) correctCount++;
-            else incorrectCount++;
-          } else {
-            if (!user || Object.keys(user).length === 0) unansweredCountLocal++;
-          }
-          rows.push({
-            globalId,
-            globalNumber: g + 1,
-            displayGroup,
-            userIndex: undefined,
-            correctIndex: undefined,
-            choices: undefined,
-          });
-        } else {
-          // single_select (default)
-          const userIndex = answers[globalId] as number | undefined;
-          const correctIndex = getCorrectIndex(q);
-
-          if (correctIndex != null) {
-            scoredCount++;
-            if (userIndex == null) unansweredCountLocal++;
-            else if (userIndex === correctIndex) correctCount++;
-            else incorrectCount++;
-          } else if (userIndex == null) {
+          } else if (isUnanswered) {
             unansweredCountLocal++;
           }
 
-          rows.push({
-            globalId,
-            globalNumber: g + 1,
-            displayGroup,
-            userIndex,
-            correctIndex,
-            choices,
-          });
+          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct, choices });
+
+        } else if (kind === "drag_to_bins") {
+          const key = q?.correctBins as Record<string, string> | undefined;
+          const user = (answers[globalId] as DragMap) ?? {};
+          const hasAny = Object.keys(user).length > 0;
+          const isScored = !!key;
+          const isUnanswered = !hasAny;
+          const isCorrect = isScored
+            ? (hasAny &&
+              Object.keys(key!).length === Object.keys(user).length &&
+              Object.entries(key!).every(([opt, bin]) => user[opt] === bin))
+            : null;
+
+          if (isScored) {
+            scoredCount++;
+            secStats[sectionType].scored += 1;
+            if (isUnanswered) {
+              unansweredCountLocal++;
+            } else if (isCorrect) {
+              correctCount++;
+              secStats[sectionType].correct += 1;
+            } else {
+              incorrectCount++;
+            }
+          } else if (isUnanswered) {
+            unansweredCountLocal++;
+          }
+
+          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct: key });
+
+        } else if (kind === "table_match") {
+          const key = q?.correctCells as Record<string, string> | undefined;
+          const user = (answers[globalId] as TableAnswer) ?? {};
+          const hasAny = Object.keys(user).length > 0;
+          const isScored = !!key;
+          const isUnanswered = !hasAny;
+          const isCorrect = isScored
+            ? (hasAny &&
+              Object.keys(key!).length === Object.keys(user).length &&
+              Object.entries(key!).every(([rowId, optId]) => user[rowId] === optId))
+            : null;
+
+          if (isScored) {
+            scoredCount++;
+            secStats[sectionType].scored += 1;
+            if (isUnanswered) {
+              unansweredCountLocal++;
+            } else if (isCorrect) {
+              correctCount++;
+              secStats[sectionType].correct += 1;
+            } else {
+              incorrectCount++;
+            }
+          } else if (isUnanswered) {
+            unansweredCountLocal++;
+          }
+
+          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct: key });
+
+        } else {
+          // single_select
+          const correct = getCorrectIndex(q);
+          const user = answers[globalId] as number | undefined;
+          const isScored = typeof correct === "number";
+          const isUnanswered = user == null;
+          const isCorrect = isScored ? (!isUnanswered && user === correct) : null;
+
+          if (isScored) {
+            scoredCount++;
+            secStats[sectionType].scored += 1;
+            if (isUnanswered) {
+              unansweredCountLocal++;
+            } else if (isCorrect) {
+              correctCount++;
+              secStats[sectionType].correct += 1;
+            } else {
+              incorrectCount++;
+            }
+          } else if (isUnanswered) {
+            unansweredCountLocal++;
+          }
+
+          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct, choices });
         }
 
         g++;
@@ -657,6 +704,7 @@ export default function ExamRunnerPage() {
       incorrectCount,
       unansweredCount: unansweredCountLocal,
       scoredCount,
+      sectionTotals: secStats,
     });
   };
 
@@ -675,6 +723,11 @@ export default function ExamRunnerPage() {
     if (it.interactionType === "multi_select") {
       return (
         <ul className="space-y-3">
+          {it.selectCount ? (
+            <div className="text-xs text-gray-600 mb-1">
+              Select {it.selectCount} answer{it.selectCount > 1 ? "s" : ""}.
+            </div>
+          ) : null}
           {it.choices.map((choice, i) => {
             const currentAns = (answers[it.globalId] as number[] | undefined) ?? [];
             const checked = currentAns.includes(i);
@@ -686,13 +739,19 @@ export default function ExamRunnerPage() {
                     type="checkbox"
                     className="h-4 w-4 mt-1"
                     checked={checked}
+                    disabled={eliminatorActive}
                     onChange={() => {
                       if (eliminatorActive) {
                         toggleElim(it.globalId, i);
                       } else {
                         setAnswers((prev) => {
                           const set = new Set((prev[it.globalId] as number[] | undefined) ?? []);
-                          checked ? set.delete(i) : set.add(i);
+                          if (checked) {
+                            set.delete(i);
+                          } else {
+                            if (it.selectCount && set.size >= it.selectCount) return prev; // cap
+                            set.add(i);
+                          }
                           return {
                             ...prev,
                             [it.globalId]: Array.from(set).sort(numAsc),
@@ -724,6 +783,7 @@ export default function ExamRunnerPage() {
                   name={it.globalId}
                   className="h-4 w-4 mt-1"
                   checked={!!selected}
+                  disabled={eliminatorActive}
                   onChange={() => {
                     if (eliminatorActive) {
                       toggleElim(it.globalId, i);
@@ -741,107 +801,150 @@ export default function ExamRunnerPage() {
     );
   };
 
+  // ===== PDF Export =====
+  const downloadReportPdf = async () => {
+    if (!results) return;
+
+    // Try to import jspdf from local deps; fallback to CDN if needed
+    let jsPDFMod: any = null;
+    try {
+      jsPDFMod = await import("jspdf");
+    } catch {
+      try {
+        // Vite will not pre-bundle this; allow runtime fetch
+        // @ts-ignore
+        jsPDFMod = await import(/* @vite-ignore */ "https://cdn.skypack.dev/jspdf");
+      } catch (e) {
+        alert("Could not load PDF generator. Please install 'jspdf' (npm i jspdf).");
+        return;
+      }
+    }
+    const { jsPDF } = jsPDFMod;
+    const doc = new jsPDF({ unit: "pt", format: "letter" });
+
+    const marginX = 48;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const usableWidth = pageWidth - marginX * 2;
+    let y = 56;
+
+    const addLine = (text: string, opts: { bold?: boolean } = {}) => {
+      const lines = doc.splitTextToSize(text, usableWidth);
+      for (const line of lines) {
+        if (y > doc.internal.pageSize.getHeight() - 56) {
+          doc.addPage();
+          y = 56;
+        }
+        if (opts.bold) doc.setFont(undefined, "bold");
+        doc.text(line, marginX, y);
+        if (opts.bold) doc.setFont(undefined, "normal");
+        y += 16;
+      }
+    };
+
+    // Header
+    doc.setFontSize(16);
+    doc.setFont(undefined, "bold");
+    doc.text(exam.title, marginX, y);
+    doc.setFont(undefined, "normal");
+    y += 22;
+    doc.setFontSize(12);
+
+    // Summary
+    addLine(`Overall: ${results.correctCount} correct out of ${results.scoredCount} scored`);
+    const r = results.sectionTotals.reading;
+    const m = results.sectionTotals.math;
+    addLine(`Reading: ${r.correct}/${r.scored}  ·  Math: ${m.correct}/${m.scored}`);
+    y += 8;
+
+    // Divider
+    doc.setDrawColor(180);
+    doc.line(marginX, y, pageWidth - marginX, y);
+    y += 14;
+
+    // Per-question
+    const rows = results.rows; // already in exam order
+    let currentGroup = "";
+
+    rows.forEach((row) => {
+      if (!row.isScored) return; // include only scored questions per spec
+      const item = items.find((x) => x.globalId === row.globalId);
+      const secName = row.displayGroup;
+
+      if (secName !== currentGroup) {
+        addLine(secName, { bold: true });
+        currentGroup = secName;
+      }
+
+      // Stem
+      const stem = (item?.stemMarkdown || "").replace(/\s+/g, " ").trim();
+      addLine(`Q${row.globalNumber}: ${stem || "(No prompt text)"}`);
+
+      // User answer by kind
+      let answerStr = "";
+      if (row.kind === "single_select") {
+        const i = row.user as number | undefined;
+        const label = typeof i === "number" ? `${String.fromCharCode(65 + i)}${item?.choices?.[i] ? ` — ${item.choices[i]}` : ""}` : "—";
+        answerStr = label;
+      } else if (row.kind === "multi_select") {
+        const picks = (row.user as number[] | undefined) ?? [];
+        if (picks.length) {
+          answerStr = picks
+            .map((i) => `${String.fromCharCode(65 + i)}${item?.choices?.[i] ? ` — ${item.choices[i]}` : ""}`)
+            .join("; ");
+        } else {
+          answerStr = "—";
+        }
+      } else if (row.kind === "drag_to_bins") {
+        const user = (row.user as DragMap) || {};
+        const entries = Object.entries(user as Record<string, string | undefined>);
+
+        const optLabel = (id?: string) =>
+          id ? (item?.options?.find((o) => o.id === id)?.label ?? id) : "—";
+        const binLabel = (id?: string) =>
+          id ? (item?.bins?.find((b) => b.id === id)?.label ?? id) : "—";
+
+        const pairs = entries.map(([optId, binId]) => `${optLabel(optId)} → ${binLabel(binId)}`);
+        answerStr = pairs.length ? pairs.join("; ") : "—";
+
+      } else if (row.kind === "table_match") {
+        const user = (row.user as TableAnswer) || {};
+        const entries = Object.entries(user as Record<string, string | undefined>);
+
+        const rowLabel = (rid?: string) =>
+          rid ? (item?.tableRows?.find((r) => r.id === rid)?.header ?? rid) : "—";
+        const optLabel = (oid?: string) =>
+          oid ? (item?.tableOptions?.find((o) => o.id === oid)?.label ?? oid) : "—";
+
+        const pairs = entries.map(([rid, oid]) => `${rowLabel(rid)} → ${optLabel(oid)}`);
+        answerStr = pairs.length ? pairs.join("; ") : "—";
+
+      } else {
+        answerStr = "—";
+      }
+
+      // Right/Wrong
+      const verdict = row.isCorrect ? "Right" : "Wrong";
+      addLine(`Your Answer: ${answerStr}`);
+      addLine(`Result: ${verdict}`);
+      y += 6;
+    });
+
+    doc.save(`${exam.slug}-report.pdf`);
+  };
+
   // ===== Results page =====
   if (submitted && results) {
-    const { correctCount, incorrectCount, unansweredCount, scoredCount, rows } = results;
-    const percent = scoredCount ? Math.round((correctCount / scoredCount) * 100) : 0;
-    const wrongRows = rows.filter(
-      (r) => r.correctIndex != null && r.userIndex != null && r.userIndex !== r.correctIndex
-    );
-
     return (
-      <div className="space-y-6">
-        {/* Full-bleed status */}
-        <div className={`sticky ${stickyTopClass} z-30 full-bleed`}>
-          <div className="h-[3px] bg-sky-500 border-t border-gray-300" />
-          <div className="w-full bg-[#5e5e5e] text-white text-[13px]">
-            <div className="flex items-center gap-2 px-6 py-1">
-              <span className="font-semibold">{exam.title.toUpperCase()}</span>
-              <span>/</span>
-              <span>RESULTS</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-8 max-w-4xl mx-auto">
-          <div className="text-center mb-6">
-            <h2 className="text-4xl font-bold">Your Score</h2>
-            <div className="mt-3 text-xl">
-              <span className="font-semibold">{correctCount}</span> correct out of{" "}
-              <span className="font-semibold">{scoredCount}</span> scored questions ·{" "}
-              <span className="font-semibold">{percent}%</span>
-            </div>
-            <div className="mt-1 text-gray-600 text-sm">
-              Incorrect: {incorrectCount} &nbsp;·&nbsp; Unanswered: {unansweredCount}
-            </div>
-
-            <div className="mt-5 flex gap-2 justify-center">
-              <button
-                onClick={() => {
-                  const firstWrong = wrongRows[0];
-                  if (!firstWrong) return;
-                  const i = items.findIndex((x) => x.globalId === firstWrong.globalId);
-                  setSubmitted(false);
-                  jumpTo(i);
-                }}
-                disabled={wrongRows.length === 0}
-                className={`px-4 py-2 rounded-md text-white ${
-                  wrongRows.length ? "bg-blue-600 hover:bg-blue-700" : "bg-blue-300 cursor-not-allowed"
-                }`}
-              >
-                Review Incorrect Questions
-              </button>
-              <button
-                onClick={() => {
-                  setSubmitted(false);
-                  setIdx(0);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                className="px-4 py-2 rounded-md border border-gray-300 bg-white hover:bg-gray-50"
-              >
-                Back to Exam
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-xl font-semibold mb-2">Questions you got wrong</h3>
-            {wrongRows.length === 0 ? (
-              <p className="text-gray-600">Nice! You didn’t miss any scored questions.</p>
-            ) : (
-              <div className="divide-y divide-gray-200">
-                {wrongRows.map((r) => {
-                  const i = items.findIndex((x) => x.globalId === r.globalId);
-                  return (
-                    <div key={r.globalId} className="py-3 flex items-center gap-3">
-                      <button
-                        onClick={() => {
-                          setSubmitted(false);
-                          jumpTo(i);
-                        }}
-                        className="shrink-0 px-3 py-1.5 rounded-md bg-gray-100 hover:bg-gray-200 border border-gray-300"
-                        title="Jump to this question"
-                      >
-                        Q{r.globalNumber} · {r.displayGroup}
-                      </button>
-                      <div className="text-sm">
-                        <div>
-                          Your answer: <span className="font-semibold">{letter(r.userIndex)}</span>
-                          {r.choices && r.userIndex != null ? ` — ${r.choices[r.userIndex]}` : ""}
-                        </div>
-                        <div>
-                          Correct answer: <span className="font-semibold">{letter(r.correctIndex)}</span>
-                          {r.choices && r.correctIndex != null ? ` — ${r.choices[r.correctIndex]}` : ""}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      <ExamResultsPage
+        examTitle={exam.title}
+        results={{
+          correctCount: results.correctCount,
+          scoredCount: results.scoredCount,
+          sectionTotals: results.sectionTotals,
+        }}
+        onDownloadPdf={downloadReportPdf}
+        stickyTopClass={stickyTopClass}
+      />
     );
   }
 
@@ -1150,22 +1253,25 @@ export default function ExamRunnerPage() {
                     onChange={(next) => setAnswers((prev) => ({ ...prev, [current.globalId]: next }))}
                   />
                 ) : current.interactionType === "table_match" ? (
-                <TableMatch
+                  <TableMatch
                     globalId={current.globalId}
                     table={{
-                    columns: current.tableColumns ?? [{ key: "desc", header: "Best Description" }],
-                    rows: current.tableRows ?? [],
+                      columns: current.tableColumns ?? [{ key: "desc", header: "Best Description" }],
+                      rows: current.tableRows ?? [],
                     }}
                     options={current.tableOptions ?? []}
                     value={Object.fromEntries(
-                    Object.entries((answers[current.globalId] as TableAnswer) ?? {}).filter(
+                      Object.entries((answers[current.globalId] as TableAnswer) ?? {}).filter(
                         (entry): entry is [string, string] => typeof entry[1] === "string"
-                    )
+                      )
                     )}
                     onChange={(next) => setAnswers((prev) => ({ ...prev, [current.globalId]: next }))}
-                />
+                  />
+                ) : current.interactionType === "cloze_drag" ? (
+                  <div className="text-sm text-orange-600">
+                    This question type (cloze drag) isn’t supported yet in the runner.
+                  </div>
                 ) : (
-
                   renderChoices(current)
                 )}
               </div>
