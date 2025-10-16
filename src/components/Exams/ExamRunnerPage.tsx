@@ -534,9 +534,7 @@ export default function ExamRunnerPage() {
                       });
                     }}
                   />
-                  <span className="flex-1">
-                    <span className="flex-1">{choice}</span>
-                  </span>
+                  <span className="choice-text flex-1">{choice}</span>
                 </label>
               </li>
             );
@@ -576,9 +574,7 @@ export default function ExamRunnerPage() {
                     setAnswers((prev) => ({ ...prev, [it.globalId]: i }));
                   }}
                 />
-                <span className="flex-1">
-                  <span className="flex-1">{choice}</span>
-                </span>
+                <span className="choice-text flex-1">{choice}</span>
               </label>
             </li>
           );
