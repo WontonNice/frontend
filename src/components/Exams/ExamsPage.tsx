@@ -1,7 +1,7 @@
 // src/components/ExamsPage.tsx
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { listExams, getExamBySlug } from "../data/exams";
+import { listExams, getExamBySlug } from "../../data/exams";
 import ReactMarkdown from "react-markdown";
 
 type ParsedMd = {

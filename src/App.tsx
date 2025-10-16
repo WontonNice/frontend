@@ -12,9 +12,9 @@ import SATMathPage from "./components/SATMathPage";
 import SATMathPanel1 from "./components/SATMathPanel1";
 import LiveActivitiesPage from "./components/LiveActivitiesPage"; 
 import LiveSessionPage from "./components/LiveSessionPage";
-import ExamsPage from "./components/ExamsPage";
-import ExamRunnerPage from "./components/ExamRunnerPage";           // ⬅️ new
-import ExamFullscreenLayout from "./components/ExamFullscreenLayout";
+import ExamsPage from "./components/Exams/ExamsPage";
+import ExamRunnerPage from "./components/Exams/ExamRunnerPage";           // ⬅️ new
+import ExamFullscreenLayout from "./components/Exams/ExamFullscreenLayout";
 
 export default function App() {
   return (

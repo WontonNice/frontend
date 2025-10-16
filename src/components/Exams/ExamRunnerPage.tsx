@@ -1,17 +1,23 @@
 // src/components/ExamRunnerPage.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getExamBySlug } from "../data/exams";
+import { getExamBySlug } from "../../data/exams";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 
-/** Results page (new, extracted) */
+/** Results page (extracted) */
 import ExamResultsPage from "./ExamResultsPage";
 
 /** Tech-enhanced interactions */
 import DragToBins from "./techenhanced/DragToBins";
 import TableMatch from "./techenhanced/TableMatch";
 import type { DragAnswer as DragMap, TableAnswer } from "./techenhanced/types";
+
+/** Tools */
+import { useEliminator } from "./Tools/AnswerEliminator";
+import ExamToolButtons from "./Tools/ToolButtons";
+import GlobalNotepad from "./Tools/GlobalNotepad";
+import type { Tool } from "./Tools/types";
 
 /** Typed numeric comparator */
 const numAsc = (x: number, y: number) => x - y;
@@ -20,7 +26,6 @@ const numAsc = (x: number, y: number) => x - y;
 type AnswerValue = number | number[] | DragMap | TableAnswer | undefined;
 type AnswerMap = Record<string, AnswerValue>;
 type ReviewTab = "all" | "unanswered" | "bookmarked";
-type Tool = "pointer" | "eliminate" | "notepad";
 
 /** ---------- Frontmatter helpers ---------- */
 type InteractionType =
@@ -134,27 +139,13 @@ type FlatItem = {
   isMathIntro?: boolean;
 };
 
-type ResultRow = {
-  globalId: string;
-  globalNumber: number;
-  displayGroup: string;        // "Reading" or "Mathematics"
-  sectionType: "reading" | "math";
-  kind: InteractionType;
-  isScored: boolean;
-  isUnanswered: boolean;
-  isCorrect: boolean | null;   // null when not scored
-  user?: number | number[] | DragMap | TableAnswer;
-  correct?: number | number[] | Record<string, string> | undefined;
-  choices?: string[];
-};
-
 const groupLabel = (type: string) => {
   if (type === "reading") return "Reading";
   if (type === "math") return "Mathematics";
   return type.charAt(0).toUpperCase() + type.slice(1);
 };
 
-/** Icons */
+/** Icons used locally (bookmark/review/back) */
 const BookmarkFilled = ({ className = "h-4 w-4" }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} aria-hidden fill="#2563EB">
     <path d="M6 2h12a2 2 0 0 1 2 2v18l-8-4-8 4V4a2 2 0 0 1 2-2z" />
@@ -167,15 +158,6 @@ const BookmarkOutline = ({ className = "h-4 w-4" }: { className?: string }) => (
 );
 const ListIcon = (props: any) => (
   <svg viewBox="0 0 24 24" {...props}><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round"/></svg>
-);
-const PointerIcon = (props: any) => (
-  <svg viewBox="0 0 24 24" {...props}><path d="M3 2l18 9-7 2 2 7-5-6-8-12z" fill="currentColor"/></svg>
-);
-const XIcon = (props: any) => (
-  <svg viewBox="0 0 24 24" {...props}><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-);
-const NoteIcon = (props: any) => (
-  <svg viewBox="0 0 24 24" {...props}><path d="M4 4h10l6 6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" strokeWidth="2"/><path d="M14 4v6h6" fill="none" stroke="currentColor" strokeWidth="2"/></svg>
 );
 const BackArrowIcon = (props: any) => (
   <svg viewBox="0 0 24 24" {...props}><path d="M10 19l-7-7 7-7M3 12h18" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -351,59 +333,28 @@ export default function ExamRunnerPage() {
     });
   };
 
-  // ===== Tools =====
+  // ===== Tools (moved) =====
   const [tool, setTool] = useState<Tool>("pointer");
-  const eliminatorActive = tool === "eliminate";
-  const [notesOpen, setNotesOpen] = useState(false);
-  const [notesText, setNotesText] = useState("");
-  const notesKey = slug ? `notes:${slug}` : null;
-  useEffect(() => {
-    if (!notesKey) return;
-    const t = localStorage.getItem(notesKey) || "";
-    setNotesText(t);
-  }, [notesKey]);
-  useEffect(() => {
-    if (!notesKey) return;
-    try { localStorage.setItem(notesKey, notesText); } catch {}
-  }, [notesKey, notesText]);
-  useEffect(() => {
-    setNotesOpen(tool === "notepad");
-  }, [tool]);
+  const { isEliminated, toggleElim, resetElims } = useEliminator();
 
-  // ===== Eliminated choices per question (for choice interactions) =====
-  const [elims, setElims] = useState<Record<string, number[]>>({});
-  const isEliminated = (gid: string, i: number) => (elims[gid] || []).includes(i);
-  const toggleElim = (gid: string, i: number) => {
-    setElims((prev) => {
-      const cur = new Set(prev[gid] || []);
-      cur.has(i) ? cur.delete(i) : cur.add(i);
-      return { ...prev, [gid]: Array.from(cur) };
-    });
-  };
+  // Reset eliminations when exam changes
+  useEffect(() => {
+    resetElims();
+    setTool("pointer");
+  }, [slug, resetElims]);
 
   // ===== Submission / Results state =====
   const [submitted, setSubmitted] = useState(false);
-  const [results, setResults] = useState<{
-    rows: ResultRow[];
-    correctCount: number;
-    incorrectCount: number;
-    unansweredCount: number;
-    scoredCount: number;
-    sectionTotals: {
-      reading: { correct: number; scored: number };
-      math: { correct: number; scored: number };
-    };
-  } | null>(null);
-  const stickyTopClass = submitted && results ? "top-14" : "top-0";
+  const stickyTopClass = submitted ? "top-14" : "top-0";
 
   // Toggle the global layout top bar: hide during exam, show on results
   useEffect(() => {
     const bar = document.getElementById("exam-topbar");
     if (!bar) return;
-    const shouldShow = submitted && !!results;
+    const shouldShow = submitted;
     bar.classList.toggle("hidden", !shouldShow);
     return () => bar.classList.remove("hidden");
-  }, [submitted, results]);
+  }, [submitted]);
 
   useEffect(() => {
     setIdx(0);
@@ -411,10 +362,9 @@ export default function ExamRunnerPage() {
     setReviewOpen(false);
     setReviewTab("all");
     setSubmitted(false);
-    setResults(null);
     setTool("pointer");
-    setElims({});
-  }, [slug]);
+    resetElims();
+  }, [slug, resetElims]);
 
   // Click outside to close review
   useEffect(() => {
@@ -493,18 +443,6 @@ export default function ExamRunnerPage() {
   );
   const progressPct = questionCount ? Math.round((questionOrdinal / questionCount) * 100) : 0;
 
-  const goPrev = () => setIdx((i) => Math.max(0, i - 1));
-  const goNext = () => setIdx((i) => Math.min(lastIndex, i + 1));
-  const jumpTo = (i: number) => {
-    setIdx(i);
-    setReviewOpen(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-  const selectChoice = (choiceIndex: number) => {
-    if (!current || current.isEnd || current.isMathIntro) return;
-    setAnswers((prev) => ({ ...prev, [current.globalId]: choiceIndex }));
-  };
-
   // ===== Helpers =====
   const isAnsweredGid = (gid: string) => {
     const v = answers[gid];
@@ -537,179 +475,8 @@ export default function ExamRunnerPage() {
     return groups;
   }, [filteredItems]);
 
-  // ===== Scoring helpers =====
-  const getCorrectIndex = (q: any): number | undefined =>
-    typeof q?.answerIndex === "number" ? q.answerIndex : undefined;
-
-  const getCorrectIndices = (q: any): number[] | undefined =>
-    Array.isArray(q?.correctIndices) ? q.correctIndices.slice().sort(numAsc) : undefined;
-
-  const equalNumberArrays = (a?: number[], b?: number[]) =>
-    Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => v === b[i]);
-
-  // ===== Submit & Score =====
-  const computeResults = () => {
-    const rows: ResultRow[] = [];
-    let correctCount = 0;
-    let incorrectCount = 0;
-    let unansweredCountLocal = 0;
-    let scoredCount = 0;
-
-    let secStats = {
-      reading: { correct: 0, scored: 0 },
-      math: { correct: 0, scored: 0 },
-    };
-
-    let g = 0;
-    exam?.sections.forEach((sec: any) => {
-      const displayGroup = groupLabel(sec.type);
-      const sectionType = (sec.type === "math" ? "math" : "reading") as "reading" | "math";
-      const sectionQuestions =
-        sec.type === "reading" ? (readingQs[sec.id] ?? []) : (sec.questions ?? []);
-
-      (sectionQuestions as any[]).forEach((q: any) => {
-        const globalId = `${sec.id}:${q.id}`;
-        const kind: InteractionType = q?.type ?? "single_select";
-        const choices = (q as any).choices as string[] | undefined;
-
-        const pushRow = (
-          row: Omit<ResultRow, "displayGroup" | "sectionType" | "globalNumber">
-        ) => {
-          const full: ResultRow = {
-            ...row,                    // carries globalId (only once)
-            globalNumber: g + 1,
-            displayGroup,
-            sectionType,
-          };
-          rows.push(full);
-        };
-
-        if (kind === "multi_select") {
-          const correct = getCorrectIndices(q);
-          const user = (answers[globalId] as number[] | undefined) ?? [];
-          const isScored = Array.isArray(correct);
-          const isUnanswered = user.length === 0;
-          const isCorrect = isScored
-            ? (!isUnanswered && equalNumberArrays(user.slice().sort(numAsc), (correct ?? []).slice().sort(numAsc)))
-            : null;
-
-          if (isScored) {
-            scoredCount++;
-            secStats[sectionType].scored += 1;
-            if (isUnanswered) {
-              unansweredCountLocal++;
-            } else if (isCorrect) {
-              correctCount++;
-              secStats[sectionType].correct += 1;
-            } else {
-              incorrectCount++;
-            }
-          } else if (isUnanswered) {
-            unansweredCountLocal++;
-          }
-
-          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct, choices });
-
-        } else if (kind === "drag_to_bins") {
-          const key = q?.correctBins as Record<string, string> | undefined;
-          const user = (answers[globalId] as DragMap) ?? {};
-          const hasAny = Object.keys(user).length > 0;
-          const isScored = !!key;
-          const isUnanswered = !hasAny;
-          const isCorrect = isScored
-            ? (hasAny &&
-              Object.keys(key!).length === Object.keys(user).length &&
-              Object.entries(key!).every(([opt, bin]) => user[opt] === bin))
-            : null;
-
-          if (isScored) {
-            scoredCount++;
-            secStats[sectionType].scored += 1;
-            if (isUnanswered) {
-              unansweredCountLocal++;
-            } else if (isCorrect) {
-              correctCount++;
-              secStats[sectionType].correct += 1;
-            } else {
-              incorrectCount++;
-            }
-          } else if (isUnanswered) {
-            unansweredCountLocal++;
-          }
-
-          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct: key });
-
-        } else if (kind === "table_match") {
-          const key = q?.correctCells as Record<string, string> | undefined;
-          const user = (answers[globalId] as TableAnswer) ?? {};
-          const hasAny = Object.keys(user).length > 0;
-          const isScored = !!key;
-          const isUnanswered = !hasAny;
-          const isCorrect = isScored
-            ? (hasAny &&
-              Object.keys(key!).length === Object.keys(user).length &&
-              Object.entries(key!).every(([rowId, optId]) => user[rowId] === optId))
-            : null;
-
-          if (isScored) {
-            scoredCount++;
-            secStats[sectionType].scored += 1;
-            if (isUnanswered) {
-              unansweredCountLocal++;
-            } else if (isCorrect) {
-              correctCount++;
-              secStats[sectionType].correct += 1;
-            } else {
-              incorrectCount++;
-            }
-          } else if (isUnanswered) {
-            unansweredCountLocal++;
-          }
-
-          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct: key });
-
-        } else {
-          // single_select
-          const correct = getCorrectIndex(q);
-          const user = answers[globalId] as number | undefined;
-          const isScored = typeof correct === "number";
-          const isUnanswered = user == null;
-          const isCorrect = isScored ? (!isUnanswered && user === correct) : null;
-
-          if (isScored) {
-            scoredCount++;
-            secStats[sectionType].scored += 1;
-            if (isUnanswered) {
-              unansweredCountLocal++;
-            } else if (isCorrect) {
-              correctCount++;
-              secStats[sectionType].correct += 1;
-            } else {
-              incorrectCount++;
-            }
-          } else if (isUnanswered) {
-            unansweredCountLocal++;
-          }
-
-          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct, choices });
-        }
-
-        g++;
-      });
-    });
-
-    setResults({
-      rows,
-      correctCount,
-      incorrectCount,
-      unansweredCount: unansweredCountLocal,
-      scoredCount,
-      sectionTotals: secStats,
-    });
-  };
-
+  // ===== Submit =====
   const onSubmit = () => {
-    computeResults();
     setSubmitted(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -719,6 +486,8 @@ export default function ExamRunnerPage() {
     if (!Array.isArray(it.choices)) {
       return <p className="text-gray-500">No choices for this item.</p>;
     }
+
+    const eliminatorActive = tool === "eliminate";
 
     if (it.interactionType === "multi_select") {
       return (
@@ -775,6 +544,7 @@ export default function ExamRunnerPage() {
         {it.choices.map((choice, i) => {
           const selected = answers[it.globalId] === i;
           const eliminated = isEliminated(it.globalId, i);
+          const eliminatorActive = tool === "eliminate";
           return (
             <li key={i}>
               <label className="flex items-start gap-3 cursor-pointer relative">
@@ -785,10 +555,10 @@ export default function ExamRunnerPage() {
                   checked={!!selected}
                   disabled={eliminatorActive}
                   onChange={() => {
-                    if (eliminatorActive) {
+                    if (tool === "eliminate") {
                       toggleElim(it.globalId, i);
                     } else {
-                      selectChoice(i);
+                      setAnswers((prev) => ({ ...prev, [it.globalId]: i }));
                     }
                   }}
                 />
@@ -801,148 +571,14 @@ export default function ExamRunnerPage() {
     );
   };
 
-  // ===== PDF Export =====
-  const downloadReportPdf = async () => {
-    if (!results) return;
-
-    // Try to import jspdf from local deps; fallback to CDN if needed
-    let jsPDFMod: any = null;
-    try {
-      jsPDFMod = await import("jspdf");
-    } catch {
-      try {
-        // Vite will not pre-bundle this; allow runtime fetch
-        // @ts-ignore
-        jsPDFMod = await import(/* @vite-ignore */ "https://cdn.skypack.dev/jspdf");
-      } catch (e) {
-        alert("Could not load PDF generator. Please install 'jspdf' (npm i jspdf).");
-        return;
-      }
-    }
-    const { jsPDF } = jsPDFMod;
-    const doc = new jsPDF({ unit: "pt", format: "letter" });
-
-    const marginX = 48;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const usableWidth = pageWidth - marginX * 2;
-    let y = 56;
-
-    const addLine = (text: string, opts: { bold?: boolean } = {}) => {
-      const lines = doc.splitTextToSize(text, usableWidth);
-      for (const line of lines) {
-        if (y > doc.internal.pageSize.getHeight() - 56) {
-          doc.addPage();
-          y = 56;
-        }
-        if (opts.bold) doc.setFont(undefined, "bold");
-        doc.text(line, marginX, y);
-        if (opts.bold) doc.setFont(undefined, "normal");
-        y += 16;
-      }
-    };
-
-    // Header
-    doc.setFontSize(16);
-    doc.setFont(undefined, "bold");
-    doc.text(exam.title, marginX, y);
-    doc.setFont(undefined, "normal");
-    y += 22;
-    doc.setFontSize(12);
-
-    // Summary
-    addLine(`Overall: ${results.correctCount} correct out of ${results.scoredCount} scored`);
-    const r = results.sectionTotals.reading;
-    const m = results.sectionTotals.math;
-    addLine(`Reading: ${r.correct}/${r.scored}  ·  Math: ${m.correct}/${m.scored}`);
-    y += 8;
-
-    // Divider
-    doc.setDrawColor(180);
-    doc.line(marginX, y, pageWidth - marginX, y);
-    y += 14;
-
-    // Per-question
-    const rows = results.rows; // already in exam order
-    let currentGroup = "";
-
-    rows.forEach((row) => {
-      if (!row.isScored) return; // include only scored questions per spec
-      const item = items.find((x) => x.globalId === row.globalId);
-      const secName = row.displayGroup;
-
-      if (secName !== currentGroup) {
-        addLine(secName, { bold: true });
-        currentGroup = secName;
-      }
-
-      // Stem
-      const stem = (item?.stemMarkdown || "").replace(/\s+/g, " ").trim();
-      addLine(`Q${row.globalNumber}: ${stem || "(No prompt text)"}`);
-
-      // User answer by kind
-      let answerStr = "";
-      if (row.kind === "single_select") {
-        const i = row.user as number | undefined;
-        const label = typeof i === "number" ? `${String.fromCharCode(65 + i)}${item?.choices?.[i] ? ` — ${item.choices[i]}` : ""}` : "—";
-        answerStr = label;
-      } else if (row.kind === "multi_select") {
-        const picks = (row.user as number[] | undefined) ?? [];
-        if (picks.length) {
-          answerStr = picks
-            .map((i) => `${String.fromCharCode(65 + i)}${item?.choices?.[i] ? ` — ${item.choices[i]}` : ""}`)
-            .join("; ");
-        } else {
-          answerStr = "—";
-        }
-      } else if (row.kind === "drag_to_bins") {
-        const user = (row.user as DragMap) || {};
-        const entries = Object.entries(user as Record<string, string | undefined>);
-
-        const optLabel = (id?: string) =>
-          id ? (item?.options?.find((o) => o.id === id)?.label ?? id) : "—";
-        const binLabel = (id?: string) =>
-          id ? (item?.bins?.find((b) => b.id === id)?.label ?? id) : "—";
-
-        const pairs = entries.map(([optId, binId]) => `${optLabel(optId)} → ${binLabel(binId)}`);
-        answerStr = pairs.length ? pairs.join("; ") : "—";
-
-      } else if (row.kind === "table_match") {
-        const user = (row.user as TableAnswer) || {};
-        const entries = Object.entries(user as Record<string, string | undefined>);
-
-        const rowLabel = (rid?: string) =>
-          rid ? (item?.tableRows?.find((r) => r.id === rid)?.header ?? rid) : "—";
-        const optLabel = (oid?: string) =>
-          oid ? (item?.tableOptions?.find((o) => o.id === oid)?.label ?? oid) : "—";
-
-        const pairs = entries.map(([rid, oid]) => `${rowLabel(rid)} → ${optLabel(oid)}`);
-        answerStr = pairs.length ? pairs.join("; ") : "—";
-
-      } else {
-        answerStr = "—";
-      }
-
-      // Right/Wrong
-      const verdict = row.isCorrect ? "Right" : "Wrong";
-      addLine(`Your Answer: ${answerStr}`);
-      addLine(`Result: ${verdict}`);
-      y += 6;
-    });
-
-    doc.save(`${exam.slug}-report.pdf`);
-  };
-
   // ===== Results page =====
-  if (submitted && results) {
+  if (submitted) {
     return (
       <ExamResultsPage
-        examTitle={exam.title}
-        results={{
-          correctCount: results.correctCount,
-          scoredCount: results.scoredCount,
-          sectionTotals: results.sectionTotals,
-        }}
-        onDownloadPdf={downloadReportPdf}
+        exam={exam}
+        items={items}
+        answers={answers}
+        readingQs={readingQs as Record<string, any[] | undefined>}
         stickyTopClass={stickyTopClass}
       />
     );
@@ -957,7 +593,7 @@ export default function ExamRunnerPage() {
           {/* Joined Prev/Next */}
           <div className="inline-flex overflow-hidden rounded-md">
             <button
-              onClick={goPrev}
+              onClick={() => setIdx((i) => Math.max(0, i - 1))}
               disabled={idx === 0}
               className={`px-3 py-1.5 text-white text-sm font-medium border-r ${
                 idx === 0 ? "bg-blue-300 cursor-not-allowed border-blue-300" : "bg-blue-600 hover:bg-blue-500 border-blue-700"
@@ -967,7 +603,7 @@ export default function ExamRunnerPage() {
               ←
             </button>
             <button
-              onClick={goNext}
+              onClick={() => setIdx((i) => Math.min(lastIndex, i + 1))}
               disabled={idx === lastIndex}
               className={`px-3 py-1.5 text-white text-sm font-medium ${
                 idx === lastIndex ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
@@ -1027,7 +663,11 @@ export default function ExamRunnerPage() {
                           <button
                             className={`w-full text-left px-3 py-2 text-[12px] font-semibold ${isMath ? "bg-gray-100 hover:bg-gray-200" : "bg-gray-50 hover:bg-gray-100"} border-b border-gray-200`}
                             onClick={() => {
-                              if (isMath && mathIntroIndex >= 0) jumpTo(mathIntroIndex);
+                              if (isMath && mathIntroIndex >= 0) {
+                                setIdx(mathIntroIndex);
+                                setReviewOpen(false);
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }
                             }}
                             title={isMath ? "Open Mathematics notes" : undefined}
                           >
@@ -1043,7 +683,11 @@ export default function ExamRunnerPage() {
                             return (
                               <button
                                 key={q.globalId}
-                                onClick={() => jumpTo(i)}
+                                onClick={() => {
+                                  setIdx(i);
+                                  setReviewOpen(false);
+                                  window.scrollTo({ top: 0, behavior: "smooth" });
+                                }}
                                 className={`w-full text-left px-3 py-2 flex items-center gap-2 border-b border-gray-200 ${
                                   active ? "bg-gray-700 text-white" : "hover:bg-gray-50"
                                 }`}
@@ -1084,30 +728,8 @@ export default function ExamRunnerPage() {
             Bookmark
           </button>
 
-          {/* Tool buttons */}
-          <div className="flex items-center gap-1.5 ml-1">
-            <button
-              className={`h-8 w-8 rounded border ${tool === "pointer" ? "bg-gray-700 text-white border-gray-800" : "border-gray-400 bg-gradient-to-b from-white to-gray-100 hover:bg-gray-50"}`}
-              title="Pointer"
-              onClick={() => setTool("pointer")}
-            >
-              <PointerIcon className="h-4 w-4 mx-auto" />
-            </button>
-            <button
-              className={`h-8 w-8 rounded border ${tool === "eliminate" ? "bg-gray-700 text-white border-gray-800" : "border-gray-400 bg-gradient-to-b from-white to-gray-100 hover:bg-gray-50"}`}
-              title="Answer Eliminator"
-              onClick={() => setTool(tool === "eliminate" ? "pointer" : "eliminate")}
-            >
-              <XIcon className="h-4 w-4 mx-auto" />
-            </button>
-            <button
-              className={`h-8 w-8 rounded border ${tool === "notepad" ? "bg-gray-700 text-white border-gray-800" : "border-gray-400 bg-gradient-to-b from-white to-gray-100 hover:bg-gray-50"}`}
-              title="Open Notepad"
-              onClick={() => setTool(tool === "notepad" ? "pointer" : "notepad")}
-            >
-              <NoteIcon className="h-4 w-4 mx-auto" />
-            </button>
-          </div>
+          {/* Tools (moved to component) */}
+          <ExamToolButtons tool={tool} setTool={setTool} />
 
           <div className="flex-1" />
 
@@ -1323,7 +945,10 @@ export default function ExamRunnerPage() {
                 return (
                   <button
                     key={q.globalId}
-                    onClick={() => jumpTo(i)}
+                    onClick={() => {
+                      setIdx(i);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
                     className="relative text-left px-4 py-2 rounded-md bg-gray-100 hover:bg-gray-200 border border-gray-300"
                     title={`${groupLabel(q.sectionType)} · Question ${q.globalIndex + 1}`}
                   >
@@ -1344,25 +969,12 @@ export default function ExamRunnerPage() {
         </div>
       )}
 
-      {/* Floating Notepad */}
-      {notesOpen && (
-        <div className="fixed bottom-4 right-4 w-[380px] bg-white border border-gray-300 shadow-xl rounded-lg overflow-hidden z-40">
-          <div className="flex items-center justify-between bg-gray-100 px-3 py-2 border-b">
-            <div className="flex items-center gap-2 font-medium text-gray-700">
-              <NoteIcon className="h-4 w-4" /> Notepad
-            </div>
-            <button className="text-sm text-gray-600 hover:text-gray-900" onClick={() => setTool("pointer")}>
-              Close
-            </button>
-          </div>
-          <textarea
-            className="w-full h-56 p-3 outline-none"
-            value={notesText}
-            onChange={(e) => setNotesText(e.target.value)}
-            placeholder="Type your notes here…"
-          />
-        </div>
-      )}
+      {/* Floating Notepad (moved to its own component) */}
+      <GlobalNotepad
+        active={tool === "notepad"}
+        storageKey={slug ? `notes:${slug}` : null}
+        onClose={() => setTool("pointer")}
+      />
 
       {/* ===== Helpers & styles ===== */}
       <style>{`
