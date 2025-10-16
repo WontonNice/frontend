@@ -7,6 +7,7 @@ import rehypeRaw from "rehype-raw";
 
 /** Results page (extracted) */
 import ExamResultsPage from "./ExamResultsPage";
+import "./ExamRunnerPage.css";
 
 /** Tech-enhanced interactions */
 import DragToBins from "./techenhanced/DragToBins";
@@ -505,7 +506,7 @@ export default function ExamRunnerPage() {
             return (
               <li key={i}>
                 <label
-                  className="flex items-start gap-3 cursor-pointer relative"
+                  className={`choice-row w-full flex items-start gap-3 cursor-pointer relative ${eliminated ? "eliminated" : ""}`}
                   onClick={(e) => {
                     if (eliminatorActive) {
                       e.preventDefault();
@@ -534,9 +535,7 @@ export default function ExamRunnerPage() {
                     }}
                   />
                   <span className="flex-1">
-                    <span className={`choice-strike ${eliminated ? "eliminated" : ""}`}>
-                      {choice}
-                    </span>
+                    <span className="flex-1">{choice}</span>
                   </span>
                 </label>
               </li>
@@ -556,7 +555,7 @@ export default function ExamRunnerPage() {
           return (
             <li key={i}>
               <label
-                className="flex items-start gap-3 cursor-pointer relative"
+                className={`choice-row w-full flex items-start gap-3 cursor-pointer relative ${eliminated ? "eliminated" : ""}`}
                 onClick={(e) => {
                   if (eliminatorActive) {
                     e.preventDefault();
@@ -578,9 +577,7 @@ export default function ExamRunnerPage() {
                   }}
                 />
                 <span className="flex-1">
-                  <span className={`choice-strike ${eliminated ? "eliminated" : ""}`}>
-                    {choice}
-                  </span>
+                  <span className="flex-1">{choice}</span>
                 </span>
               </label>
             </li>
@@ -994,45 +991,6 @@ export default function ExamRunnerPage() {
         storageKey={slug ? `notes:${slug}` : null}
         onClose={() => setTool("pointer")}
       />
-
-      {/* ===== Helpers & styles ===== */}
-      <style>{`
-        /* Full-bleed header/status even inside a centered layout */
-        .full-bleed { margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); width: 100vw; }
-
-        .passage h1, .passage h2, .passage h3 { text-align: center; margin-bottom: 0.25rem; }
-        .passage h1 + p, .passage h2 + p, .passage h3 + p { text-align: center; margin-top: 0.25rem; margin-bottom: 1rem; }
-        .passage em { display: block; text-align: center; color: #6b7280; font-style: italic; }
-        .passage ol { counter-reset: item; list-style: none; padding-left: 0; margin-left: 0; }
-        .passage ol > li { counter-increment: item; position: relative; padding-left: 2.25rem; margin: 0.75rem 0; }
-        .passage ol > li::before {
-          content: counter(item);
-          position: absolute; left: 0; top: 0.1rem; width: 1.5rem; height: 1.5rem;
-          border-radius: 9999px; background: #111827; color: #fff; font-weight: 700; font-size: 0.875rem;
-          display: inline-flex; align-items: center; justify-content: center;
-        }
-
-        /* Compact red X only over the option text */
-        .choice-strike {
-          position: relative;
-          display: inline-block;   /* shrink to fit the text */
-          overflow: hidden;        /* clip the rotated lines to the text box */
-        }
-        .choice-strike.eliminated { color: #9ca3af; }
-        .choice-strike.eliminated::before,
-        .choice-strike.eliminated::after {
-          content: "";
-          position: absolute;
-          left: 2px;               /* slight inset so lines don't overshoot */
-          right: 2px;
-          top: 50%;
-          border-top: 2px solid #ef4444;
-          transform-origin: 50% 50%;
-          pointer-events: none;
-        }
-        .choice-strike.eliminated::before { transform: translateY(-50%) rotate(9deg); }
-        .choice-strike.eliminated::after  { transform: translateY(-50%) rotate(-9deg); }
-      `}</style>
     </div>
   );
 }

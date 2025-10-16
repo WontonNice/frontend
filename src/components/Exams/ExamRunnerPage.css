@@ -1,0 +1,73 @@
+/* Full-bleed header/status even inside a centered layout */
+.full-bleed {
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  width: 100vw;
+}
+
+/* Passage typography helpers */
+.passage h1,
+.passage h2,
+.passage h3 {
+  text-align: center;
+  margin-bottom: 0.25rem;
+}
+.passage h1 + p,
+.passage h2 + p,
+.passage h3 + p {
+  text-align: center;
+  margin-top: 0.25rem;
+  margin-bottom: 1rem;
+}
+.passage em {
+  display: block;
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
+}
+.passage ol {
+  counter-reset: item;
+  list-style: none;
+  padding-left: 0;
+  margin-left: 0;
+}
+.passage ol > li {
+  counter-increment: item;
+  position: relative;
+  padding-left: 2.25rem;
+  margin: 0.75rem 0;
+}
+.passage ol > li::before {
+  content: counter(item);
+  position: absolute;
+  left: 0;
+  top: 0.1rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background: #111827;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Compact red X only over the option text */
+.choice-row { position: relative; }
+.choice-row.eliminated { color: #9ca3af; }
+.choice-row.eliminated::before,
+.choice-row.eliminated::after {
+  content: "";
+  position: absolute;
+  /* overshoot slightly inside the card; adjust if you want more/less margin */
+  left: 8px;
+  right: 8px;
+  top: 50%;
+  border-top: 2px solid #ef4444;
+  transform-origin: center;
+  pointer-events: none;
+}
+.choice-row.eliminated::before { transform: translateY(-50%) rotate(10deg); }
+.choice-row.eliminated::after  { transform: translateY(-50%) rotate(-10deg); }
