@@ -19,9 +19,6 @@ import ExamToolButtons from "./Tools/ToolButtons";
 import GlobalNotepad from "./Tools/GlobalNotepad";
 import type { Tool } from "./Tools/types";
 
-/** Typed numeric comparator */
-const numAsc = (x: number, y: number) => x - y;
-
 /** Stores selected value per question (keyed by globalId) */
 type AnswerValue = number | number[] | DragMap | TableAnswer | undefined;
 type AnswerMap = Record<string, AnswerValue>;
@@ -337,6 +334,9 @@ export default function ExamRunnerPage() {
   const [tool, setTool] = useState<Tool>("pointer");
   const { isEliminated, toggleElim, resetElims } = useEliminator();
 
+  // ✅ eliminator flag used in renderChoices()
+  const eliminatorActive = tool === "eliminate";
+
   // Reset eliminations when exam changes
   useEffect(() => {
     resetElims();
@@ -487,8 +487,7 @@ export default function ExamRunnerPage() {
       return <p className="text-gray-500">No choices for this item.</p>;
     }
 
-    const eliminatorActive = tool === "eliminate";
-
+    // MULTI
     if (it.interactionType === "multi_select") {
       return (
         <ul className="space-y-3">
@@ -497,39 +496,46 @@ export default function ExamRunnerPage() {
               Select {it.selectCount} answer{it.selectCount > 1 ? "s" : ""}.
             </div>
           ) : null}
+
           {it.choices.map((choice, i) => {
             const currentAns = (answers[it.globalId] as number[] | undefined) ?? [];
             const checked = currentAns.includes(i);
             const eliminated = isEliminated(it.globalId, i);
+
             return (
               <li key={i}>
-                <label className="flex items-start gap-3 cursor-pointer relative">
+                <label
+                  className="flex items-start gap-3 cursor-pointer relative"
+                  onClick={(e) => {
+                    if (eliminatorActive) {
+                      e.preventDefault();
+                      toggleElim(it.globalId, i);
+                    }
+                  }}
+                >
                   <input
                     type="checkbox"
                     className="h-4 w-4 mt-1"
                     checked={checked}
-                    disabled={eliminatorActive}
-                    onChange={() => {
+                    onChange={(e) => {
                       if (eliminatorActive) {
-                        toggleElim(it.globalId, i);
-                      } else {
-                        setAnswers((prev) => {
-                          const set = new Set((prev[it.globalId] as number[] | undefined) ?? []);
-                          if (checked) {
-                            set.delete(i);
-                          } else {
-                            if (it.selectCount && set.size >= it.selectCount) return prev; // cap
-                            set.add(i);
-                          }
-                          return {
-                            ...prev,
-                            [it.globalId]: Array.from(set).sort(numAsc),
-                          };
-                        });
+                        e.preventDefault();
+                        return;
                       }
+                      setAnswers((prev) => {
+                        const set = new Set((prev[it.globalId] as number[] | undefined) ?? []);
+                        if (checked) set.delete(i);
+                        else {
+                          if (it.selectCount && set.size >= it.selectCount) return prev; // cap
+                          set.add(i);
+                        }
+                        return { ...prev, [it.globalId]: Array.from(set).sort((a, b) => a - b) };
+                      });
                     }}
                   />
-                  <span className={`flex-1 choice-line ${eliminated ? "eliminated" : ""}`}>{choice}</span>
+                  <span className={`flex-1 choice-line ${eliminated ? "eliminated" : ""}`}>
+                    {choice}
+                  </span>
                 </label>
               </li>
             );
@@ -538,31 +544,40 @@ export default function ExamRunnerPage() {
       );
     }
 
-    // default: single_select
+    // SINGLE (default)
     return (
       <ul className="space-y-3">
         {it.choices.map((choice, i) => {
           const selected = answers[it.globalId] === i;
           const eliminated = isEliminated(it.globalId, i);
-          const eliminatorActive = tool === "eliminate";
+
           return (
             <li key={i}>
-              <label className="flex items-start gap-3 cursor-pointer relative">
+              <label
+                className="flex items-start gap-3 cursor-pointer relative"
+                onClick={(e) => {
+                  if (eliminatorActive) {
+                    e.preventDefault();
+                    toggleElim(it.globalId, i);
+                  }
+                }}
+              >
                 <input
                   type="radio"
                   name={it.globalId}
                   className="h-4 w-4 mt-1"
                   checked={!!selected}
-                  disabled={eliminatorActive}
-                  onChange={() => {
-                    if (tool === "eliminate") {
-                      toggleElim(it.globalId, i);
-                    } else {
-                      setAnswers((prev) => ({ ...prev, [it.globalId]: i }));
+                  onChange={(e) => {
+                    if (eliminatorActive) {
+                      e.preventDefault();
+                      return;
                     }
+                    setAnswers((prev) => ({ ...prev, [it.globalId]: i }));
                   }}
                 />
-                <span className={`flex-1 choice-line ${eliminated ? "eliminated" : ""}`}>{choice}</span>
+                <span className={`flex-1 choice-line ${eliminated ? "eliminated" : ""}`}>
+                  {choice}
+                </span>
               </label>
             </li>
           );
@@ -993,17 +1008,23 @@ export default function ExamRunnerPage() {
           display: inline-flex; align-items: center; justify-content: center;
         }
 
-        /* Choice line + Eliminator decoration */
+        /* Choice line + Eliminator decoration (red X) */
         .choice-line { position: relative; display: inline-block; }
         .choice-line.eliminated { color: #9ca3af; }
+        .choice-line.eliminated::before,
         .choice-line.eliminated::after {
           content: "";
           position: absolute;
-          left: -4px; right: -4px; top: 50%;
+          left: -6px;
+          right: -6px;
+          top: 50%;
+          height: 0;
           border-top: 2px solid #ef4444;
-          transform: rotate(-6deg);
+          transform-origin: center;
           pointer-events: none;
         }
+        .choice-line.eliminated::before { transform: translateY(-50%) rotate(12deg); }
+        .choice-line.eliminated::after  { transform: translateY(-50%) rotate(-12deg); }
       `}</style>
     </div>
   );
