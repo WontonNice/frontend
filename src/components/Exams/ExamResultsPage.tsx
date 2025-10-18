@@ -99,235 +99,266 @@ function ExamResultsPage({
     return map;
   }, [items]);
 
-  const results = useMemo(() => {
-    const rows: ResultRow[] = [];
-    let correctCount = 0;
-    let incorrectCount = 0;
-    let unansweredCountLocal = 0;
-    let scoredCount = 0;
+  const normalizeKind = (t?: string): InteractionType => {
+  const k = (t ?? "single_select").toLowerCase().replace(/[\s-]+/g, "_");
+  if (k === "multi_select" || k === "multiple_select" || k === "multi") return "multi_select";
+  if (k === "drag_to_bins" || k === "drag_bins" || k === "drag_to_categories") return "drag_to_bins";
+  if (k === "table_match" || k === "table" || k === "match_table") return "table_match";
+  if (k === "cloze_drag" || k === "cloze" || k === "drag_drop") return "cloze_drag";
+  return "single_select";
+};
 
-    const secTotals: SectionTotals = {
-      reading: { correct: 0, scored: 0 },
-      math: { correct: 0, scored: 0 },
-    };
+const pick = <T,>(...vals: Array<T | undefined>): T | undefined =>
+  vals.find((v) => v !== undefined);
 
-    const getCorrectIndex = (q: any): number | undefined =>
-      typeof q?.answerIndex === "number" ? q.answerIndex : undefined;
+const getSingleCorrect = (q: any, item?: FlatItemLike): number | undefined =>
+  pick(
+    typeof q?.answerIndex === "number" ? q.answerIndex : undefined,
+    typeof q?.correctIndex === "number" ? q.correctIndex : undefined,
+    typeof q?.correct === "number" ? q.correct : undefined,
+    typeof q?.answer === "number" ? q.answer : undefined,
+    typeof item?.answerIndex === "number" ? item.answerIndex : undefined
+  );
 
-    const getCorrectIndices = (q: any): number[] | undefined =>
-      Array.isArray(q?.correctIndices) ? q.correctIndices.slice().sort(numAsc) : undefined;
+const getMultiCorrect = (q: any, item?: FlatItemLike): number[] | undefined => {
+  const arr =
+    pick(
+      Array.isArray(q?.correctIndices) ? q.correctIndices : undefined,
+      Array.isArray(q?.answers) ? q.answers : undefined,
+      Array.isArray(q?.correct) ? q.correct : undefined,
+      Array.isArray(item?.correctIndices) ? item.correctIndices : undefined
+    ) ?? undefined;
+  return Array.isArray(arr) ? arr.slice().sort(numAsc) : undefined;
+};
 
-    // Build a question list per section:
-    // - reading + ela_a from readingQs
-    // - ela_b from flattened items (so we can use copied answer keys)
-    // - math and any other sections from sec.questions
-    let g = 0;
-    exam.sections.forEach((sec: any) => {
-      const displayGroup = groupLabel(sec.type);
-      const sectionType = (sec.type === "math" ? "math" : "reading") as "reading" | "math";
+const getBinsKey = (q: any, item?: FlatItemLike): Record<string, string> | undefined =>
+  pick(
+    q?.correctBins as Record<string, string> | undefined,
+    q?.answersMap as Record<string, string> | undefined,
+    q?.key as Record<string, string> | undefined,
+    item?.correctBins
+  );
 
-      const qList: any[] =
-        (sec.type === "reading" || sec.type === "ela_a")
-          ? (readingQs[sec.id] ?? [])
-          : (sec.type === "ela_b")
-              ? items
-                  .filter((it) => it.sectionId === sec.id && !it.isIntro && !it.isEnd)
-                  .map((it) => ({
-                    id: it.globalId.split(":")[1],
-                    type: (it.interactionType as InteractionType) ?? "single_select",
-                    // carry answer keys from items if present
-                    choices: it.choices,
-                    answerIndex: it.answerIndex,
-                    correctIndices: it.correctIndices,
-                    correctBins: it.correctBins,
-                    correctCells: it.correctCells,
-                    blanks: it.blanks,
-                  }))
-              : (sec.questions ?? []);
+const getCellsKey = (q: any, item?: FlatItemLike): Record<string, string> | undefined =>
+  pick(
+    q?.correctCells as Record<string, string> | undefined,
+    q?.answers as Record<string, string> | undefined,
+    q?.key as Record<string, string> | undefined,
+    item?.correctCells
+  );
 
-      (qList as any[]).forEach((q: any) => {
-        const globalId = `${sec.id}:${q.id}`;
-        const kind: InteractionType = (q?.type ?? itemsById[globalId]?.interactionType ?? "single_select") as InteractionType;
-        const choices = (q as any).choices as string[] | undefined;
+const getClozeBlank = (q: any, item?: FlatItemLike): { blankId?: string; correct?: string } => {
+  const b = (q?.blanks?.[0] ?? item?.blanks?.[0]) as { id?: string; correctOptionId?: string } | undefined;
+  return { blankId: b?.id, correct: b?.correctOptionId ?? (q?.correctOptionId as string | undefined) };
+};
 
-        const pushRow = (
-          row: Omit<ResultRow, "displayGroup" | "sectionType" | "globalNumber">
-        ) => {
-          rows.push({
-            ...row,
-            globalNumber: g + 1,
-            displayGroup,
-            sectionType,
-          });
-        };
+const results = useMemo(() => {
+  const rows: ResultRow[] = [];
+  let correctCount = 0;
+  let incorrectCount = 0;
+  let unansweredCountLocal = 0;
+  let scoredCount = 0;
 
-        if (kind === "multi_select") {
-          // 🔧 fallback to itemsById if the question object doesn't include correctIndices
-          const correct =
-            getCorrectIndices(q) ??
-            (itemsById[globalId]?.correctIndices
-              ? itemsById[globalId]!.correctIndices!.slice().sort(numAsc)
-              : undefined);
+  const secTotals: SectionTotals = {
+    reading: { correct: 0, scored: 0 },
+    math: { correct: 0, scored: 0 },
+  };
 
-          const user = (answers[globalId] as number[] | undefined) ?? [];
-          const isScored = Array.isArray(correct);
-          const isUnanswered = user.length === 0;
-          const isCorrect = isScored
-            ? (!isUnanswered &&
-               isEqualNumArrays(user.slice().sort(numAsc), (correct ?? []).slice().sort(numAsc)))
-            : null;
+  let g = 0;
+  exam.sections.forEach((sec: any) => {
+    const displayGroup = groupLabel(sec.type);
+    const sectionType = (sec.type === "math" ? "math" : "reading") as "reading" | "math";
 
-          if (isScored) {
-            scoredCount++;
-            secTotals[sectionType].scored += 1;
-            if (isUnanswered) {
-              unansweredCountLocal++;
-            } else if (isCorrect) {
-              correctCount++;
-              secTotals[sectionType].correct += 1;
-            } else {
-              incorrectCount++;
-            }
-          } else if (isUnanswered) {
+    // Build list per your rules
+    const qList: any[] =
+      (sec.type === "reading" || sec.type === "ela_a")
+        ? (readingQs[sec.id] ?? [])
+        : (sec.type === "ela_b")
+          ? items
+              .filter((it) => it.sectionId === sec.id && !(it as any).isIntro && !(it as any).isEnd)
+              .map((it) => ({
+                id: it.globalId.split(":")[1],
+                type: (it as any).interactionType ?? "single_select",
+                choices: (it as any).choices,
+                answerIndex: (it as any).answerIndex,
+                correctIndices: (it as any).correctIndices,
+                correctBins: (it as any).correctBins,
+                correctCells: (it as any).correctCells,
+                blanks: (it as any).blanks,
+              }))
+          : (sec.questions ?? []);
+
+    (qList as any[]).forEach((q: any) => {
+      const globalId = `${sec.id}:${q.id}`;
+      const item = itemsById[globalId];
+      const kind = normalizeKind(q?.type ?? item?.interactionType);
+      const choices = (q as any).choices ?? item?.choices;
+
+      const pushRow = (row: Omit<ResultRow, "displayGroup" | "sectionType" | "globalNumber">) => {
+        rows.push({
+          ...row,
+          globalNumber: g + 1,
+          displayGroup,
+          sectionType,
+        });
+      };
+
+      if (kind === "multi_select") {
+        const correct = getMultiCorrect(q, item);
+        const user = (answers[globalId] as number[] | undefined) ?? [];
+        const isScored = Array.isArray(correct);
+        const isUnanswered = user.length === 0;
+        const isCorrect = isScored
+          ? (!isUnanswered && isEqualNumArrays(user.slice().sort(numAsc), (correct ?? []).slice().sort(numAsc)))
+          : null;
+
+        if (isScored) {
+          scoredCount++;
+          secTotals[sectionType].scored += 1;
+          if (isUnanswered) {
             unansweredCountLocal++;
+          } else if (isCorrect) {
+            correctCount++;
+            secTotals[sectionType].correct += 1;
+          } else {
+            incorrectCount++;
           }
-
-          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct, choices });
-
-        } else if (kind === "drag_to_bins") {
-          const key = (q?.correctBins ?? itemsById[globalId]?.correctBins) as Record<string, string> | undefined;
-          const user = (answers[globalId] as DragMap) ?? {};
-          const hasAny = Object.keys(user).length > 0;
-          const isScored = !!key;
-          const isUnanswered = !hasAny;
-          const isCorrect = isScored
-            ? (hasAny &&
-               Object.keys(key!).length === Object.keys(user).length &&
-               Object.entries(key!).every(([opt, bin]) => user[opt] === bin))
-            : null;
-
-          if (isScored) {
-            scoredCount++;
-            secTotals[sectionType].scored += 1;
-            if (isUnanswered) {
-              unansweredCountLocal++;
-            } else if (isCorrect) {
-              correctCount++;
-              secTotals[sectionType].correct += 1;
-            } else {
-              incorrectCount++;
-            }
-          } else if (isUnanswered) {
-            unansweredCountLocal++;
-          }
-
-          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct: key });
-
-        } else if (kind === "table_match") {
-          const key = (q?.correctCells ?? itemsById[globalId]?.correctCells) as Record<string, string> | undefined;
-          const user = (answers[globalId] as TableAnswer) ?? {};
-          const hasAny = Object.keys(user).length > 0;
-          const isScored = !!key;
-          const isUnanswered = !hasAny;
-          const isCorrect = isScored
-            ? (hasAny &&
-               Object.keys(key!).length === Object.keys(user).length &&
-               Object.entries(key!).every(([rowId, optId]) => user[rowId] === optId))
-            : null;
-
-          if (isScored) {
-            scoredCount++;
-            secTotals[sectionType].scored += 1;
-            if (isUnanswered) {
-              unansweredCountLocal++;
-            } else if (isCorrect) {
-              correctCount++;
-              secTotals[sectionType].correct += 1;
-            } else {
-              incorrectCount++;
-            }
-          } else if (isUnanswered) {
-            unansweredCountLocal++;
-          }
-
-          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct: key });
-
-        } else if (kind === "cloze_drag") {
-          // single-blank scoring
-          const blankId  = q?.blanks?.[0]?.id ?? itemsById[globalId]?.blanks?.[0]?.id;
-          const correct  = q?.blanks?.[0]?.correctOptionId ?? itemsById[globalId]?.blanks?.[0]?.correctOptionId;
-          const userObj  = (answers[globalId] as Record<string, string> | undefined) ?? {};
-          const hasAny   = userObj && Object.keys(userObj).length > 0;
-          const isScored = !!blankId && !!correct;
-          const isUnanswered = !hasAny;
-          const isCorrect = isScored ? (hasAny && userObj[blankId!] === correct) : null;
-
-          if (isScored) {
-            scoredCount++;
-            secTotals[sectionType].scored += 1;
-            if (isUnanswered) {
-              unansweredCountLocal++;
-            } else if (isCorrect) {
-              correctCount++;
-              secTotals[sectionType].correct += 1;
-            } else {
-              incorrectCount++;
-            }
-          } else if (isUnanswered) {
-            unansweredCountLocal++;
-          }
-
-          pushRow({
-            globalId,
-            kind,
-            isScored,
-            isUnanswered,
-            isCorrect,
-            user: userObj,
-            correct: { [blankId ?? "blank"]: correct }
-          });
-
-        } else {
-          // single_select (default)
-          const correct =
-            getCorrectIndex(q) ??
-            (typeof itemsById[globalId]?.answerIndex === "number" ? itemsById[globalId].answerIndex : undefined);
-          const user = answers[globalId] as number | undefined;
-          const isScored = typeof correct === "number";
-          const isUnanswered = user == null;
-          const isCorrect = isScored ? (!isUnanswered && user === correct) : null;
-
-          if (isScored) {
-            scoredCount++;
-            secTotals[sectionType].scored += 1;
-            if (isUnanswered) {
-              unansweredCountLocal++;
-            } else if (isCorrect) {
-              correctCount++;
-              secTotals[sectionType].correct += 1;
-            } else {
-              incorrectCount++;
-            }
-          } else if (isUnanswered) {
-            unansweredCountLocal++;
-          }
-
-          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct, choices });
+        } else if (isUnanswered) {
+          unansweredCountLocal++;
         }
 
-        g++;
-      });
-    });
+        pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct, choices });
 
-    return {
-      rows,
-      correctCount,
-      incorrectCount,
-      unansweredCount: unansweredCountLocal,
-      scoredCount,
-      sectionTotals: secTotals,
-    };
-  }, [exam, items, readingQs, answers]);
+      } else if (kind === "drag_to_bins") {
+        const key = getBinsKey(q, item);
+        const user = (answers[globalId] as DragMap) ?? {};
+        const hasAny = Object.keys(user).length > 0;
+        const isScored = !!key;
+        const isUnanswered = !hasAny;
+        const isCorrect = isScored
+          ? (hasAny &&
+             Object.keys(key!).length === Object.keys(user).length &&
+             Object.entries(key!).every(([opt, bin]) => user[opt] === bin))
+          : null;
+
+        if (isScored) {
+          scoredCount++;
+          secTotals[sectionType].scored += 1;
+          if (isUnanswered) {
+            unansweredCountLocal++;
+          } else if (isCorrect) {
+            correctCount++;
+            secTotals[sectionType].correct += 1;
+          } else {
+            incorrectCount++;
+          }
+        } else if (isUnanswered) {
+          unansweredCountLocal++;
+        }
+
+        pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct: key });
+
+      } else if (kind === "table_match") {
+        const key = getCellsKey(q, item);
+        const user = (answers[globalId] as TableAnswer) ?? {};
+        const hasAny = Object.keys(user).length > 0;
+        const isScored = !!key;
+        const isUnanswered = !hasAny;
+        const isCorrect = isScored
+          ? (hasAny &&
+             Object.keys(key!).length === Object.keys(user).length &&
+             Object.entries(key!).every(([rowId, optId]) => user[rowId] === optId))
+          : null;
+
+        if (isScored) {
+          scoredCount++;
+          secTotals[sectionType].scored += 1;
+          if (isUnanswered) {
+            unansweredCountLocal++;
+          } else if (isCorrect) {
+            correctCount++;
+            secTotals[sectionType].correct += 1;
+          } else {
+            incorrectCount++;
+          }
+        } else if (isUnanswered) {
+          unansweredCountLocal++;
+        }
+
+        pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct: key });
+
+      } else if (kind === "cloze_drag") {
+        const { blankId, correct } = getClozeBlank(q, item);
+        const userObj = (answers[globalId] as Record<string, string> | undefined) ?? {};
+        const hasAny = Object.keys(userObj).length > 0;
+        const isScored = !!blankId && !!correct;
+        const isUnanswered = !hasAny;
+        const isCorrect = isScored ? (hasAny && userObj[blankId!] === correct) : null;
+
+        if (isScored) {
+          scoredCount++;
+          secTotals[sectionType].scored += 1;
+          if (isUnanswered) {
+            unansweredCountLocal++;
+          } else if (isCorrect) {
+            correctCount++;
+            secTotals[sectionType].correct += 1;
+          } else {
+            incorrectCount++;
+          }
+        } else if (isUnanswered) {
+          unansweredCountLocal++;
+        }
+
+        pushRow({
+          globalId,
+          kind,
+          isScored,
+          isUnanswered,
+          isCorrect,
+          user: userObj,
+          correct: blankId ? { [blankId]: correct! } : undefined,
+        });
+
+      } else {
+        // single_select (default)
+        const correct = getSingleCorrect(q, item);
+        const user = answers[globalId] as number | undefined;
+        const isScored = typeof correct === "number";
+        const isUnanswered = user == null;
+        const isCorrect = isScored ? (!isUnanswered && user === correct) : null;
+
+        if (isScored) {
+          scoredCount++;
+          secTotals[sectionType].scored += 1;
+          if (isUnanswered) {
+            unansweredCountLocal++;
+          } else if (isCorrect) {
+            correctCount++;
+            secTotals[sectionType].correct += 1;
+          } else {
+            incorrectCount++;
+          }
+        } else if (isUnanswered) {
+          unansweredCountLocal++;
+        }
+
+        pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct, choices });
+      }
+
+      g++;
+    });
+  });
+
+  return {
+    rows,
+    correctCount,
+    incorrectCount,
+    unansweredCount: unansweredCountLocal,
+    scoredCount,
+    sectionTotals: secTotals,
+  };
+}, [exam, items, readingQs, answers]);
 
   const { correctCount, scoredCount, sectionTotals } = results;
   const percent = scoredCount ? Math.round((correctCount / scoredCount) * 100) : 0;
