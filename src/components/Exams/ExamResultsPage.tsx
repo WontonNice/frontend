@@ -117,9 +117,9 @@ function ExamResultsPage({
     const getCorrectIndices = (q: any): number[] | undefined =>
       Array.isArray(q?.correctIndices) ? q.correctIndices.slice().sort(numAsc) : undefined;
 
-    // We build a question list per section:
+    // Build a question list per section:
     // - reading + ela_a from readingQs
-    // - ela_b from flattened items
+    // - ela_b from flattened items (so we can use copied answer keys)
     // - math and any other sections from sec.questions
     let g = 0;
     exam.sections.forEach((sec: any) => {
@@ -162,7 +162,13 @@ function ExamResultsPage({
         };
 
         if (kind === "multi_select") {
-          const correct = getCorrectIndices(q);
+          // 🔧 fallback to itemsById if the question object doesn't include correctIndices
+          const correct =
+            getCorrectIndices(q) ??
+            (itemsById[globalId]?.correctIndices
+              ? itemsById[globalId]!.correctIndices!.slice().sort(numAsc)
+              : undefined);
+
           const user = (answers[globalId] as number[] | undefined) ?? [];
           const isScored = Array.isArray(correct);
           const isUnanswered = user.length === 0;
@@ -271,7 +277,15 @@ function ExamResultsPage({
             unansweredCountLocal++;
           }
 
-          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user: userObj, correct: { [blankId ?? "blank"]: correct } });
+          pushRow({
+            globalId,
+            kind,
+            isScored,
+            isUnanswered,
+            isCorrect,
+            user: userObj,
+            correct: { [blankId ?? "blank"]: correct }
+          });
 
         } else {
           // single_select (default)
