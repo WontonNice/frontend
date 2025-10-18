@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getExamBySlug } from "../../data/exams";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import { getQuestionsByIds } from "../../../public/exams/revising/revEditB-QuestionBank.ts";
 
 /** Results page (extracted) */
 import ExamResultsPage from "./ExamResultsPage";
@@ -160,6 +161,9 @@ const introMdPathFor = (type: string): string | undefined => {
   return undefined;
 };
 
+const MD_SECTION_TYPES = new Set(["reading", "ela_a"]);
+const isMdType = (t?: string) => (t ? MD_SECTION_TYPES.has(t) : false);
+
 /** Icons used locally (bookmark/review/back) */
 const BookmarkFilled = ({ className = "h-4 w-4" }: { className?: string }) => (
   <svg viewBox="0 0 24 24" className={className} aria-hidden fill="#2563EB">
@@ -199,7 +203,7 @@ export default function ExamRunnerPage() {
       const qsMap: Record<string, MdFrontmatter["questions"]> = {};
 
       const tasks = exam.sections
-        .filter((s: any) => s.type === "reading" && s.passageMd)
+        .filter((s: any) => isMdType(s.type) && s.passageMd)
         .map(async (s: any) => {
           try {
             const url: string = s.passageMd.startsWith("/") ? s.passageMd : `/exams/readingpassages/${s.passageMd}`;
@@ -278,10 +282,17 @@ export default function ExamRunnerPage() {
         insertedIntro.add(type);
       }
 
-      const sectionQuestions =
-        type === "reading"
-          ? (readingQs[sec.id] ?? [])
-          : (sec.questions ?? []);
+      let sectionQuestions: any[] = [];
+      if (isMdType(type)) {
+        // reading / ela_a -> questions come from the .md (YAML frontmatter)
+        sectionQuestions = readingQs[sec.id] ?? [];
+      } else if (type === "ela_b") {
+        // ELA-B -> pull exact questions by id from your bank
+        sectionQuestions = getQuestionsByIds((sec as any).questionIds ?? []);
+      } else {
+        // math (or any other inline) -> use section.questions
+        sectionQuestions = (sec.questions ?? []);
+      }
 
       (sectionQuestions as any[]).forEach((q: any) => {
         out.push({
@@ -290,9 +301,7 @@ export default function ExamRunnerPage() {
           sectionTitle: sec.title,
           sectionType: type,
           sectionPassageMarkdown:
-            type === "reading"
-              ? readingBodies[sec.id] ?? ""
-              : (sec as any).passageMarkdown,
+            isMdType(type) ? (readingBodies[sec.id] ?? "") : (sec as any).passageMarkdown,
           sectionPassageImages: (sec as any).passageImages,
           sectionPassageUrl: sec.passageMd ?? (sec as any).passageUrl,
           stemMarkdown: q.stemMarkdown ?? q.promptMarkdown,
@@ -427,7 +436,7 @@ export default function ExamRunnerPage() {
     setFetchedPassage(undefined);
     if (!current || current.isEnd || current.isIntro) return;
     const sec = exam?.sections.find((s: any) => s.id === current.sectionId) as any;
-    if (sec?.type === "reading") {
+    if (isMdType(sec?.type)) {
       const body = readingBodies[current.sectionId];
       if (body != null) {
         setFetchedPassage(body);
@@ -458,14 +467,14 @@ export default function ExamRunnerPage() {
 
   // Prefer fetched/preloaded content for reading-like sections
   const effectivePassage =
-    !current?.isEnd && !current?.isIntro && current?.sectionType !== "math"
+    !current?.isEnd && !current?.isIntro && isMdType(current?.sectionType)
       ? fetchedPassage ??
         (exam.sections.find((s) => s.id === current.sectionId) as any)?.passageMarkdown
       : undefined;
 
   // Normalize passage images
   const effectivePassageImages = (() => {
-    if (current?.isEnd || current?.isIntro || current?.sectionType === "math") return undefined;
+    if (current?.isEnd || current?.isIntro || !isMdType(current?.sectionType)) return undefined;
     const sec = exam.sections.find((s: any) => s.id === current?.sectionId) as any;
     const raw = sec?.passageImages;
     const list = Array.isArray(raw)

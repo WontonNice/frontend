@@ -53,6 +53,12 @@
       "passageImages": [""]
     },
     {
+      "id": "ela_b",
+      "title": "ELA Rev/Edit B Set 1",
+      "type": "ela_b",
+      "questionIds": ["ELA-B-001", "ELA-B-002", "ELA-B-003", "ELA-B-004"]
+    }, 
+    {
       "id": "math-1",
       "title": "Math Set 1",
       "type": "math",
