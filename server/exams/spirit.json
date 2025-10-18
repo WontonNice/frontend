@@ -1,0 +1,14 @@
+{
+  "slug": "classwork-1",
+  "title": "Classwork 1",
+  "description": "Follow Instructions",
+  "sections": [
+    {
+      "id": "reading-1",
+      "title": "Reading Passage 1",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/OfficialSHSATReadings/Spirit-of-the-Herd.md",
+      "passageImages": [""]
+    }
+  ]
+}
