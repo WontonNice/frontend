@@ -749,14 +749,40 @@ export default function LiveSessionPage() {
         <button onClick={clearMine} className="px-2 py-1 text-xs rounded bg-red-500/80 text-black">Clear</button>
       </div>
 
-      {/* Left teacher panel */}
-      {isTeacher && (
-        <div className="fixed z-[60] left-4 top-[calc(var(--topbar-height,56px)+8px)] bg-black/40 backdrop-blur px-4 py-3 rounded-2xl ring-1 ring-white/10 space-x-2">
-          <button onClick={teacherClearBoard} className="px-3 py-1.5 rounded-lg border border-emerald-500/60 text-emerald-300 hover:bg-emerald-500/10 text-sm font-semibold" title="Clears drawings and images for everyone">Clear Board</button>
-          <button onClick={teacherToggleDrawing} className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold" title="Toggle whether students can draw">{drawingLockedForMe ? "Enable Student Drawing" : "Disable Student Drawing"}</button>
-          <button onClick={teacherEndSession} className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold" title="Ends session and clears the board for everyone">End Session</button>
-        </div>
-      )}
+{/* Left teacher panel */}
+{isTeacher && (
+  <div className="fixed z-[60] left-4 top-[calc(var(--topbar-height,56px)+8px)] bg-black/40 backdrop-blur px-4 py-3 rounded-2xl ring-1 ring-white/10 space-x-2">
+    <button
+      onClick={teacherClearBoard}
+      className="px-3 py-1.5 rounded-lg border border-emerald-500/60 text-emerald-300 hover:bg-emerald-500/10 text-sm font-semibold"
+      title="Clears drawings and images for everyone"
+    >
+      Clear Board
+    </button>
+
+    {/* Visual state now reflects drawingDisabled */}
+    <button
+      onClick={teacherToggleDrawing}
+      className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${
+        drawingDisabled
+          ? "bg-amber-500/90 text-black hover:bg-amber-400"
+          : "bg-white/10 hover:bg-white/20"
+      }`}
+      aria-pressed={drawingDisabled}
+      title={drawingDisabled ? "Enable students to draw" : "Disable student drawing"}
+    >
+      {drawingDisabled ? "Enable Student Drawing" : "Disable Student Drawing"}
+    </button>
+
+    <button
+      onClick={teacherEndSession}
+      className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold"
+      title="Ends session and clears the board for everyone"
+    >
+      End Session
+    </button>
+  </div>
+)}
 
       {/* banner for students */}
       {drawingLockedForMe && (
