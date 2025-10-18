@@ -30,7 +30,7 @@ questions:
       - "B. to show how First Ladies in the mid-1900s were only valued for their appearances and not their ideas"
       - "C. to highlight the active role that First Ladies played in making political decisions since 1900"
       - "D. to reinforce the notion that First Ladies in the mid-1900s were not expected to work"
-    answerIndex: 2
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q3
@@ -42,7 +42,7 @@ questions:
       - "B. It introduces Lady Bird Johnson’s adolescent personality in order to later contrast it with the force of her historical impact as an adult."
       - "C. It provides examples of the ways Lady Bird Johnson’s upbringing was similar to Michelle Obama and Hillary Clinton’s childhoods."
       - "D. It highlights details from Lady Bird Johnson’s early childhood that explain why she was a fierce opponent of the civil rights movement."
-    answerIndex: 2
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q4
@@ -66,7 +66,7 @@ questions:
       - "B. were signed by President Johnson to help African-Americans with employment."
       - "C. were also known as Lady Bird’s Bill and were an example of Lady Bird’s political involvement."
       - "D. were racist laws that were overturned by the Civil Rights Act of 1964."
-    answerIndex: 2
+    answerIndex: 3
     explanationMarkdown: ""
 
   - id: q6
@@ -78,7 +78,7 @@ questions:
       - "B. “President Johnson had recently signed the Civil Rights Act, which shut down Jim Crow laws and guaranteed equal access and equal employment to all African-Americans.” (paragraph 7)"
       - "C. “Eight Southern states were deemed far too dangerous for President Johnson to campaign in.” (paragraph 8)"
       - "D. “Long before feminism, at a time when only 30 percent of married women even had jobs, this timid Texan girl – so shy that she couldn’t even bear the thought of making a speech at her high school graduation – spoke up and spoke out.” (paragraph 10)"
-    answerIndex: 2
+    answerIndex: 3
     explanationMarkdown: ""
 
   - id: q7
@@ -95,7 +95,7 @@ questions:
       - "B. Lady Bird Johnson’s dialect helped her connect with a resistant audience."
       - "C. Lady Bird Johnson was a relatable representation of the average American citizen."
       - "D. Lady Bird Johnson’s attempts to master the Northern accents of the capital failed."
-    answerIndex: 2
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q8
@@ -107,7 +107,7 @@ questions:
       - "B. Lady Bird Johnson was a contentious figure because of her involvement in politics."
       - "C. Lady Bird Johnson overcame challenging obstacles to become an influential leader."
       - "D. Despite her personality, Lady Bird Johnson was a pioneer in political and social roles."
-    answerIndex: 2
+    answerIndex: 3
     explanationMarkdown: ""
     
 ---

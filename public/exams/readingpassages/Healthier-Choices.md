@@ -12,7 +12,7 @@ questions:
       - "B. Obesity is linked to poor dietary choices, but restaurants are largely to blame."
       - "C. Obesity is a serious problem in the U.S. but can be combatted through education and information."
       - "D. Obesity is a serious health epidemic that the government is at a loss to how to solve."
-    answerIndex: 0
+    answerIndex: 2
     explanationMarkdown: ""
 
   - id: q2
@@ -24,7 +24,7 @@ questions:
       - "B. introduce and define the topic of the passage, which is obesity."
       - "C. emphasize the seriousness of the obesity epidemic in the U.S. for people of all ages."
       - "D. explain why obesity is such a big health issue for all age groups."
-    answerIndex: 0
+    answerIndex: 2
     explanationMarkdown: ""
 
   - id: q3
@@ -36,7 +36,7 @@ questions:
       - "B. The link between obesity and other serious health conditions reinforces the claim that obesity is a problem that urgently needs to be addressed."
       - "C. The rate of obese children with type 2 diabetes emphasizes how susceptible overweight youth are to health problems previously seen only in adults."
       - "D. Obesity’s link to cancer makes it more serious than other health conditions."
-    answerIndex: 0
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q4
@@ -65,7 +65,7 @@ questions:
       - "B. “One controllable factor is a person’s diet.” (paragraph 6)"
       - "C. “Starting December 2015, the New York City Board of Health required restaurants with 15 or more locations nationwide to post high-sodium-level warning labels on their menus.” (paragraph 7)"
       - "D. “Hopefully, the more people are informed about their diet, the better able they will be to make healthier lifestyle choices.” (paragraph 8)"
-    answerIndex: 0
+    answerIndex: 3
     explanationMarkdown: ""
 
   - id: q6
@@ -77,7 +77,7 @@ questions:
       - "B. Large chain restaurants were the ones who first pushed for this policy to be enforced."
       - "C. Large chain restaurants would be less affected economically by a decline in customers, due to posting the sodium content of menu items, while smaller restaurants could not survive the loss in profits."
       - "D. Large chain restaurants feed a greater number of people on a regular basis, and changing their practices would have an impact on a greater number of diners."
-    answerIndex: 0
+    answerIndex: 3
     explanationMarkdown: ""
 
   - id: q7
@@ -89,7 +89,7 @@ questions:
       - "B. It provides numerical evidence about how widespread obesity is."
       - "C. It demonstrates the link between obesity and other health issues in different age groups, from early childhood to teenage years.
       - "D. It shows that young children are the least likely age group to suffer from obesity, so it is important to educate them about healthy eating habits early on."
-    answerIndex: 0
+    answerIndex: 1
     explanationMarkdown: ""
 
 ---

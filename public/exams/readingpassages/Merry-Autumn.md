@@ -12,7 +12,7 @@ questions:
       - "B. rejecting the negative associations some attribute to autumn."
       - "C. using a metaphor to describe the negative effects of autumn on nature."
       - "D. mourning the approaching end of the year, which is marked by autumn."
-    answerIndex: 0
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q2
@@ -33,7 +33,7 @@ questions:
       - "C. They highlight the fact that some animals thrive in the autumn, while others thrive in the summer."
       - "D. They indicate that feeling sad about autumn is a human invention, not one shared by other animals."
       - "E. They concede the idea that different people have different opinions about the seasons."
-    correctIndices: [0, 3]
+    correctIndices: [1, 3]
     explanationMarkdown: ""
 
   - id: q3
@@ -45,7 +45,7 @@ questions:
       - "B. The speaker describes how colors change in nature over the course of a year."
       - "C. The speaker likens his emotions while grieving to his emotions during autumn."
       - "D. The speaker contrasts a negative display of emotion with positive displays of nature."
-    answerIndex: 0
+    answerIndex: 3
     explanationMarkdown: ""
 
   - id: q4
@@ -79,11 +79,10 @@ questions:
       - id: o4
         label: "Autumn's reputation as a dismal season is unearned."
     correctBins:
-      o1: themeB
-      o2: themeA
+      o1: themeA
+      o2: themeB
       o3: themeB
       o4: themeA
-      o5: themeA
     explanationMarkdown: ""
 
   - id: q6
@@ -95,7 +94,7 @@ questions:
       - "B. by showing how Nature thrives even when the weather is getting colder"
       - "C. by describing a vivid image of a particular scene in a particular place"
       - "D. by giving examples of how autumn is not as solemn a time as some think"
-    answerIndex: 0
+    answerIndex: 3
     explanationMarkdown: ""
 
   - id: q7
@@ -113,7 +112,7 @@ questions:
       - "B. “You’ll note the more of black and gray / Will then be used in dressing.” (lines 11-12)"
       - "C. “And Nature, all from earth to sky, / Is bubbling o’er with laughter” (lines 23-24)"
       - "D. “Because the sun shows fewer rays, / And these grow slant and slender” (lines 35-36)"
-    answerIndex: 0
+    answerIndex: 2
     explanationMarkdown: ""
 
   - id: q8
@@ -131,7 +130,7 @@ questions:
       - "B. represent the joyfulness that’s abundant everywhere."
       - "C. are so uncontrollable that people must attempt to stop them."
       - "D. contribute to the rains that make autumn a depressing time."
-    answerIndex: 0
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q9
@@ -149,7 +148,7 @@ questions:
       - "B. “Because the year is dying” (line 4)"
       - "C. “Now purple tints are all around” (line 13)"
       - "D. “The sunlight runs along the hills” (line 27)"
-    answerIndex: 0
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q10
@@ -161,7 +160,7 @@ questions:
       - "B. The speaker emphasizes to his readers the celebratory mood of all things in nature."
       - "C. The speaker suggests that his readers should be grateful for all the joy autumn brings."
       - "D. The speaker tells his readers to feel thankful for living despite the decay that occurs during autumn."
-    answerIndex: 0
+    answerIndex: 2
     explanationMarkdown: ""
 
 ---

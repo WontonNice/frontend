@@ -12,7 +12,7 @@ questions:
       - "B. the history and legacy of a particular work of art and its impact on culture"
       - "C. reasons why war should always be avoided, given the horrors of the Spanish Civil War"
       - "D. a comparison of an artist’s various works and a symbolic breakdown of each"
-    answerIndex: 0
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q2
@@ -29,7 +29,7 @@ questions:
       - "B. how intentionally cruel the soldiers were in their treatment of Guernica civilians."
       - "C. how tragedy in Guernica was due to the particular circumstances of that day."
       - "D. how the painting of Guernica accurately depicted the horrors of that moment of the war."
-    answerIndex: 0
+    answerIndex: 2
     explanationMarkdown: ""
 
   - id: q3
@@ -41,7 +41,7 @@ questions:
       - "B. create effective propaganda to support the Spanish Republican cause."
       - "C. please the working-class audience of the World Fair."
       - "D. share his outrage at news reports of a specific event."
-    answerIndex: 0
+    answerIndex: 3
     explanationMarkdown: ""
 
   - id: q4
@@ -53,7 +53,7 @@ questions:
       - "B. providing examples of the graphic imagery used to inspire anti-war feelings."
       - "C. showing the reasons behind the creative choices that Picasso made in painting *Guernica*."
       - "D. highlighting the quality of life of the civilians living in Guernica during the Spanish Civil War."
-    answerIndex: 0
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q5
@@ -65,7 +65,7 @@ questions:
       - "B. “It was the working-class population that began to react positively to the piece.” (paragraph 7)"
       - "C. “*Guernica* challenged people’s perceptions of warfare, presenting it as violent and brutal instead of heroic and brave.” (paragraph 7)"
       - "D. “In 2003, artist Sophie Matisse reimagined Picasso’s painting, in a reaction to the September 11, 2001 terrorist attacks in the United States.” (paragraph 9)"
-    answerIndex: 0
+    answerIndex: 3
     explanationMarkdown: ""
 
   - id: q6
@@ -77,7 +77,7 @@ questions:
       - "B. It reinforces the idea that the genius of Guernica was initially misunderstood by many."
       - "C. It contrasts the immediate positive reaction that the painting received in America with the negative reaction from European audiences."
       - "D. It provides a sense of closure to the passage and suggests that Guernica is not done impacting people."
-    answerIndex: 0
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q7

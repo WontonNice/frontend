@@ -44,7 +44,7 @@ const REB_001: BankQuestion = {
     "C. he decided to intentionally lose to his cousin.",
     "D. he knew that his cousin would want to lose on purpose."
   ],
-  answerIndex: 3,
+  answerIndex: 2,
   explanationMarkdown:
     "Sentence 4 needs singular agreement (*it starts*) with *each pancake*, and a comma after *sweet* before *delicious*."
 };
@@ -63,7 +63,7 @@ const REB_002: BankQuestion = {
     "C. move with folded, fuzzy ears after cat",
     "D. move with folded, fuzzy ears after zoomed"
   ],
-  answerIndex: 0
+  answerIndex: 2
 };
 
 const REB_003: BankQuestion = {
@@ -79,7 +79,7 @@ const REB_003: BankQuestion = {
     "C. Taiwan’s humidity can be much, much higher than Arizona.",
     "D. Taiwan humidity can be much, much higher than Arizona."
   ],
-  answerIndex: 0
+  answerIndex: 1
 };
 
 const REB_004: BankQuestion = {

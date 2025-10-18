@@ -235,7 +235,6 @@ export default function ExamRunnerPage() {
     (async () => {
       if (!exam) return;
       const types = Array.from(new Set<string>(exam.sections.map((s: any) => s.type)));
-      // Also ensure Reading gets an intro (even if multiple reading sections)
       if (!types.includes("reading")) types.push("reading");
       const entries = await Promise.all(
         types.map(async (t) => {
@@ -284,13 +283,10 @@ export default function ExamRunnerPage() {
 
       let sectionQuestions: any[] = [];
       if (isMdType(type)) {
-        // reading / ela_a -> questions come from the .md (YAML frontmatter)
         sectionQuestions = readingQs[sec.id] ?? [];
       } else if (type === "ela_b") {
-        // ELA-B -> pull exact questions by id from your bank
         sectionQuestions = getQuestionsByIds((sec as any).questionIds ?? []);
       } else {
-        // math (or any other inline) -> use section.questions
         sectionQuestions = (sec.questions ?? []);
       }
 
@@ -318,7 +314,7 @@ export default function ExamRunnerPage() {
           // table_match
           tableColumns: q.table?.columns,
           tableRows: q.table?.rows,
-          tableOptions: q.options, // reuse the same pool
+          tableOptions: q.options,
           correctCells: q.correctCells,
 
           // cloze_drag
@@ -483,6 +479,10 @@ export default function ExamRunnerPage() {
     return list.length ? list : undefined;
   })();
 
+  // NEW: only reading/ela_a use a left passage pane
+  const isPassageSection =
+    !current?.isEnd && !current?.isIntro && isMdType(current?.sectionType);
+
   // ===== Progress (GLOBAL) =====
   const questionCount = questionItems.length;
   const questionOrdinal = Math.min(
@@ -589,14 +589,11 @@ export default function ExamRunnerPage() {
                     }}
                   />
                   <span className="choice-text flex-1 prose prose-sm max-w-none">
-  <ReactMarkdown rehypePlugins={[rehypeRaw]}
-    components={{
-      p: ({children}) => <span>{children}</span>  // keep single-line layout
-    }}
-  >
-    {choice}
-  </ReactMarkdown>
-</span>
+                    <ReactMarkdown rehypePlugins={[rehypeRaw]}
+                      components={{ p: ({children}) => <span>{children}</span> }}>
+                      {choice}
+                    </ReactMarkdown>
+                  </span>
                 </label>
               </li>
             );
@@ -640,14 +637,11 @@ export default function ExamRunnerPage() {
                   }}
                 />
                 <span className="choice-text flex-1 prose prose-sm max-w-none">
-  <ReactMarkdown rehypePlugins={[rehypeRaw]}
-    components={{
-      p: ({children}) => <span>{children}</span>  // keep single-line layout
-    }}
-  >
-    {choice}
-  </ReactMarkdown>
-</span>
+                  <ReactMarkdown rehypePlugins={[rehypeRaw]}
+                    components={{ p: ({children}) => <span>{children}</span> }}>
+                    {choice}
+                  </ReactMarkdown>
+                </span>
               </label>
             </li>
           );
@@ -887,9 +881,9 @@ export default function ExamRunnerPage() {
             <div className="rounded-lg border border-gray-200 shadow-sm p-4">
               {current?.stemMarkdown ? (
                 <div className="prose max-w-none mb-3 question-stem">
-                      <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                        {current.stemMarkdown}
-                      </ReactMarkdown>
+                  <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                    {current.stemMarkdown}
+                  </ReactMarkdown>
                 </div>
               ) : null}
 
@@ -905,10 +899,11 @@ export default function ExamRunnerPage() {
               {renderChoices(current)}
             </div>
           </div>
-        ) : (
+        ) : isPassageSection ? (
+          /* reading / ELA A: with LEFT passage */
           <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left: passage */}
+              {/* Left: PASSAGE ONLY */}
               <div className="rounded-lg border border-gray-200 shadow-sm p-4">
                 <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
                   <div className="border rounded-md p-6 bg-white">
@@ -916,21 +911,6 @@ export default function ExamRunnerPage() {
                       <div className="prose md:prose-lg max-w-none passage">
                         <ReactMarkdown>{effectivePassage}</ReactMarkdown>
                       </div>
-                    ) : current?.image || current?.stemMarkdown ? (
-                      <>
-                        {current.stemMarkdown && (
-                          <div className="prose md:prose-lg max-w-none passage">
-                            <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
-                          </div>
-                        )}
-                        {current.image && (
-                          <img
-                            src={current.image}
-                            alt="question"
-                            className="mt-4 max-w-full rounded border border-gray-200"
-                          />
-                        )}
-                      </>
                     ) : (
                       <p className="text-gray-500">No passage for this item.</p>
                     )}
@@ -955,9 +935,9 @@ export default function ExamRunnerPage() {
               <div className="rounded-lg border border-gray-200 shadow-sm p-4">
                 {current?.stemMarkdown ? (
                   <div className="prose max-w-none mb-3 question-stem">
-                      <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                        {current.stemMarkdown}
-                      </ReactMarkdown>
+                    <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                      {current.stemMarkdown}
+                    </ReactMarkdown>
                   </div>
                 ) : null}
 
@@ -998,6 +978,64 @@ export default function ExamRunnerPage() {
                   renderChoices(current)
                 )}
               </div>
+            </div>
+          </div>
+        ) : (
+          /* ELA B (and other non-passage types): single column ONLY */
+          <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
+            <div className="rounded-lg border border-gray-200 shadow-sm p-4">
+              {current?.stemMarkdown ? (
+                <div className="prose max-w-none mb-3 question-stem">
+                  <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                    {current.stemMarkdown}
+                  </ReactMarkdown>
+                </div>
+              ) : null}
+
+              {current?.image && (
+                <img
+                  src={current.image}
+                  alt="question"
+                  className="mt-4 max-w-full rounded border border-gray-200"
+                />
+              )}
+
+              {/* Interaction renderer */}
+              {current.interactionType === "drag_to_bins" ? (
+                <DragToBins
+                  bins={current.bins ?? []}
+                  options={current.options ?? []}
+                  value={(answers[current.globalId] as DragMap) ?? {}}
+                  onChange={(next) => setAnswers((prev) => ({ ...prev, [current.globalId]: next }))}
+                />
+              ) : current.interactionType === "table_match" ? (
+                <TableMatch
+                  globalId={current.globalId}
+                  table={{
+                    columns: current.tableColumns ?? [{ key: "desc", header: "Best Description" }],
+                    rows: current.tableRows ?? [],
+                  }}
+                  options={current.tableOptions ?? []}
+                  value={Object.fromEntries(
+                    Object.entries((answers[current.globalId] as TableAnswer) ?? {}).filter(
+                      (entry): entry is [string, string] => typeof entry[1] === "string"
+                    )
+                  )}
+                  onChange={(next) => setAnswers((prev) => ({ ...prev, [current.globalId]: next }))}
+                />
+              ) : current.interactionType === "cloze_drag" ? (
+                <ClozeDrag
+                  blankId={current.blanks?.[0]?.id ?? "blank"}
+                  options={(current.options ?? []) as { id: string; label: string }[]}
+                  textAfter={current.stemMarkdown ?? ""}
+                  value={((answers[current.globalId] as ClozeAnswer) ?? {}) as ClozeAnswer}
+                  onChange={(next) =>
+                    setAnswers((prev) => ({ ...prev, [current.globalId]: next }))
+                  }
+                />
+              ) : (
+                renderChoices(current)
+              )}
             </div>
           </div>
         )

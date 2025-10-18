@@ -12,7 +12,7 @@ questions:
       - "B. This definition frequently aligns with our everyday understanding of a fruit."
       - "C. Mostly, this definition is the same as the one that people say normally throughout the day."
       - "D. In most cases, science is close to matching the meaning that we use normally during everyday life."
-    answerIndex: 0
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q2
@@ -24,7 +24,7 @@ questions:
       - "B. change **and are** to **and is**"
       - "C. delete the comma after **red**"
       - "D. change **peoples** to **people’s**"
-    answerIndex: 0
+    answerIndex: 3
     explanationMarkdown: ""
 
   - id: q3
@@ -45,7 +45,7 @@ questions:
         label: "For Example"
     blanks:
       - id: tran1
-        correctOptionId: as_a_result
+        correctOptionId: still
 
   - id: q4
     type: single_select
@@ -68,10 +68,22 @@ questions:
       - "B. If one wants to classify a tomato as a fruit, then one must also be prepared to classify as fruits cucumbers, olives, and many other foods."
       - "C. The fact that tomatoes are often eaten in salads supports the idea that they should no longer be called fruits, since fruits are not eaten in salads."
       - "D. Classifying a tomato as a fruit in the supermarket would not be unreasonable, since the scientific community already agrees that tomatoes are fruits."
-    answerIndex: 0
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q6
+    type: single_select
+    skillType: function
+    stemMarkdown: "Which edit is needed to correct sentence 18?"
+    choices:
+      - "A. change its to it’s"
+      - "B. change courts to court’s"
+      - "C. change judges to judges’"
+      - "D. change the semicolon to a comma"
+    answerIndex: 1
+    explanationMarkdown: ""
+
+  - id: q7
     type: cloze_drag
     skillType: function
     stemMarkdown: |
@@ -89,7 +101,7 @@ questions:
         label: "Sentence 24"
     blanks:
       - id: tran1
-        correctOptionId: as_a_result
+        correctOptionId: a
 
 ---
 

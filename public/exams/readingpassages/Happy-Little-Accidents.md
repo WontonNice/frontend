@@ -12,7 +12,7 @@ questions:
       - "B. An important scientific discovery was made due in part to luck."
       - "C. Phosphorescence is caused by the sun."
       - "D. Scientists made a significant discovery about radioactivity."
-    answerIndex: 0
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q2
@@ -24,7 +24,7 @@ questions:
       - "B. clever mind."
       - "C. deliberate intent to do so."
       - "D. impartial point of view."
-    answerIndex: 0
+    answerIndex: 2
     explanationMarkdown: ""
 
   - id: q3
@@ -36,7 +36,7 @@ questions:
       - "B. It explains what results Becquerel was expecting from his scientific experiment."
       - "C. It shows how essential elements of Becquerel’s experiment were unplanned."
       - "D. It emphasizes how successful scientists are able to predict the results of their experiments."
-    answerIndex: 0
+    answerIndex: 2
     explanationMarkdown: ""
 
   - id: q4
@@ -77,7 +77,7 @@ questions:
       - "B. showing that Becquerel realized that there was an unknown force at work and needed to test a new idea."
       - "C. demonstrating that phosphorescent light was indeed the cause of the images being captured on the film."
       - "D. confirming that Becquerel made his discovery by accident while conducting an experiment to prove something else."
-    answerIndex: 0
+    answerIndex: 1
     explanationMarkdown: ""
 
 ---
