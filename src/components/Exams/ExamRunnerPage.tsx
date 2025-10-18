@@ -12,7 +12,8 @@ import "./ExamRunnerPage.css";
 /** Tech-enhanced interactions */
 import DragToBins from "./techenhanced/DragToBins";
 import TableMatch from "./techenhanced/TableMatch";
-import type { DragAnswer as DragMap, TableAnswer } from "./techenhanced/types";
+import ClozeDrag from "./techenhanced/ClozeDrag";
+import type { DragAnswer as DragMap, TableAnswer, ClozeAnswer } from "./techenhanced/types";
 
 /** Tools */
 import { useEliminator } from "./Tools/AnswerEliminator";
@@ -21,7 +22,7 @@ import GlobalNotepad from "./Tools/GlobalNotepad";
 import type { Tool } from "./Tools/types";
 
 /** Stores selected value per question (keyed by globalId) */
-type AnswerValue = number | number[] | DragMap | TableAnswer | undefined;
+type AnswerValue = number | number[] | DragMap | TableAnswer | ClozeAnswer | undefined;
 type AnswerMap = Record<string, AnswerValue>;
 type ReviewTab = "all" | "unanswered" | "bookmarked";
 
@@ -102,7 +103,7 @@ type FlatItem = {
   globalId: string;
   sectionId: string;
   sectionTitle: string;
-  sectionType: "reading" | "math" | string;
+  sectionType: "reading" | "math" | "ela_a" | "ela_b" | string;
 
   sectionPassageMarkdown?: string;
   sectionPassageImages?: string[];
@@ -125,6 +126,9 @@ type FlatItem = {
   tableOptions?: { id: string; label: string }[];
   correctCells?: Record<string, string>;
 
+  /** Cloze-drag interactions */
+  blanks?: { id: string; correctOptionId: string }[];
+
   /** Interaction + skill on each item */
   interactionType?: InteractionType;
   skillType?: SkillType;
@@ -134,13 +138,26 @@ type FlatItem = {
 
   globalIndex: number;
   isEnd?: boolean;
-  isMathIntro?: boolean;
+
+  /** NEW: generic section intro pages (reading, math, ELA A, ELA B) */
+  isIntro?: boolean;
 };
 
 const groupLabel = (type: string) => {
   if (type === "reading") return "Reading";
   if (type === "math") return "Mathematics";
+  if (type === "ela_a") return "ELA REV/EDIT A";
+  if (type === "ela_b") return "ELA REV/EDIT B";
   return type.charAt(0).toUpperCase() + type.slice(1);
+};
+
+/** Map section type -> intro page markdown path */
+const introMdPathFor = (type: string): string | undefined => {
+  if (type === "math") return "/exams/mathpage.md";
+  if (type === "reading") return "/exams/readingpage.md";
+  if (type === "ela_a") return "/exams/revEditA.md";
+  if (type === "ela_b") return "/exams/revEditB.md";
+  return undefined;
 };
 
 /** Icons used locally (bookmark/review/back) */
@@ -169,6 +186,9 @@ export default function ExamRunnerPage() {
   /** Cache reading MD bodies and questions by section.id */
   const [readingBodies, setReadingBodies] = useState<Record<string, string>>({});
   const [readingQs, setReadingQs] = useState<Record<string, MdFrontmatter["questions"]>>({});
+
+  /** Section intro markdown cache: type -> md text */
+  const [introMd, setIntroMd] = useState<Record<string, string | undefined>>({});
 
   /** Load all reading sections’ MD on exam change */
   useEffect(() => {
@@ -205,31 +225,61 @@ export default function ExamRunnerPage() {
     };
   }, [exam?.slug]);
 
-  // ===== Flatten ALL questions and inject a Math intro page =====
-  const { items, mathIntroIndex } = useMemo(() => {
-    if (!exam) return { items: [] as FlatItem[], mathIntroIndex: -1 };
+  /** Load intro pages (Reading, Math, ELA A, ELA B) for section types present in the exam */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!exam) return;
+      const types = Array.from(new Set<string>(exam.sections.map((s: any) => s.type)));
+      // Also ensure Reading gets an intro (even if multiple reading sections)
+      if (!types.includes("reading")) types.push("reading");
+      const entries = await Promise.all(
+        types.map(async (t) => {
+          const path = introMdPathFor(t);
+          if (!path) return [t, undefined] as const;
+          try {
+            const txt = await fetch(path).then((r) => (r.ok ? r.text() : Promise.reject()));
+            return [t, txt] as const;
+          } catch {
+            return [t, undefined] as const;
+          }
+        })
+      );
+      if (!cancelled) setIntroMd(Object.fromEntries(entries));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [exam?.slug]);
+
+  // ===== Flatten ALL questions and inject section intro pages =====
+  const { items, introIndexByType } = useMemo(() => {
+    if (!exam) return { items: [] as FlatItem[], introIndexByType: {} as Record<string, number> };
 
     const out: FlatItem[] = [];
+    const introIndex: Record<string, number> = {};
+    const insertedIntro = new Set<string>();
     let globalIndex = 0;
-    let insertedMathIntro = false;
-    let mathIntroIdx = -1;
 
     exam.sections.forEach((sec: any) => {
-      if (sec.type === "math" && !insertedMathIntro) {
-        mathIntroIdx = out.length;
+      const type: string = sec.type;
+
+      // Insert an intro for each section type once (Reading, Math, ELA A, ELA B)
+      if (!insertedIntro.has(type)) {
+        introIndex[type] = out.length;
         out.push({
-          globalId: "__MATH_INTRO__",
-          sectionId: "__MATH__",
-          sectionTitle: "Mathematics",
-          sectionType: "math",
-          globalIndex,
-          isMathIntro: true,
+          globalId: `__INTRO__:${type}`,
+          sectionId: `__INTRO__:${type}`,
+          sectionTitle: groupLabel(type),
+          sectionType: type,
+          globalIndex, // keep globalIndex aligned to the first question
+          isIntro: true,
         });
-        insertedMathIntro = true;
+        insertedIntro.add(type);
       }
 
       const sectionQuestions =
-        sec.type === "reading"
+        type === "reading"
           ? (readingQs[sec.id] ?? [])
           : (sec.questions ?? []);
 
@@ -238,9 +288,9 @@ export default function ExamRunnerPage() {
           globalId: `${sec.id}:${q.id}`,
           sectionId: sec.id,
           sectionTitle: sec.title,
-          sectionType: sec.type,
+          sectionType: type,
           sectionPassageMarkdown:
-            sec.type === "reading"
+            type === "reading"
               ? readingBodies[sec.id] ?? ""
               : (sec as any).passageMarkdown,
           sectionPassageImages: (sec as any).passageImages,
@@ -262,6 +312,9 @@ export default function ExamRunnerPage() {
           tableOptions: q.options, // reuse the same pool
           correctCells: q.correctCells,
 
+          // cloze_drag
+          blanks: q.blanks,
+
           interactionType: q.type ?? "single_select",
           skillType: q.skillType,
           selectCount: q.selectCount,
@@ -281,10 +334,10 @@ export default function ExamRunnerPage() {
       isEnd: true,
     });
 
-    return { items: out, mathIntroIndex: mathIntroIdx };
+    return { items: out, introIndexByType: introIndex };
   }, [exam, readingBodies, readingQs]);
 
-  const questionItems = items.filter((i) => !i.isEnd && !i.isMathIntro);
+  const questionItems = items.filter((i) => !i.isEnd && !i.isIntro);
   const lastIndex = Math.max(0, items.length - 1);
 
   const [idx, setIdx] = useState(0);
@@ -293,15 +346,6 @@ export default function ExamRunnerPage() {
   const [reviewTab, setReviewTab] = useState<ReviewTab>("all");
   const reviewWrapRef = useRef<HTMLDivElement>(null);
   const [fetchedPassage, setFetchedPassage] = useState<string | undefined>(undefined);
-
-  // ===== Math intro markdown =====
-  const [mathIntroMd, setMathIntroMd] = useState<string | undefined>(undefined);
-  useEffect(() => {
-    fetch("/exams/mathpage.md")
-      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((txt) => setMathIntroMd(txt))
-      .catch(() => setMathIntroMd(undefined));
-  }, []);
 
   // ===== Bookmark state =====
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
@@ -321,7 +365,7 @@ export default function ExamRunnerPage() {
   };
   const toggleBookmark = () => {
     const cur = items[idx];
-    if (!cur || cur.isEnd || cur.isMathIntro) return;
+    if (!cur || cur.isEnd || cur.isIntro) return;
     setBookmarks((prev) => {
       const next = new Set(prev);
       if (next.has(cur.globalId)) next.delete(cur.globalId);
@@ -331,14 +375,12 @@ export default function ExamRunnerPage() {
     });
   };
 
-  // ===== Tools (moved) =====
+  // ===== Tools =====
   const [tool, setTool] = useState<Tool>("pointer");
   const { isEliminated, toggleElim, resetElims } = useEliminator();
-
-  // eliminator flag used in renderChoices()
   const eliminatorActive = tool === "eliminate";
 
-  // Reset eliminations when exam changes
+  // Reset when exam changes
   useEffect(() => {
     resetElims();
     setTool("pointer");
@@ -383,7 +425,7 @@ export default function ExamRunnerPage() {
   // Prefer preloaded body for reading; else fall back to fetch (legacy)
   useEffect(() => {
     setFetchedPassage(undefined);
-    if (!current || current.isEnd || current.isMathIntro) return;
+    if (!current || current.isEnd || current.isIntro) return;
     const sec = exam?.sections.find((s: any) => s.id === current.sectionId) as any;
     if (sec?.type === "reading") {
       const body = readingBodies[current.sectionId];
@@ -403,7 +445,7 @@ export default function ExamRunnerPage() {
         setFetchedPassage(body || txt);
       })
       .catch(() => setFetchedPassage(undefined));
-  }, [current?.sectionId, current?.sectionPassageUrl, current?.isEnd, current?.isMathIntro, exam?.sections, readingBodies]);
+  }, [current?.sectionId, current?.sectionPassageUrl, current?.isEnd, current?.isIntro, exam?.sections, readingBodies]);
 
   if (!exam) {
     return (
@@ -414,16 +456,16 @@ export default function ExamRunnerPage() {
     );
   }
 
-  // Prefer fetched/preloaded content for reading
+  // Prefer fetched/preloaded content for reading-like sections
   const effectivePassage =
-    !current?.isEnd && !current?.isMathIntro && current?.sectionType !== "math"
+    !current?.isEnd && !current?.isIntro && current?.sectionType !== "math"
       ? fetchedPassage ??
         (exam.sections.find((s) => s.id === current.sectionId) as any)?.passageMarkdown
       : undefined;
 
   // Normalize passage images
   const effectivePassageImages = (() => {
-    if (current?.isEnd || current?.isMathIntro || current?.sectionType === "math") return undefined;
+    if (current?.isEnd || current?.isIntro || current?.sectionType === "math") return undefined;
     const sec = exam.sections.find((s: any) => s.id === current?.sectionId) as any;
     const raw = sec?.passageImages;
     const list = Array.isArray(raw)
@@ -437,8 +479,8 @@ export default function ExamRunnerPage() {
   const questionOrdinal = Math.min(
     current?.isEnd
       ? questionCount
-      : current?.isMathIntro
-      ? Math.max(1, items.findIndex((it) => !it.isMathIntro && !it.isEnd) + 1)
+      : current?.isIntro
+      ? Math.max(1, items.findIndex((it) => !it.isIntro && !it.isEnd) + 1)
       : (current?.globalIndex ?? 0) + 1,
     questionCount
   );
@@ -554,12 +596,12 @@ export default function ExamRunnerPage() {
           const eliminated = isEliminated(it.globalId, i);
 
           return (
-              <li
-                key={i}
-                className={`choice-row ${eliminated ? "eliminated" : ""}`}
-              >
-                <label
-                  className="w-full flex items-start gap-3 cursor-pointer"
+            <li
+              key={i}
+              className={`choice-row ${eliminated ? "eliminated" : ""}`}
+            >
+              <label
+                className="w-full flex items-start gap-3 cursor-pointer"
                 onClick={(e) => {
                   if (eliminatorActive) {
                     e.preventDefault();
@@ -675,22 +717,30 @@ export default function ExamRunnerPage() {
                   {/* Filtered list */}
                   <div className="max-h-72 overflow-auto rounded border border-gray-200">
                     {Object.entries(groupedByDisplayGroup).map(([group, qs]) => {
-                      const isMath = group.toLowerCase() === "mathematics";
+                      const sectionType = qs[0]?.sectionType as string | undefined;
+                      const introIdx =
+                        sectionType && introIndexByType.hasOwnProperty(sectionType)
+                          ? introIndexByType[sectionType]
+                          : -1;
+                      const hasIntro = introIdx >= 0;
+
                       return (
                         <div key={group}>
                           <button
-                            className={`w-full text-left px-3 py-2 text-[12px] font-semibold ${isMath ? "bg-gray-100 hover:bg-gray-200" : "bg-gray-50 hover:bg-gray-100"} border-b border-gray-200`}
+                            className={`w-full text-left px-3 py-2 text-[12px] font-semibold ${
+                              hasIntro ? "bg-gray-100 hover:bg-gray-200" : "bg-gray-50 hover:bg-gray-100"
+                            } border-b border-gray-200`}
                             onClick={() => {
-                              if (isMath && mathIntroIndex >= 0) {
-                                setIdx(mathIntroIndex);
+                              if (hasIntro) {
+                                setIdx(introIdx);
                                 setReviewOpen(false);
                                 window.scrollTo({ top: 0, behavior: "smooth" });
                               }
                             }}
-                            title={isMath ? "Open Mathematics notes" : undefined}
+                            title={hasIntro ? `Open ${group} section page` : undefined}
                           >
                             {group}
-                            {isMath && mathIntroIndex >= 0 && <span className="ml-2 text-xs text-blue-600">(section page)</span>}
+                            {hasIntro && <span className="ml-2 text-xs text-blue-600">(section page)</span>}
                           </button>
 
                           {qs.map((q) => {
@@ -734,19 +784,19 @@ export default function ExamRunnerPage() {
           {/* Bookmark toggle */}
           <button
             onClick={toggleBookmark}
-            disabled={current?.isEnd || current?.isMathIntro}
+            disabled={current?.isEnd || current?.isIntro}
             className={`inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium ${
               bookmarks.has(current?.globalId ?? "")
                 ? "border-blue-600 bg-blue-50 hover:bg-blue-100"
                 : "border-gray-400 bg-gradient-to-b from-white to-gray-100 hover:bg-gray-50"
-            } ${current?.isEnd || current?.isMathIntro ? "opacity-50 cursor-not-allowed" : ""}`}
+            } ${current?.isEnd || current?.isIntro ? "opacity-50 cursor-not-allowed" : ""}`}
             title="Bookmark Question for Review"
           >
             {bookmarks.has(current?.globalId ?? "") ? <BookmarkFilled /> : <BookmarkOutline />}
             Bookmark
           </button>
 
-          {/* Tools (moved to component) */}
+          {/* Tools */}
           <ExamToolButtons tool={tool} setTool={setTool} />
 
           <div className="flex-1" />
@@ -770,12 +820,10 @@ export default function ExamRunnerPage() {
             <span>
               {current?.isEnd
                 ? "END OF EXAM"
-                : current?.isMathIntro
-                ? "MATHEMATICS"
                 : groupLabel(current?.sectionType ?? "")}
             </span>
 
-            {!current?.isMathIntro && (
+            {!current?.isIntro && (
               <>
                 <span>/</span>
                 <span>
@@ -796,14 +844,14 @@ export default function ExamRunnerPage() {
       </div>
 
       {/* ======= Main Sheet ======= */}
-      {current?.isMathIntro ? (
+      {current?.isIntro ? (
         <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-8">
           <div className="max-w-5xl mx-auto">
             <div className="prose md:prose-lg max-w-none">
-              {mathIntroMd ? (
-                <ReactMarkdown rehypePlugins={[rehypeRaw]}>{mathIntroMd}</ReactMarkdown>
+              {introMd[current.sectionType] ? (
+                <ReactMarkdown rehypePlugins={[rehypeRaw]}>{introMd[current.sectionType] as string}</ReactMarkdown>
               ) : (
-                <p className="text-gray-600">Loading Mathematics notes…</p>
+                <p className="text-gray-600">Loading {groupLabel(current.sectionType)} notes…</p>
               )}
             </div>
           </div>
@@ -908,9 +956,15 @@ export default function ExamRunnerPage() {
                     onChange={(next) => setAnswers((prev) => ({ ...prev, [current.globalId]: next }))}
                   />
                 ) : current.interactionType === "cloze_drag" ? (
-                  <div className="text-sm text-orange-600">
-                    This question type (cloze drag) isn’t supported yet in the runner.
-                  </div>
+                  <ClozeDrag
+                    blankId={current.blanks?.[0]?.id ?? "blank"}
+                    options={(current.options ?? []) as { id: string; label: string }[]}
+                    textAfter={current.stemMarkdown ?? ""}
+                    value={((answers[current.globalId] as ClozeAnswer) ?? {}) as ClozeAnswer}
+                    onChange={(next) =>
+                      setAnswers((prev) => ({ ...prev, [current.globalId]: next }))
+                    }
+                  />
                 ) : (
                   renderChoices(current)
                 )}
@@ -987,7 +1041,7 @@ export default function ExamRunnerPage() {
         </div>
       )}
 
-      {/* Floating Notepad (moved to its own component) */}
+      {/* Floating Notepad */}
       <GlobalNotepad
         active={tool === "notepad"}
         storageKey={slug ? `notes:${slug}` : null}
