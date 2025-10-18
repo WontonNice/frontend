@@ -6,7 +6,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import { getQuestionsByIds } from "../../data/revEditB-QuestionBank.ts";
 
-/** Results page (extracted) */
+/** Results page */
 import ExamResultsPage from "./ExamResultsPage";
 import "./ExamRunnerPage.css";
 
@@ -15,16 +15,13 @@ import DragToBins from "./techenhanced/DragToBins";
 import TableMatch from "./techenhanced/TableMatch";
 import ClozeDrag from "./techenhanced/ClozeDrag";
 import InlineDropdowns from "./techenhanced/Dropdown";
-import type { DropAnswer } from "./techenhanced/Dropdown"; // ✅ use the component's value type
+import type { DropAnswer } from "./techenhanced/Dropdown";
 
 /** Shared global answers/types */
-import type { AnswerMap } from "../Exams/ExamSharedTypes"; // ❌ removed GlobalAnswerValue
+import type { AnswerMap } from "../Exams/ExamSharedTypes";
 
 /** Reading TEIs */
 import type { DragAnswer as DragMap, TableAnswer, ClozeAnswer } from "./techenhanced/types";
-
-// ❌ removed MathDropAnswer import
-// import type { MathDropAnswer } from "../../types/MathTypes";
 
 /** Tools */
 import { useEliminator } from "./Tools/AnswerEliminator";
@@ -42,8 +39,8 @@ type InteractionType =
   | "drag_to_bins"
   | "table_match"
   | "cloze_drag"
-  | "short_response"          // math (free response)
-  | "math_dropdowns";         // math (inline selects)
+  | "short_response" // math (free response)
+  | "math_dropdowns"; // math (inline selects)
 
 type SkillType = "global" | "function" | "detail" | "inference";
 
@@ -60,27 +57,30 @@ type MdFrontmatter = {
     image?: string;
 
     /** Single-select */
-    choices?: string[];
+    choices?: any[] | string[];
     answerIndex?: number;
+    correctIndex?: number;
+    correctId?: string | number;
 
     /** Multi-select */
     selectCount?: number;
     correctIndices?: number[];
+    correctIds?: Array<string | number>;
 
     /** Drag to bins */
     bins?: { id: string; label: string }[];
     options?: { id: string; label: string }[];
-    correctBins?: Record<string, string>;
+    correctBins?: Record<string, string | number>;
 
     /** Table match */
     table?: {
       columns: { key: string; header: string }[];
       rows: { id: string; header: string }[];
     };
-    correctCells?: Record<string, string>;
+    correctCells?: Record<string, string | number>;
 
     /** Cloze drag */
-    blanks?: { id: string; correctOptionId: string }[];
+    blanks?: { id: string; correctOptionId: string | number }[];
 
     /** NEW: inline dropdowns (math) */
     dropdowns?: { id: string; options: string[]; correctIndex?: number }[];
@@ -126,22 +126,29 @@ type FlatItem = {
   stemMarkdown?: string;
   image?: string;
 
-  /** Choice interactions */
-  choices?: string[];
+  /** Choices can be string[] or object[] (with ids) */
+  choices?: any[] | string[];
+
+  /** Answer keys (forwarded so Results can score ELA-B and others) */
+  answerIndex?: number;
+  correctIndex?: number;
+  correctIndices?: number[];
+  correctId?: string | number;
+  correctIds?: Array<string | number>;
 
   /** Drag-to-bins interactions */
   bins?: { id: string; label: string }[];
   options?: { id: string; label: string }[];
-  correctBins?: Record<string, string>;
+  correctBins?: Record<string, string | number>;
 
   /** Table-match interactions */
   tableColumns?: { key: string; header: string }[];
   tableRows?: { id: string; header: string }[];
   tableOptions?: { id: string; label: string }[];
-  correctCells?: Record<string, string>;
+  correctCells?: Record<string, string | number>;
 
   /** Cloze-drag interactions */
-  blanks?: { id: string; correctOptionId: string }[];
+  blanks?: { id: string; correctOptionId: string | number }[];
 
   /** NEW: math inline dropdowns */
   dropdowns?: { id: string; options: string[]; correctIndex?: number }[];
@@ -198,7 +205,7 @@ const BackArrowIcon = (props: any) => (
   <svg viewBox="0 0 24 24" {...props}><path d="M10 19l-7-7 7-7M3 12h18" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
 );
 
-export default function ExamRunnerPage() {
+function ExamRunnerPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const exam = slug ? getExamBySlug(slug) : undefined;
@@ -319,8 +326,15 @@ export default function ExamRunnerPage() {
           stemMarkdown: q.stemMarkdown ?? q.promptMarkdown,
           image: q.image,
 
-          // choice
+          // Keep choices "raw" so scoring can read ids if present.
           choices: q.choices,
+
+          // ***** PASS THROUGH ANSWER KEYS FOR RESULTS SCORING *****
+          answerIndex: q.answerIndex,
+          correctIndex: q.correctIndex,
+          correctIndices: q.correctIndices,
+          correctId: q.correctId,
+          correctIds: q.correctIds,
 
           // drag_to_bins
           bins: q.bins,
@@ -554,6 +568,16 @@ export default function ExamRunnerPage() {
   };
 
   // ===== Choice renderer (single + multi) =====
+  const renderChoiceText = (choice: any): string => {
+    if (typeof choice === "string") return choice;
+    return (
+      (choice?.label ??
+        choice?.text ??
+        choice?.value ??
+        (choice?.id != null ? String(choice.id) : "")) ?? ""
+    ).toString();
+  };
+
   const renderChoices = (it: FlatItem) => {
     if (!Array.isArray(it.choices)) {
       return <p className="text-gray-500">No choices for this item.</p>;
@@ -611,7 +635,7 @@ export default function ExamRunnerPage() {
                   <span className="choice-text flex-1 prose prose-sm max-w-none">
                     <ReactMarkdown rehypePlugins={[rehypeRaw]}
                       components={{ p: ({children}) => <span>{children}</span> }}>
-                      {choice}
+                      {renderChoiceText(choice)}
                     </ReactMarkdown>
                   </span>
                 </label>
@@ -659,7 +683,7 @@ export default function ExamRunnerPage() {
                 <span className="choice-text flex-1 prose prose-sm max-w-none">
                   <ReactMarkdown rehypePlugins={[rehypeRaw]}
                     components={{ p: ({children}) => <span>{children}</span> }}>
-                    {choice}
+                    {renderChoiceText(choice)}
                   </ReactMarkdown>
                 </span>
               </label>
@@ -1172,3 +1196,7 @@ export default function ExamRunnerPage() {
     </div>
   );
 }
+
+/** Export both default and named to support either import style */
+export default ExamRunnerPage;
+export { ExamRunnerPage };

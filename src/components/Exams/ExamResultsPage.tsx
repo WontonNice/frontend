@@ -1,14 +1,15 @@
-// src/components/Exams/ExamResultsPage.tsx
+// src/components/ExamResultsPage.tsx
 import { useMemo } from "react";
 import type { Exam } from "../../types/exams";
-import type { AnswerMap } from "./ExamSharedTypes";
+import type { AnswerMap } from "../Exams/ExamSharedTypes";
 import { scoreExam, scoreQuestion } from "./scoring";
 import { percent as toPercent } from "./format";
 
 /**
- * Updated Results page
+ * Thin results page:
  * - Uses shared scoring helpers for ALL sections, including rev/edit A (ela_a) and rev/edit B (ela_b).
- * - Avoids TS2367 by widening the local section type for comparisons in this file.
+ * - Accepts either index-based or id-based answer keys (handled by scoring.ts).
+ * - Displays reading vs math tiles (ela_a/ela_b rolled into Reading in the UI).
  */
 
 type InteractionType =
@@ -16,7 +17,9 @@ type InteractionType =
   | "multi_select"
   | "drag_to_bins"
   | "table_match"
-  | "cloze_drag";
+  | "cloze_drag"
+  | "short_response"
+  | "math_dropdowns";
 
 type Props = {
   exam: Exam;
@@ -30,23 +33,29 @@ type Props = {
   stickyTopClass?: string;
 };
 
+/** Locally widen the section type so we can compare against 'ela_a'/'ela_b' without TS2367 */
+type SectionKindAny = "reading" | "math" | "ela_a" | "ela_b" | (string & {});
+
 type ResultRow = {
   globalId: string;
   kind: InteractionType;
   isScored: boolean;
   isUnanswered: boolean;
   isCorrect: boolean | null;
-  user?: number | number[] | Record<string, string | undefined>;
-  correct?: number | number[] | Record<string, string>;
-  displayGroup: string; // Reading / Math
+  displayGroup: string;           // Reading / Math
   sectionType: "reading" | "math";
-  globalNumber: number; // 1-based index across the whole test
+  globalNumber: number;           // 1-based index across the whole test
 };
 
-/** Locally widen the section type so we can compare against 'ela_a'/'ela_b' without TS2367 */
-type SectionKindAny = "reading" | "math" | "ela_a" | "ela_b" | (string & {});
+function groupLabelForDisplay(t: SectionKindAny) {
+  return t === "math" ? "Math" : "Reading"; // treat ela_a/ela_b as Reading in UI
+}
 
-export default function ExamResultsPage({
+function asNumber(n: unknown) {
+  return typeof n === "number" ? n : undefined;
+}
+
+function ExamResultsPage({
   exam,
   items,
   answers,
@@ -67,22 +76,19 @@ export default function ExamResultsPage({
     let scoredCount = 0;
     let unansweredCountLocal = 0;
 
-    // roll-up by broad group
     const sectionTotals = {
       reading: { correct: 0, scored: 0 },
       math: { correct: 0, scored: 0 },
     };
 
-    let g = 0; // global counter
+    let g = 0; // global counter across exam
 
     for (const sec of exam.sections) {
       const secTypeAny = sec.type as SectionKindAny;
+      const displayGroup = groupLabelForDisplay(secTypeAny);
+      const sectionType: "reading" | "math" = secTypeAny === "math" ? "math" : "reading";
 
-      // Map ela_a and ela_b into the Reading display bucket
-      const displayGroup = secTypeAny === "math" ? "Math" : "Reading";
-      const sectionType = (secTypeAny === "math" ? "math" : "reading") as "math" | "reading";
-
-      // Source of question objects varies by section family
+      // Collect questions per section family
       const qList: any[] =
         secTypeAny === "reading" || secTypeAny === "ela_a"
           ? (readingQs[sec.id] ?? [])
@@ -92,10 +98,13 @@ export default function ExamResultsPage({
               .map((it) => ({
                 id: it.globalId.split(":")[1],
                 type: (it.interactionType as InteractionType) ?? "single_select",
-                // carry answer keys from items if present
-                answerIndex: it.answerIndex,
-                correctIndex: it.correctIndex,
-                correctIndices: it.correctIndices,
+                // pass through any keys/choices so scoring works (indices or ids)
+                choices: it.choices,
+                answerIndex: asNumber(it.answerIndex),
+                correctIndex: asNumber(it.correctIndex),
+                correctIndices: Array.isArray(it.correctIndices) ? it.correctIndices : undefined,
+                correctId: it.correctId,
+                correctIds: Array.isArray(it.correctIds) ? it.correctIds : undefined,
                 correctBins: it.correctBins,
                 correctCells: it.correctCells,
                 blanks: it.blanks,
@@ -107,26 +116,32 @@ export default function ExamResultsPage({
         g++;
         const globalId = `${sec.id}:${q.id}`;
         const itemMeta = itemsById[globalId] ?? {};
+        const kind = ((q?.type ?? itemMeta?.interactionType) || "single_select") as InteractionType;
 
-        const kind: InteractionType = (q?.type ?? itemMeta?.interactionType ?? "single_select") as InteractionType;
-
-        // Build a lightweight question-like object for the scorer with fallbacks to item metadata
+        // Build a scorer-friendly shape (fallback to item metadata where needed)
         const blanks = (q as any)?.blanks ?? itemMeta?.blanks;
         const correctBlanks =
           (q as any)?.correctBlanks ??
-          (blanks && blanks[0]?.id && blanks[0]?.correctOptionId
-            ? { [blanks[0].id]: blanks[0].correctOptionId }
+          (blanks && blanks[0]?.id && (blanks[0] as any)?.correctOptionId
+            ? { [blanks[0].id]: (blanks[0] as any).correctOptionId }
             : undefined);
 
         const qLike = {
           id: globalId,
           kind,
+          // choices help map id answers <-> indices in scoring.ts
+          choices: (q as any)?.choices ?? itemMeta?.choices,
+          // single / multi keys (index- or id-based)
           answerIndex: (q as any)?.answerIndex ?? itemMeta?.answerIndex,
           correctIndex: (q as any)?.correctIndex ?? itemMeta?.correctIndex,
           correctIndices: (q as any)?.correctIndices ?? itemMeta?.correctIndices,
+          correctId: (q as any)?.correctId ?? itemMeta?.correctId,
+          correctIds: (q as any)?.correctIds ?? itemMeta?.correctIds,
+          // map-based
           correctBins: (q as any)?.correctBins ?? itemMeta?.correctBins,
           correctCells: (q as any)?.correctCells ?? itemMeta?.correctCells,
           correctBlanks,
+          // points & grouping
           points: (q as any)?.points ?? itemMeta?.points,
           sectionType: secTypeAny as any,
         };
@@ -159,24 +174,6 @@ export default function ExamResultsPage({
           isScored,
           isUnanswered,
           isCorrect: scored.correct,
-          user:
-            Array.isArray(userVal) || typeof userVal === "number"
-              ? (userVal as any)
-              : typeof userVal === "object"
-              ? (userVal as any)
-              : undefined,
-          correct:
-            (kind === "single_select"
-              ? (qLike as any).correctIndex ?? (qLike as any).answerIndex
-              : kind === "multi_select"
-              ? (qLike as any).correctIndices
-              : kind === "drag_to_bins"
-              ? (qLike as any).correctBins
-              : kind === "table_match"
-              ? (qLike as any).correctCells
-              : kind === "cloze_drag"
-              ? (qLike as any).correctBlanks
-              : undefined) as any,
           displayGroup,
           sectionType,
           globalNumber: g,
@@ -193,9 +190,10 @@ export default function ExamResultsPage({
     };
   }, [exam, items, readingQs, answers, itemsById]);
 
-  // ---- Topline aggregate (points & percent) from shared scorer for ALL sections ----
-  const _scoreAgg = useMemo(() => {
+  // ---- Topline aggregate (points & percent) using shared scorer ----
+  const agg = useMemo(() => {
     const allQuestions: any[] = [];
+
     for (const sec of exam.sections) {
       const secTypeAny = sec.type as SectionKindAny;
       const secId = sec.id;
@@ -209,14 +207,17 @@ export default function ExamResultsPage({
               .map((it) => ({
                 id: it.globalId.split(":")[1],
                 kind: it.interactionType,
-                answerIndex: it.answerIndex,
-                correctIndex: it.correctIndex,
-                correctIndices: it.correctIndices,
+                choices: it.choices,
+                answerIndex: asNumber(it.answerIndex),
+                correctIndex: asNumber(it.correctIndex),
+                correctIndices: Array.isArray(it.correctIndices) ? it.correctIndices : undefined,
+                correctId: it.correctId,
+                correctIds: Array.isArray(it.correctIds) ? it.correctIds : undefined,
                 correctBins: it.correctBins,
                 correctCells: it.correctCells,
                 correctBlanks:
-                  it.blanks && it.blanks[0]?.id && it.blanks[0]?.correctOptionId
-                    ? { [it.blanks[0].id]: it.blanks[0].correctOptionId }
+                  it.blanks && it.blanks[0]?.id && (it.blanks[0] as any)?.correctOptionId
+                    ? { [it.blanks[0].id]: (it.blanks[0] as any).correctOptionId }
                     : undefined,
                 points: (it as any).points,
               }))
@@ -228,16 +229,19 @@ export default function ExamResultsPage({
         const blanks = (q as any)?.blanks ?? itemMeta?.blanks;
         const correctBlanks =
           (q as any)?.correctBlanks ??
-          (blanks && blanks[0]?.id && blanks[0]?.correctOptionId
-            ? { [blanks[0].id]: blanks[0].correctOptionId }
+          (blanks && blanks[0]?.id && (blanks[0] as any)?.correctOptionId
+            ? { [blanks[0].id]: (blanks[0] as any).correctOptionId }
             : undefined);
 
         allQuestions.push({
           id: gid,
           kind: (q?.type ?? itemMeta?.interactionType ?? (q as any)?.kind) as string | undefined,
+          choices: (q as any)?.choices ?? itemMeta?.choices,
           answerIndex: (q as any)?.answerIndex ?? itemMeta?.answerIndex,
           correctIndex: (q as any)?.correctIndex ?? itemMeta?.correctIndex,
           correctIndices: (q as any)?.correctIndices ?? itemMeta?.correctIndices,
+          correctId: (q as any)?.correctId ?? itemMeta?.correctId,
+          correctIds: (q as any)?.correctIds ?? itemMeta?.correctIds,
           correctBins: (q as any)?.correctBins ?? itemMeta?.correctBins,
           correctCells: (q as any)?.correctCells ?? itemMeta?.correctCells,
           correctBlanks,
@@ -246,6 +250,7 @@ export default function ExamResultsPage({
         });
       }
     }
+
     return scoreExam(allQuestions, answers, (qid) => {
       const sectionId = qid.split(":")[0];
       const sec = exam.sections.find((s) => s.id === sectionId);
@@ -256,29 +261,29 @@ export default function ExamResultsPage({
   // Reading vs Math tiles (treat ela_a / ela_b as Reading in display)
   const readingTotals = useMemo(() => {
     const r = { correct: 0, scored: 0 };
-    for (const sec of _scoreAgg.sections ?? []) {
+    for (const sec of agg.sections ?? []) {
       if (sec.sectionType === "reading" || sec.sectionType === "ela_a" || sec.sectionType === "ela_b") {
         r.correct += sec.correctCount;
         r.scored += sec.totalScored;
       }
     }
     return r;
-  }, [_scoreAgg.sections]);
+  }, [agg.sections]);
 
   const mathTotals = useMemo(() => {
     const m = { correct: 0, scored: 0 };
-    for (const sec of _scoreAgg.sections ?? []) {
+    for (const sec of agg.sections ?? []) {
       if (sec.sectionType === "math") {
         m.correct += sec.correctCount;
         m.scored += sec.totalScored;
       }
     }
     return m;
-  }, [_scoreAgg.sections]);
+  }, [agg.sections]);
 
-  const percent = toPercent(_scoreAgg.pointsEarned, _scoreAgg.pointsPossible);
+  const overallPercent = toPercent(agg.pointsEarned, agg.pointsPossible);
 
-  // ---- PDF: compact score report
+  // ---- PDF (optional) ----
   const downloadReportPdf = async () => {
     let jsPDFMod: any = null;
     try {
@@ -310,7 +315,7 @@ export default function ExamResultsPage({
     };
 
     addLine(exam.title, { bold: true });
-    addLine(`Overall: ${_scoreAgg.correctCount} correct out of ${_scoreAgg.totalScored} scored · ${percent}`);
+    addLine(`Overall: ${agg.correctCount} correct out of ${agg.totalScored} scored · ${overallPercent}`);
     addLine(`Reading: ${readingTotals.correct}/${readingTotals.scored}  ·  Math: ${mathTotals.correct}/${mathTotals.scored}`);
 
     y += 10;
@@ -333,7 +338,7 @@ export default function ExamResultsPage({
           <div className="max-w-5xl mx-auto flex items-center justify-between">
             <div className="text-lg font-semibold">{exam.title}</div>
             <div className="text-sm">
-              {_scoreAgg.correctCount}/{_scoreAgg.totalScored} scored · {percent}
+              {agg.correctCount}/{agg.totalScored} scored · {overallPercent}
             </div>
           </div>
         </div>
@@ -345,12 +350,12 @@ export default function ExamResultsPage({
         <div className="text-center mb-6">
           <h2 className="text-4xl font-bold">Your Score</h2>
           <div className="mt-3 text-xl">
-            <span className="font-semibold">{_scoreAgg.correctCount}</span> correct out of{" "}
-            <span className="font-semibold">{_scoreAgg.totalScored}</span> scored questions ·{" "}
-            <span className="font-semibold">{percent}</span>
+            <span className="font-semibold">{agg.correctCount}</span> correct out of{" "}
+            <span className="font-semibold">{agg.totalScored}</span> scored questions ·{" "}
+            <span className="font-semibold">{overallPercent}</span>
           </div>
 
-        {/* Tiles: Reading / Math (ela_a / ela_b rolled into Reading) */}
+          {/* Tiles: Reading / Math (ela_a / ela_b rolled into Reading) */}
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto text-sm">
             <div className="rounded-md border p-3 bg-gray-50">
               <div className="text-gray-600">Reading</div>
@@ -415,4 +420,6 @@ export default function ExamResultsPage({
   );
 }
 
+/** Export both default and named to support either import style */
+export default ExamResultsPage;
 export { ExamResultsPage };
