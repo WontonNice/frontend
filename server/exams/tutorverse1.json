@@ -62,7 +62,7 @@
       "id": "math-1",
       "title": "Math Set 1",
       "type": "math",
-      "questionIds": ["MATH-SR-001"]
+      "questionIds": ["MATH-001", "MATH-002"]
     }
   ]
 }
