@@ -3,8 +3,6 @@
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
   width: 100vw;
-  /* optional: prevents tiny horizontal scrollbars on some platforms */
-  overflow-x: hidden;
 }
 
 /* Passage typography helpers */
@@ -21,22 +19,12 @@
   margin-top: 0.25rem;
   margin-bottom: 1rem;
 }
-
-/* Epigraph-style quotes without breaking inline emphasis */
-.passage blockquote {
+.passage em {
+  display: block;
   text-align: center;
   color: #6b7280;
   font-style: italic;
-  margin: 0.25rem 0 1rem;
 }
-.passage blockquote em {
-  display: inline;
-  color: inherit;
-  font-style: italic;
-}
-/* Remove the old .passage em rule */
-
-/* Ordered-list bubbles */
 .passage ol {
   counter-reset: item;
   list-style: none;
@@ -70,9 +58,9 @@
 .choice-row {
   position: relative;
   display: block;
-  overflow: hidden;                 /* clip the X to this row */
-  --x-left: calc(1rem + 0.75rem);   /* radio/checkbox (1rem) + gap-3 (0.75rem) */
-  --x-right: 0.5rem;                /* small right inset */
+  overflow: hidden;                    /* clip the X to this row */
+  --x-left: calc(1rem + 0.75rem);      /* radio/checkbox (1rem) + gap-3 (0.75rem) */
+  --x-right: 0.5rem;                   /* small right inset */
 }
 .choice-row.eliminated { color: #9ca3af; }
 
