@@ -49,13 +49,13 @@ export const questionBank: Record<string, BankQuestion> = {
     id: "ELA-B-001",
     type: "single_select",
     stemMarkdown:
-      "Which choice best corrects the error in the sentence?\n\n" +
+      "Read this sentence:\n\n" +
       "> The team _have_ completed its project ahead of schedule.",
     choices: [
-      "NO CHANGE",
-      "has",
-      "were having",
-      "have been"
+      "move folded after the and before cat",
+      "move with folded, fuzzy ears before the ball of yarn",
+      "move ***with folded, fuzzy ears*** after ***cat***",
+      "move with folded, fuzzy ears after zoomed"
     ],
     answerIndex: 1,
     explanationMarkdown:
