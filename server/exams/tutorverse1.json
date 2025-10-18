@@ -62,26 +62,7 @@
       "id": "math-1",
       "title": "Math Set 1",
       "type": "math",
-      "questions": [
-        {
-          "id": "q1",
-          "stemMarkdown": "Find the area of the triangle shown below.",
-          "image": "/exams/shsat-2025-a/math-1/q3.png",
-          "choices": ["10", "12", "15", "18"],
-          "answerIndex": 2
-        },
-        {
-          "id": "q2",
-          "stemMarkdown": "If the length of one side of a square is doubled, how does its area change?",
-          "choices": [
-            "A. It doubles",
-            "B. It triples",
-            "C. It quadruples",
-            "D. It stays the same"
-          ],
-          "answerIndex": 2
-        }
-      ]
+      "questionIds": ["MATH-SR-001"]
     }
   ]
 }

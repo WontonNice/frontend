@@ -5,6 +5,8 @@ import { getExamBySlug } from "../../data/exams";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import { getQuestionsByIds } from "../../data/revEditB-QuestionBank.ts";
+import { getMathQuestionsByIds } from "../../data/SHSATMathBank.ts";
+import MathText from "../MathText";
 
 /** Results page (extracted) */
 import ExamResultsPage from "./ExamResultsPage";
@@ -303,6 +305,11 @@ export default function ExamRunnerPage() {
         sectionQuestions = readingQs[sec.id] ?? [];
       } else if (type === "ela_b") {
         sectionQuestions = getQuestionsByIds((sec as any).questionIds ?? []);
+      } else if (type === "math") {
+        // MATH: prefer IDs from the bank, else fallback to inline
+        sectionQuestions = (sec as any).questionIds
+          ? getMathQuestionsByIds((sec as any).questionIds)
+          : (sec.questions ?? []);
       } else {
         // math (inline)
         sectionQuestions = (sec.questions ?? []);
@@ -602,6 +609,7 @@ export default function ExamRunnerPage() {
       if (it.interactionType === "short_response") return renderShortResponse(it);
       return <p className="text-gray-500">No choices for this item.</p>;
     }
+  const isMath = it.sectionType === "math";
 
     // MULTI
     if (it.interactionType === "multi_select") {
@@ -646,12 +654,18 @@ export default function ExamRunnerPage() {
                       });
                     }}
                   />
-                  <span className="choice-text flex-1 prose prose-sm max-w-none">
-                    <ReactMarkdown rehypePlugins={[rehypeRaw]}
-                      components={{ p: ({ children }) => <span>{children}</span> }}>
+                <span className="choice-text flex-1 prose prose-sm max-w-none">
+                  {isMath ? (
+                    <MathText text={choice} className="inline" />
+                  ) : (
+                    <ReactMarkdown
+                      rehypePlugins={[rehypeRaw]}
+                      components={{ p: ({ children }) => <span>{children}</span> }}
+                    >
                       {choice}
                     </ReactMarkdown>
-                  </span>
+                  )}
+                </span>
                 </label>
               </li>
             );
@@ -689,10 +703,16 @@ export default function ExamRunnerPage() {
                   }}
                 />
                 <span className="choice-text flex-1 prose prose-sm max-w-none">
-                  <ReactMarkdown rehypePlugins={[rehypeRaw]}
-                    components={{ p: ({ children }) => <span>{children}</span> }}>
-                    {choice}
-                  </ReactMarkdown>
+                  {isMath ? (
+                    <MathText text={choice} className="inline" />
+                  ) : (
+                    <ReactMarkdown
+                      rehypePlugins={[rehypeRaw]}
+                      components={{ p: ({ children }) => <span>{children}</span> }}
+                    >
+                      {choice}
+                    </ReactMarkdown>
+                  )}
                 </span>
               </label>
             </li>
@@ -935,9 +955,7 @@ export default function ExamRunnerPage() {
             <div className="rounded-lg border border-gray-200 shadow-sm p-4">
               {current?.stemMarkdown ? (
                 <div className="prose max-w-none mb-3 question-stem">
-                  <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                    {current.stemMarkdown}
-                  </ReactMarkdown>
+                  <MathText text={current.stemMarkdown} />
                 </div>
               ) : null}
 
