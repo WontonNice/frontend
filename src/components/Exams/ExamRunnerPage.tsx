@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getExamBySlug } from "../../data/exams";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
-import { getQuestionsByIds } from "../../../public/exams/revising/revEditB-QuestionBank.ts";
+import { getQuestionsByIds } from "../../data/revEditB-QuestionBank.ts";
 
 /** Results page (extracted) */
 import ExamResultsPage from "./ExamResultsPage";
