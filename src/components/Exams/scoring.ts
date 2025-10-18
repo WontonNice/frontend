@@ -1,36 +1,49 @@
 // src/domain/exams/lib/scoring.ts
- export type AnswerValue =
-   | number
-   | string
-   | Array<number | string>
-   | Record<string, string | number | undefined>;
+// Shared scoring utilities for Runner/Results.
+// Self-contained (no app-specific imports) and tolerant to numeric/string answers.
+
+//// Value shapes ///////////////////////////////////////////////////////////////
+
+type Scalar = string | number;
+type ArrayValue = Array<Scalar>;
+type MapValue = Record<string, Scalar | undefined>;
+
+export type AnswerValue = Scalar | ArrayValue | MapValue;
 export type AnswerMap = Record<string, AnswerValue | undefined>;
 
+//// Question shape we can score ///////////////////////////////////////////////
+
 export type QuestionLike = {
-  id: string;
-  kind?: string;               // "single_select" | "multi_select" | "drag_to_bins" | "table_match" | "cloze_drag" | ...
-  // Common fields occasionally seen in your codebase:
-  answerIndex?: number;        // single-select
-  correctIndex?: number;       // alt single-select
-  correctIndices?: number[];   // multi-select
-  correctBins?: Record<string, string>;   // optionId -> binId
-  correctCells?: Record<string, string>;  // rowId   -> optionId
-  correctBlanks?: Record<string, string>; // blankId -> tokenId/optionId
-  points?: number;             // optional weighting
-  sectionType?: "reading" | "math" | string;
+  id: string;                     // globalId recommended (e.g., "secId:qId")
+  kind?: string;                  // "single_select" | "multi_select" | "drag_to_bins" | "table_match" | "cloze_drag" | ...
+  // Single-select:
+  answerIndex?: number;           // alt key name (legacy)
+  correctIndex?: number;          // canonical single-select key
+  // Multi-select:
+  correctIndices?: Array<number | string>;
+  // Map-shaped interactions:
+  correctBins?: Record<string, Scalar>;   // optionId -> binId
+  correctCells?: Record<string, Scalar>;  // rowId   -> optionId
+  correctBlanks?: Record<string, Scalar>; // blankId -> tokenId/optionId
+  // Optional weighting:
+  points?: number;
+  // Optional grouping info for aggregation:
+  sectionType?: string;           // e.g., "reading" | "ela_a" | "ela_b" | "math"
 };
+
+//// Score types ////////////////////////////////////////////////////////////////
 
 export type ScoreDetail =
   | { type: "single_select"; user?: number | null; correct?: number | null }
-  | { type: "multi_select"; user: number[]; correct: number[] }
-  | { type: "drag_to_bins"; user: Record<string,string|undefined>; correct: Record<string,string> }
-  | { type: "table_match";  user: Record<string,string|undefined>; correct: Record<string,string> }
-  | { type: "cloze_drag";   user: Record<string,string|undefined>; correct: Record<string,string> }
-  | { type: "unknown";      note: string };
+  | { type: "multi_select";  user: number[]; correct: number[] }
+  | { type: "drag_to_bins";  user: MapValue; correct: Record<string, Scalar> }
+  | { type: "table_match";   user: MapValue; correct: Record<string, Scalar> }
+  | { type: "cloze_drag";    user: MapValue; correct: Record<string, Scalar> }
+  | { type: "unknown";       note: string };
 
 export type ItemScore = {
   questionId: string;
-  correct: boolean | null;     // null => unscored (no key)
+  correct: boolean | null;  // null => unscored (no key)
   pointsEarned: number;
   maxPoints: number;
   detail: ScoreDetail;
@@ -41,7 +54,7 @@ export type SectionScore = {
   sectionType?: string;
   items: ItemScore[];
   correctCount: number;
-  totalScored: number; // items with an answer key
+  totalScored: number; // items with a key
   pointsEarned: number;
   pointsPossible: number;
 };
@@ -55,7 +68,16 @@ export type ExamScore = {
   pointsPossible: number;
 };
 
-// ---- helpers
+//// Helpers ///////////////////////////////////////////////////////////////////
+
+const toNum = (v: unknown): number | null => {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+};
 
 const numAsc = (a: number, b: number) => a - b;
 
@@ -65,16 +87,21 @@ const eqArrayNums = (a: number[] = [], b: number[] = []) => {
   return true;
 };
 
-// ---- per-interaction scoring
+const norm = (v: unknown) => (v == null ? "" : String(v));
+
+//// Per-interaction scoring ////////////////////////////////////////////////////
 
 export function scoreSingleSelect(q: QuestionLike, user: unknown): ItemScore {
   const max = q.points ?? 1;
-  const key = typeof q.correctIndex === "number" ? q.correctIndex
-            : typeof q.answerIndex  === "number" ? q.answerIndex
-            : undefined;
-  const userIdx = typeof user === "number" ? user : null;
+  const key =
+    typeof q.correctIndex === "number" ? q.correctIndex :
+    typeof q.answerIndex  === "number" ? q.answerIndex  :
+    undefined;
+
+  const userIdx = toNum(user);
   const canScore = typeof key === "number";
-  const isCorrect = canScore ? userIdx === key : null;
+  const isCorrect = canScore ? (userIdx != null && userIdx === key) : null;
+
   return {
     questionId: q.id,
     correct: isCorrect,
@@ -86,29 +113,48 @@ export function scoreSingleSelect(q: QuestionLike, user: unknown): ItemScore {
 
 export function scoreMultiSelect(q: QuestionLike, user: unknown): ItemScore {
   const max = q.points ?? 1;
-  const key = Array.isArray(q.correctIndices) ? q.correctIndices.slice().sort(numAsc) : undefined;
-  const userArr = Array.isArray(user) ? (user as number[]).slice().sort(numAsc) : [];
-  const canScore = Array.isArray(key);
-  const isCorrect = canScore ? eqArrayNums(userArr, key!) : null;
+
+  const keyNums: number[] = Array.isArray(q.correctIndices)
+    ? q.correctIndices
+        .map(toNum)
+        .filter((n): n is number => n != null)
+        .slice()
+        .sort(numAsc)
+    : [];
+
+  const userNums: number[] = Array.isArray(user)
+    ? (user as Array<number | string>)
+        .map(toNum)
+        .filter((n): n is number => n != null)
+        .slice()
+        .sort(numAsc)
+    : [];
+
+  const canScore = keyNums.length > 0;
+  const isCorrect = canScore ? eqArrayNums(userNums, keyNums) : null;
+
   return {
     questionId: q.id,
     correct: isCorrect,
     pointsEarned: isCorrect ? max : 0,
     maxPoints: max,
-    detail: { type: "multi_select", user: userArr, correct: key ?? [] },
+    detail: { type: "multi_select", user: userNums, correct: keyNums },
   };
 }
 
 export function scoreDragToBins(q: QuestionLike, user: unknown): ItemScore {
   const max = q.points ?? 1;
-  const key = q.correctBins ?? {};
-  const userMap = (user && typeof user === "object") ? (user as Record<string,string|undefined>) : {};
+  const key: Record<string, Scalar> = q.correctBins ?? {};
+  const userMap: MapValue =
+    user && typeof user === "object" ? (user as MapValue) : {};
+
   const allKeys = new Set([...Object.keys(key), ...Object.keys(userMap)]);
   let ok = true;
   for (const k of allKeys) {
-    if ((userMap[k] ?? null) !== (key[k] ?? null)) { ok = false; break; }
+    if (norm(userMap[k]) !== norm(key[k])) { ok = false; break; }
   }
   const isCorrect = Object.keys(key).length ? ok : null;
+
   return {
     questionId: q.id,
     correct: isCorrect,
@@ -120,14 +166,17 @@ export function scoreDragToBins(q: QuestionLike, user: unknown): ItemScore {
 
 export function scoreTableMatch(q: QuestionLike, user: unknown): ItemScore {
   const max = q.points ?? 1;
-  const key = q.correctCells ?? {};
-  const userMap = (user && typeof user === "object") ? (user as Record<string,string|undefined>) : {};
+  const key: Record<string, Scalar> = q.correctCells ?? {};
+  const userMap: MapValue =
+    user && typeof user === "object" ? (user as MapValue) : {};
+
   const rowIds = new Set([...Object.keys(key), ...Object.keys(userMap)]);
   let ok = true;
   for (const r of rowIds) {
-    if ((userMap[r] ?? null) !== (key[r] ?? null)) { ok = false; break; }
+    if (norm(userMap[r]) !== norm(key[r])) { ok = false; break; }
   }
   const isCorrect = Object.keys(key).length ? ok : null;
+
   return {
     questionId: q.id,
     correct: isCorrect,
@@ -139,14 +188,17 @@ export function scoreTableMatch(q: QuestionLike, user: unknown): ItemScore {
 
 export function scoreClozeDrag(q: QuestionLike, user: unknown): ItemScore {
   const max = q.points ?? 1;
-  const key = q.correctBlanks ?? {};
-  const userMap = (user && typeof user === "object") ? (user as Record<string,string|undefined>) : {};
+  const key: Record<string, Scalar> = q.correctBlanks ?? {};
+  const userMap: MapValue =
+    user && typeof user === "object" ? (user as MapValue) : {};
+
   const blanks = new Set([...Object.keys(key), ...Object.keys(userMap)]);
   let ok = true;
   for (const b of blanks) {
-    if ((userMap[b] ?? null) !== (key[b] ?? null)) { ok = false; break; }
+    if (norm(userMap[b]) !== norm(key[b])) { ok = false; break; }
   }
   const isCorrect = Object.keys(key).length ? ok : null;
+
   return {
     questionId: q.id,
     correct: isCorrect,
@@ -156,7 +208,7 @@ export function scoreClozeDrag(q: QuestionLike, user: unknown): ItemScore {
   };
 }
 
-// ---- router function
+//// Router ////////////////////////////////////////////////////////////////////
 
 export function scoreQuestion(q: QuestionLike, user: unknown): ItemScore {
   const kind = q.kind ??
@@ -183,16 +235,16 @@ export function scoreQuestion(q: QuestionLike, user: unknown): ItemScore {
   }
 }
 
-// ---- exam-level aggregation
+//// Exam-level aggregation /////////////////////////////////////////////////////
 
 export function scoreExam(
   questions: QuestionLike[],
   answers: AnswerMap,
   sectionOf?: (qId: string) => { id?: string; type?: string } | undefined
 ): ExamScore {
-  const items = questions.map(q => scoreQuestion(q, answers[q.id]));
-  const correctCount = items.filter(i => i.correct === true).length;
-  const totalScored = items.filter(i => i.correct !== null).length;
+  const items = questions.map((q) => scoreQuestion(q, answers[q.id]));
+  const correctCount = items.filter((i) => i.correct === true).length;
+  const totalScored = items.filter((i) => i.correct !== null).length;
   const pointsEarned = items.reduce((s, i) => s + i.pointsEarned, 0);
   const pointsPossible = items.reduce((s, i) => s + i.maxPoints, 0);
 
