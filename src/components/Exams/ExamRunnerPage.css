@@ -3,9 +3,11 @@
   margin-left: calc(50% - 50vw);
   margin-right: calc(50% - 50vw);
   width: 100vw;
+  /* prevents tiny horizontal scrollbars on some platforms */
+  overflow-x: hidden;            /* X only, so popovers can overflow vertically */
 }
 
-/* Passage typography helpers */
+/* ---------------- Passage typography helpers ---------------- */
 .passage h1,
 .passage h2,
 .passage h3 {
@@ -19,12 +21,21 @@
   margin-top: 0.25rem;
   margin-bottom: 1rem;
 }
-.passage em {
-  display: block;
+
+/* Epigraph-style quotes (reading passage only) */
+.passage blockquote {
   text-align: center;
   color: #6b7280;
   font-style: italic;
+  margin: 0.25rem 0 1rem;
 }
+.passage blockquote em {
+  display: inline;
+  color: inherit;
+  font-style: italic;
+}
+
+/* Ordered-list bubbles (passage) */
 .passage ol {
   counter-reset: item;
   list-style: none;
@@ -54,13 +65,43 @@
   justify-content: center;
 }
 
-/* Compact red X only over the option row */
+/* ---------------- Question stem blockquotes (boxed paragraph) ----------------
+   Applies to any Markdown blockquote inside the right-side "prose" wrapper.
+   Scoped to .prose so it won't affect .passage, which has its own style above.
+*/
+.prose blockquote {
+  /* remove tailwind-typography's default left bar + italics */
+  border-left: none;
+  font-style: normal;
+
+  /* box look like your screenshot */
+  margin: 0 0 1rem;              /* space below the box */
+  padding: 1rem 1.25rem;
+  background: #ffffff;
+  border: 1px solid #d1d5db;     /* gray-300 */
+  border-radius: 0.5rem;         /* rounded-md */
+  box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+  color: #111827;                /* gray-900 */
+}
+
+/* tighten paragraphs inside the boxed quote */
+.prose blockquote > p {
+  margin: 0.25rem 0;
+}
+
+/* keep underlines clear inside the box */
+.prose blockquote u {
+  text-underline-offset: 2px;
+  text-decoration-thickness: 2px;
+}
+
+/* ---------------- Choice row eliminator (red X) ---------------- */
 .choice-row {
   position: relative;
   display: block;
-  overflow: hidden;                    /* clip the X to this row */
-  --x-left: calc(1rem + 0.75rem);      /* radio/checkbox (1rem) + gap-3 (0.75rem) */
-  --x-right: 0.5rem;                   /* small right inset */
+  overflow: hidden;                 /* clip the X to this row */
+  --x-left: calc(1rem + 0.75rem);   /* radio/checkbox (1rem) + gap-3 (0.75rem) */
+  --x-right: 0.5rem;                /* small right inset */
 }
 .choice-row.eliminated { color: #9ca3af; }
 

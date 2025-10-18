@@ -588,7 +588,15 @@ export default function ExamRunnerPage() {
                       });
                     }}
                   />
-                  <span className="choice-text flex-1">{choice}</span>
+                  <span className="choice-text flex-1 prose prose-sm max-w-none">
+  <ReactMarkdown rehypePlugins={[rehypeRaw]}
+    components={{
+      p: ({children}) => <span>{children}</span>  // keep single-line layout
+    }}
+  >
+    {choice}
+  </ReactMarkdown>
+</span>
                 </label>
               </li>
             );
@@ -631,7 +639,15 @@ export default function ExamRunnerPage() {
                     setAnswers((prev) => ({ ...prev, [it.globalId]: i }));
                   }}
                 />
-                <span className="choice-text flex-1">{choice}</span>
+                <span className="choice-text flex-1 prose prose-sm max-w-none">
+  <ReactMarkdown rehypePlugins={[rehypeRaw]}
+    components={{
+      p: ({children}) => <span>{children}</span>  // keep single-line layout
+    }}
+  >
+    {choice}
+  </ReactMarkdown>
+</span>
               </label>
             </li>
           );
@@ -870,8 +886,10 @@ export default function ExamRunnerPage() {
           <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
             <div className="rounded-lg border border-gray-200 shadow-sm p-4">
               {current?.stemMarkdown ? (
-                <div className="prose max-w-none mb-3">
-                  <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
+                <div className="prose max-w-none mb-3 question-stem">
+                      <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                        {current.stemMarkdown}
+                      </ReactMarkdown>
                 </div>
               ) : null}
 
@@ -936,8 +954,10 @@ export default function ExamRunnerPage() {
               {/* Right: question */}
               <div className="rounded-lg border border-gray-200 shadow-sm p-4">
                 {current?.stemMarkdown ? (
-                  <div className="prose max-w-none mb-3">
-                    <ReactMarkdown>{current.stemMarkdown}</ReactMarkdown>
+                  <div className="prose max-w-none mb-3 question-stem">
+                      <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                        {current.stemMarkdown}
+                      </ReactMarkdown>
                   </div>
                 ) : null}
 
