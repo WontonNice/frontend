@@ -120,3 +120,53 @@ html { overflow-x: hidden; }
 }
 .choice-row.eliminated::before { transform: translateY(-50%) rotate(9deg); }
 .choice-row.eliminated::after  { transform: translateY(-50%) rotate(-9deg); }
+
+/* ===== Glossy blue Prev/Next pair ===== */
+.nav-pair {
+  display: inline-flex;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid #0b66d0;                 /* subtle border */
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.35) inset,      /* inner highlight */
+    0 1px 2px rgba(0,0,0,.12);                /* soft outer shadow */
+  background: linear-gradient(#1f80ee, #0f5fcb); /* for the tiny gap edges */
+}
+.nav-btn {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  width: 40px;                /* matches the screenshot’s compact feel */
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(#1f80ee, #0f5fcb);
+  cursor: pointer;
+}
+.nav-btn + .nav-btn {
+  border-left: 1px solid rgba(255,255,255,.75);   /* thin white divider */
+}
+.nav-btn:hover:not([disabled]) {
+  background: linear-gradient(#2a89f3, #1466d8);
+}
+.nav-btn:active:not([disabled]) {
+  background: linear-gradient(#0f5fcb, #1f80ee);
+}
+.nav-btn[disabled] {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.nav-icon {
+  width: 16px;
+  height: 16px;
+  stroke: #fff;
+  stroke-width: 2.25;
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+/* Optional keyboard focus ring */
+.nav-btn:focus-visible {
+  outline: 2px solid #93c5fd;     /* sky-300 */
+  outline-offset: 2px;
+}

@@ -61,7 +61,7 @@ questions:
     explanationMarkdown: ""
 
   - id: q5
-    type: cloze_drag
+    type: drag_binz
     skillType: function
     stemMarkdown: "Based on the poem, which of the following statements would the author likely agree with, and which lack sufficient evidence in the poem to determine whether or not the author would agree with them? Drag each answer into the corresponding boxes below."
     bins:
