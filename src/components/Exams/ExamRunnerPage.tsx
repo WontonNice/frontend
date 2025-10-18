@@ -14,7 +14,16 @@ import "./ExamRunnerPage.css";
 import DragToBins from "./techenhanced/DragToBins";
 import TableMatch from "./techenhanced/TableMatch";
 import ClozeDrag from "./techenhanced/ClozeDrag";
-import type { DragAnswer as DragMap, TableAnswer, ClozeAnswer } from "./techenhanced/types";
+import type {
+  DragAnswer as DragMap,
+  TableAnswer,
+  ClozeAnswer,
+} from "./techenhanced/types";
+
+/** NEW: separate type systems */
+import type { ReadingInteractionType } from "../../types/ReadingTypes";
+import type { MathInteractionType } from "../../types/MathTypes";
+import type { AnswerMap, SourceType } from "./ExamSharedTypes";
 
 /** Tools */
 import { useEliminator } from "./Tools/AnswerEliminator";
@@ -22,18 +31,11 @@ import ExamToolButtons from "./Tools/ToolButtons";
 import GlobalNotepad from "./Tools/GlobalNotepad";
 import type { Tool } from "./Tools/types";
 
-/** Stores selected value per question (keyed by globalId) */
-type AnswerValue = number | number[] | DragMap | TableAnswer | ClozeAnswer | undefined;
-type AnswerMap = Record<string, AnswerValue>;
+/** Tabs in review popover */
 type ReviewTab = "all" | "unanswered" | "bookmarked";
 
 /** ---------- Frontmatter helpers ---------- */
-type InteractionType =
-  | "single_select"
-  | "multi_select"
-  | "drag_to_bins"
-  | "table_match"
-  | "cloze_drag";
+type InteractionType = ReadingInteractionType | MathInteractionType;
 
 type SkillType = "global" | "function" | "detail" | "inference";
 
@@ -45,6 +47,7 @@ type MdFrontmatter = {
 
     type?: InteractionType;
     skillType?: SkillType;
+    sourceType?: SourceType;
 
     stemMarkdown?: string;
     image?: string;
@@ -57,20 +60,26 @@ type MdFrontmatter = {
     selectCount?: number;
     correctIndices?: number[];
 
-    /** Drag to bins */
+    /** Drag to bins (reading) */
     bins?: { id: string; label: string }[];
     options?: { id: string; label: string }[];
     correctBins?: Record<string, string>;
 
-    /** Table match */
+    /** Table match (reading) */
     table?: {
       columns: { key: string; header: string }[];
       rows: { id: string; header: string }[];
     };
     correctCells?: Record<string, string>;
 
-    /** Cloze drag */
+    /** Cloze drag (reading) */
     blanks?: { id: string; correctOptionId: string }[];
+
+    /** Short response (math + reading) */
+    correctAnswer?: string | number | Array<string | number>;
+    tolerance?: number;
+    normalizeText?: boolean;
+    placeholder?: string;
 
     explanationMarkdown?: string;
   }>;
@@ -116,23 +125,30 @@ type FlatItem = {
   /** Choice interactions */
   choices?: string[];
 
-  /** Drag-to-bins interactions */
+  /** Drag-to-bins interactions (reading) */
   bins?: { id: string; label: string }[];
   options?: { id: string; label: string }[];
   correctBins?: Record<string, string>;
 
-  /** Table-match interactions */
+  /** Table-match interactions (reading) */
   tableColumns?: { key: string; header: string }[];
   tableRows?: { id: string; header: string }[];
   tableOptions?: { id: string; label: string }[];
   correctCells?: Record<string, string>;
 
-  /** Cloze-drag interactions */
+  /** Cloze-drag interactions (reading) */
   blanks?: { id: string; correctOptionId: string }[];
+
+  /** Short-response interactions (typed) */
+  shortResponsePlaceholder?: string;
+  correctAnswer?: string | number | Array<string | number>;
+  tolerance?: number;
+  normalizeText?: boolean;
 
   /** Interaction + skill on each item */
   interactionType?: InteractionType;
   skillType?: SkillType;
+  sourceType?: SourceType;
 
   selectCount?: number;
   explanationMarkdown?: string;
@@ -140,7 +156,7 @@ type FlatItem = {
   globalIndex: number;
   isEnd?: boolean;
 
-  /** NEW: generic section intro pages (reading, math, ELA A, ELA B) */
+  /** Generic section intro pages */
   isIntro?: boolean;
 };
 
@@ -283,10 +299,12 @@ export default function ExamRunnerPage() {
 
       let sectionQuestions: any[] = [];
       if (isMdType(type)) {
+        // reading/ELA-A frontmatter
         sectionQuestions = readingQs[sec.id] ?? [];
       } else if (type === "ela_b") {
         sectionQuestions = getQuestionsByIds((sec as any).questionIds ?? []);
       } else {
+        // math (inline)
         sectionQuestions = (sec.questions ?? []);
       }
 
@@ -306,22 +324,29 @@ export default function ExamRunnerPage() {
           // choice
           choices: q.choices,
 
-          // drag_to_bins
+          // drag_to_bins (reading)
           bins: q.bins,
           options: q.options,
           correctBins: q.correctBins,
 
-          // table_match
+          // table_match (reading)
           tableColumns: q.table?.columns,
           tableRows: q.table?.rows,
           tableOptions: q.options,
           correctCells: q.correctCells,
 
-          // cloze_drag
+          // cloze_drag (reading)
           blanks: q.blanks,
+
+          // short_response
+          shortResponsePlaceholder: q.placeholder ?? q.shortResponsePlaceholder,
+          correctAnswer: q.correctAnswer,
+          tolerance: q.tolerance,
+          normalizeText: q.normalizeText,
 
           interactionType: q.type ?? "single_select",
           skillType: q.skillType,
+          sourceType: q.sourceType ?? (sec as any).sourceType,
           selectCount: q.selectCount,
           explanationMarkdown: q.explanationMarkdown,
 
@@ -479,22 +504,9 @@ export default function ExamRunnerPage() {
     return list.length ? list : undefined;
   })();
 
-  // NEW: only reading/ela_a use a left passage pane
+  // Only reading/ela_a use a left passage pane
   const isPassageSection =
     !current?.isEnd && !current?.isIntro && isMdType(current?.sectionType);
-
-  // ===== CLOZE helper: split stem around [blank:...] =====
-  const clozePieces = useMemo(() => {
-    if (!current?.stemMarkdown) return null;
-    const md = current.stemMarkdown;
-    const m = md.match(/\[blank:([^\]]+)\](.*)$/s); // capture first [blank:id] and everything after
-    if (!m || m.index == null) return null;
-    const before = md.slice(0, m.index).trim();
-    const after = (m[2] || "").trim();
-    const idFromStem = m[1];
-    const id = current.blanks?.[0]?.id ?? idFromStem ?? "blank";
-    return { before, after, id };
-  }, [current?.stemMarkdown, current?.blanks]);
 
   // ===== Progress (GLOBAL) =====
   const questionCount = questionItems.length;
@@ -511,6 +523,7 @@ export default function ExamRunnerPage() {
   // ===== Helpers =====
   const isAnsweredGid = (gid: string) => {
     const v = answers[gid];
+    if (typeof v === "string") return v.trim().length > 0; // short_response
     if (typeof v === "number") return true;
     if (Array.isArray(v)) return v.length > 0;
     if (v && typeof v === "object") return Object.keys(v as Record<string, unknown>).length > 0;
@@ -546,9 +559,47 @@ export default function ExamRunnerPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ===== Choice renderer (single + multi) =====
+  // ===== Renderers =====
+  const renderShortResponse = (it: FlatItem) => {
+    const val = (answers[it.globalId] as string) ?? "";
+    const moveNext = () => setIdx((i) => Math.min(lastIndex, i + 1));
+    return (
+      <div className="space-y-2">
+        <label className="text-sm text-gray-600">Type your answer:</label>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            inputMode="text"
+            value={val}
+            placeholder={it.shortResponsePlaceholder ?? "Type your answer…"}
+            onChange={(e) =>
+              setAnswers((prev) => ({ ...prev, [it.globalId]: e.target.value }))
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter") moveNext();
+            }}
+            className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-[15px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {val && (
+            <button
+              type="button"
+              onClick={() =>
+                setAnswers((prev) => ({ ...prev, [it.globalId]: "" }))
+              }
+              className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm hover:bg-gray-50"
+              title="Clear answer"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderChoices = (it: FlatItem) => {
     if (!Array.isArray(it.choices)) {
+      if (it.interactionType === "short_response") return renderShortResponse(it);
       return <p className="text-gray-500">No choices for this item.</p>;
     }
 
@@ -568,10 +619,7 @@ export default function ExamRunnerPage() {
             const eliminated = isEliminated(it.globalId, i);
 
             return (
-              <li
-                key={i}
-                className={`choice-row ${eliminated ? "eliminated" : ""}`}
-              >
+              <li key={i} className={`choice-row ${eliminated ? "eliminated" : ""}`}>
                 <label
                   className="w-full flex items-start gap-3 cursor-pointer"
                   onClick={(e) => {
@@ -585,16 +633,13 @@ export default function ExamRunnerPage() {
                     type="checkbox"
                     className="h-4 w-4 mt-1"
                     checked={checked}
-                    onChange={(e) => {
-                      if (eliminatorActive) {
-                        e.preventDefault();
-                        return;
-                      }
+                    onChange={() => {
+                      if (eliminatorActive) return;
                       setAnswers((prev) => {
                         const set = new Set((prev[it.globalId] as number[] | undefined) ?? []);
                         if (checked) set.delete(i);
                         else {
-                          if (it.selectCount && set.size >= it.selectCount) return prev; // cap
+                          if (it.selectCount && set.size >= it.selectCount) return prev;
                           set.add(i);
                         }
                         return { ...prev, [it.globalId]: Array.from(set).sort((a, b) => a - b) };
@@ -603,7 +648,7 @@ export default function ExamRunnerPage() {
                   />
                   <span className="choice-text flex-1 prose prose-sm max-w-none">
                     <ReactMarkdown rehypePlugins={[rehypeRaw]}
-                      components={{ p: ({children}) => <span>{children}</span> }}>
+                      components={{ p: ({ children }) => <span>{children}</span> }}>
                       {choice}
                     </ReactMarkdown>
                   </span>
@@ -623,10 +668,7 @@ export default function ExamRunnerPage() {
           const eliminated = isEliminated(it.globalId, i);
 
           return (
-            <li
-              key={i}
-              className={`choice-row ${eliminated ? "eliminated" : ""}`}
-            >
+            <li key={i} className={`choice-row ${eliminated ? "eliminated" : ""}`}>
               <label
                 className="w-full flex items-start gap-3 cursor-pointer"
                 onClick={(e) => {
@@ -641,17 +683,14 @@ export default function ExamRunnerPage() {
                   name={it.globalId}
                   className="h-4 w-4 mt-1"
                   checked={!!selected}
-                  onChange={(e) => {
-                    if (eliminatorActive) {
-                      e.preventDefault();
-                      return;
-                    }
+                  onChange={() => {
+                    if (eliminatorActive) return;
                     setAnswers((prev) => ({ ...prev, [it.globalId]: i }));
                   }}
                 />
                 <span className="choice-text flex-1 prose prose-sm max-w-none">
                   <ReactMarkdown rehypePlugins={[rehypeRaw]}
-                    components={{ p: ({children}) => <span>{children}</span> }}>
+                    components={{ p: ({ children }) => <span>{children}</span> }}>
                     {choice}
                   </ReactMarkdown>
                 </span>
@@ -910,8 +949,12 @@ export default function ExamRunnerPage() {
                 />
               )}
 
-              {/* Choices (single + multi) */}
-              {renderChoices(current)}
+              {/* Interaction renderer (math) */}
+              {current.interactionType === "short_response" ? (
+                renderShortResponse(current)
+              ) : (
+                renderChoices(current)
+              )}
             </div>
           </div>
         ) : isPassageSection ? (
@@ -946,19 +989,17 @@ export default function ExamRunnerPage() {
                 </div>
               </div>
 
-              {/* Right: question */}
+              {/* Right: question (reading) */}
               <div className="rounded-lg border border-gray-200 shadow-sm p-4">
                 {current?.stemMarkdown ? (
                   <div className="prose max-w-none mb-3 question-stem">
                     <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                      {current.interactionType === "cloze_drag" && clozePieces
-                        ? clozePieces.before
-                        : current.stemMarkdown}
+                      {current.stemMarkdown}
                     </ReactMarkdown>
                   </div>
                 ) : null}
 
-                {/* Interaction renderer */}
+                {/* Interaction renderer (reading) */}
                 {current.interactionType === "drag_to_bins" ? (
                   <DragToBins
                     bins={current.bins ?? []}
@@ -983,14 +1024,16 @@ export default function ExamRunnerPage() {
                   />
                 ) : current.interactionType === "cloze_drag" ? (
                   <ClozeDrag
-                    blankId={(clozePieces?.id ?? current.blanks?.[0]?.id ?? "blank")}
+                    blankId={current.blanks?.[0]?.id ?? "blank"}
                     options={(current.options ?? []) as { id: string; label: string }[]}
-                    textAfter={(clozePieces?.after ?? "").trim()}
+                    textAfter={current.stemMarkdown ?? ""}
                     value={((answers[current.globalId] as ClozeAnswer) ?? {}) as ClozeAnswer}
                     onChange={(next) =>
                       setAnswers((prev) => ({ ...prev, [current.globalId]: next }))
                     }
                   />
+                ) : current.interactionType === "short_response" ? (
+                  renderShortResponse(current)
                 ) : (
                   renderChoices(current)
                 )}
@@ -1004,9 +1047,7 @@ export default function ExamRunnerPage() {
               {current?.stemMarkdown ? (
                 <div className="prose max-w-none mb-3 question-stem">
                   <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                    {current.interactionType === "cloze_drag" && clozePieces
-                      ? clozePieces.before
-                      : current.stemMarkdown}
+                    {current.stemMarkdown}
                   </ReactMarkdown>
                 </div>
               ) : null}
@@ -1019,7 +1060,7 @@ export default function ExamRunnerPage() {
                 />
               )}
 
-              {/* Interaction renderer */}
+              {/* Interaction renderer (non-passage) */}
               {current.interactionType === "drag_to_bins" ? (
                 <DragToBins
                   bins={current.bins ?? []}
@@ -1044,14 +1085,16 @@ export default function ExamRunnerPage() {
                 />
               ) : current.interactionType === "cloze_drag" ? (
                 <ClozeDrag
-                  blankId={(clozePieces?.id ?? current.blanks?.[0]?.id ?? "blank")}
+                  blankId={current.blanks?.[0]?.id ?? "blank"}
                   options={(current.options ?? []) as { id: string; label: string }[]}
-                  textAfter={(clozePieces?.after ?? "").trim()}
+                  textAfter={current.stemMarkdown ?? ""}
                   value={((answers[current.globalId] as ClozeAnswer) ?? {}) as ClozeAnswer}
                   onChange={(next) =>
                     setAnswers((prev) => ({ ...prev, [current.globalId]: next }))
                   }
                 />
+              ) : current.interactionType === "short_response" ? (
+                renderShortResponse(current)
               ) : (
                 renderChoices(current)
               )}

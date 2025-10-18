@@ -1,4 +1,4 @@
-// src/types/exams.ts
+// C:\Users\minio\OneDrive\Documents\frontend\src\types\exams.ts
 
 /** ===== High-level Exam ===== */
 export type Exam = {

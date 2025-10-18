@@ -1,4 +1,4 @@
-// src/data/exams.ts
+// C:\Users\minio\OneDrive\Documents\frontend\src\data\exams.ts
 import type { Exam, Section, Question } from "../types/exams";
 
 // Read JSON exams from either src/exams or server/exams

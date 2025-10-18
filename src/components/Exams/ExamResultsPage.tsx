@@ -2,6 +2,7 @@
 import { useMemo } from "react";
 import type { Exam } from "../../types/exams";
 import type { DragAnswer as DragMap, TableAnswer } from "./techenhanced/types";
+import type { AnswerMap } from "./ExamSharedTypes";
 
 /** Local types (kept minimal to avoid coupling) */
 type InteractionType =
@@ -11,8 +12,8 @@ type InteractionType =
   | "table_match"
   | "cloze_drag";
 
-type AnswerValue = number | number[] | DragMap | TableAnswer | undefined;
-type AnswerMap = Record<string, AnswerValue>;
+//type AnswerValue = number | number[] | DragMap | TableAnswer | undefined;
+//type AnswerMap = Record<string, AnswerValue>;
 
 type IdLabel = { id: string; label: string };
 type RowHdr  = { id: string; header: string };
@@ -52,7 +53,7 @@ type ResultRow = {
 type Props = {
   exam: Exam;
   items: FlatItemLike[];
-  answers: AnswerMap;
+  answers: AnswerMap; 
   /** reading questions loaded from passage YAML; keyed by section.id */
   readingQs: Record<string, any[] | undefined>;
   /** e.g. "top-14" when a global bar is visible */
