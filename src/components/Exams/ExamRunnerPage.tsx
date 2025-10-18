@@ -12,7 +12,7 @@ import { getMathQuestionsByIds } from "../../data/SHSATMathBank.ts";
 // Results page (use named import so props are typed)
 import { ExamResultsPage } from "./ExamResultsPage";
 import "./ExamRunnerPage.css";
-import { fetchExamLock } from "./ExamLock";
+
 
 /** Tech-enhanced interactions */
 import DragToBins from "./techenhanced/DragToBins";
