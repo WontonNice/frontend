@@ -12,23 +12,38 @@ type InteractionType =
   | "table_match"
   | "cloze_drag";
 
-//type AnswerValue = number | number[] | DragMap | TableAnswer | undefined;
-//type AnswerMap = Record<string, AnswerValue>;
-
 type IdLabel = { id: string; label: string };
 type RowHdr  = { id: string; header: string };
 
+/** 🔧 Extended so we can score from items (used for ELA B) */
 type FlatItemLike = {
   globalId: string;
   sectionId: string;
   sectionTitle: string;
   sectionType: "reading" | "math" | string;
   stemMarkdown?: string;
+
+  // MC
   choices?: string[];
+  answerIndex?: number;
+  correctIndices?: number[];
+
+  // Drag-to-bins
   bins?: IdLabel[];
   options?: IdLabel[];
+  correctBins?: Record<string, string>;
+
+  // Table-match
   tableRows?: RowHdr[];
   tableOptions?: IdLabel[];
+  correctCells?: Record<string, string>;
+
+  // Cloze-drag (single blank supported here)
+  blanks?: { id: string; correctOptionId: string }[];
+
+  interactionType?: InteractionType | string;
+  isIntro?: boolean;
+  isEnd?: boolean;
 };
 
 type SectionTotals = {
@@ -53,8 +68,8 @@ type ResultRow = {
 type Props = {
   exam: Exam;
   items: FlatItemLike[];
-  answers: AnswerMap; 
-  /** reading questions loaded from passage YAML; keyed by section.id */
+  answers: AnswerMap;
+  /** reading(+) questions loaded from passage YAML; keyed by section.id */
   readingQs: Record<string, any[] | undefined>;
   /** e.g. "top-14" when a global bar is visible */
   stickyTopClass?: string;
@@ -63,6 +78,8 @@ type Props = {
 const groupLabel = (type: string) => {
   if (type === "reading") return "Reading";
   if (type === "math") return "Mathematics";
+  if (type === "ela_a") return "Reading";   // show with Reading
+  if (type === "ela_b") return "Reading";   // show with Reading
   return type.charAt(0).toUpperCase() + type.slice(1);
 };
 const numAsc = (x: number, y: number) => x - y;
@@ -100,16 +117,37 @@ function ExamResultsPage({
     const getCorrectIndices = (q: any): number[] | undefined =>
       Array.isArray(q?.correctIndices) ? q.correctIndices.slice().sort(numAsc) : undefined;
 
+    // We build a question list per section:
+    // - reading + ela_a from readingQs
+    // - ela_b from flattened items
+    // - math and any other sections from sec.questions
     let g = 0;
     exam.sections.forEach((sec: any) => {
       const displayGroup = groupLabel(sec.type);
       const sectionType = (sec.type === "math" ? "math" : "reading") as "reading" | "math";
-      const sectionQuestions =
-        sec.type === "reading" ? (readingQs[sec.id] ?? []) : (sec.questions ?? []);
 
-      (sectionQuestions as any[]).forEach((q: any) => {
+      const qList: any[] =
+        (sec.type === "reading" || sec.type === "ela_a")
+          ? (readingQs[sec.id] ?? [])
+          : (sec.type === "ela_b")
+              ? items
+                  .filter((it) => it.sectionId === sec.id && !it.isIntro && !it.isEnd)
+                  .map((it) => ({
+                    id: it.globalId.split(":")[1],
+                    type: (it.interactionType as InteractionType) ?? "single_select",
+                    // carry answer keys from items if present
+                    choices: it.choices,
+                    answerIndex: it.answerIndex,
+                    correctIndices: it.correctIndices,
+                    correctBins: it.correctBins,
+                    correctCells: it.correctCells,
+                    blanks: it.blanks,
+                  }))
+              : (sec.questions ?? []);
+
+      (qList as any[]).forEach((q: any) => {
         const globalId = `${sec.id}:${q.id}`;
-        const kind: InteractionType = q?.type ?? "single_select";
+        const kind: InteractionType = (q?.type ?? itemsById[globalId]?.interactionType ?? "single_select") as InteractionType;
         const choices = (q as any).choices as string[] | undefined;
 
         const pushRow = (
@@ -151,7 +189,7 @@ function ExamResultsPage({
           pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct, choices });
 
         } else if (kind === "drag_to_bins") {
-          const key = q?.correctBins as Record<string, string> | undefined;
+          const key = (q?.correctBins ?? itemsById[globalId]?.correctBins) as Record<string, string> | undefined;
           const user = (answers[globalId] as DragMap) ?? {};
           const hasAny = Object.keys(user).length > 0;
           const isScored = !!key;
@@ -180,7 +218,7 @@ function ExamResultsPage({
           pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct: key });
 
         } else if (kind === "table_match") {
-          const key = q?.correctCells as Record<string, string> | undefined;
+          const key = (q?.correctCells ?? itemsById[globalId]?.correctCells) as Record<string, string> | undefined;
           const user = (answers[globalId] as TableAnswer) ?? {};
           const hasAny = Object.keys(user).length > 0;
           const isScored = !!key;
@@ -208,9 +246,38 @@ function ExamResultsPage({
 
           pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct: key });
 
+        } else if (kind === "cloze_drag") {
+          // single-blank scoring
+          const blankId  = q?.blanks?.[0]?.id ?? itemsById[globalId]?.blanks?.[0]?.id;
+          const correct  = q?.blanks?.[0]?.correctOptionId ?? itemsById[globalId]?.blanks?.[0]?.correctOptionId;
+          const userObj  = (answers[globalId] as Record<string, string> | undefined) ?? {};
+          const hasAny   = userObj && Object.keys(userObj).length > 0;
+          const isScored = !!blankId && !!correct;
+          const isUnanswered = !hasAny;
+          const isCorrect = isScored ? (hasAny && userObj[blankId!] === correct) : null;
+
+          if (isScored) {
+            scoredCount++;
+            secTotals[sectionType].scored += 1;
+            if (isUnanswered) {
+              unansweredCountLocal++;
+            } else if (isCorrect) {
+              correctCount++;
+              secTotals[sectionType].correct += 1;
+            } else {
+              incorrectCount++;
+            }
+          } else if (isUnanswered) {
+            unansweredCountLocal++;
+          }
+
+          pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user: userObj, correct: { [blankId ?? "blank"]: correct } });
+
         } else {
           // single_select (default)
-          const correct = getCorrectIndex(q);
+          const correct =
+            getCorrectIndex(q) ??
+            (typeof itemsById[globalId]?.answerIndex === "number" ? itemsById[globalId].answerIndex : undefined);
           const user = answers[globalId] as number | undefined;
           const isScored = typeof correct === "number";
           const isUnanswered = user == null;
@@ -246,7 +313,7 @@ function ExamResultsPage({
       scoredCount,
       sectionTotals: secTotals,
     };
-  }, [exam, readingQs, answers]);
+  }, [exam, items, readingQs, answers]);
 
   const { correctCount, scoredCount, sectionTotals } = results;
   const percent = scoredCount ? Math.round((correctCount / scoredCount) * 100) : 0;
@@ -323,7 +390,7 @@ function ExamResultsPage({
       // Also read the original question object for labels if item is missing fields
       const [secId] = row.globalId.split(":");
       const sec = exam.sections.find((s) => s.id === secId) as any;
-      const isReading = sec?.type === "reading";
+      const isReading = sec?.type === "reading" || sec?.type === "ela_a";
       const q =
         isReading
           ? (readingQs[secId] ?? []).find((qq: any) => `${secId}:${qq.id}` === row.globalId)
@@ -355,8 +422,6 @@ function ExamResultsPage({
       } else if (row.kind === "drag_to_bins") {
         const user = (row.user as DragMap) || {};
         const entries = Object.entries(user as Record<string, string | undefined>);
-
-        // 🔧 typed sources so .find callbacks are typed
         const optSrc: IdLabel[] = (item?.options ?? q?.options ?? []) as IdLabel[];
         const binSrc: IdLabel[] = (item?.bins ?? q?.bins ?? []) as IdLabel[];
 
@@ -370,8 +435,6 @@ function ExamResultsPage({
       } else if (row.kind === "table_match") {
         const user = (row.user as TableAnswer) || {};
         const entries = Object.entries(user as Record<string, string | undefined>);
-
-        // 🔧 typed sources so .find callbacks are typed
         const rowSrc: RowHdr[]   = (item?.tableRows ?? q?.table?.rows ?? []) as RowHdr[];
         const optSrcTM: IdLabel[] = (item?.tableOptions ?? q?.options ?? []) as IdLabel[];
 
