@@ -15,15 +15,16 @@ import DragToBins from "./techenhanced/DragToBins";
 import TableMatch from "./techenhanced/TableMatch";
 import ClozeDrag from "./techenhanced/ClozeDrag";
 import InlineDropdowns from "./techenhanced/Dropdown";
+import type { DropAnswer } from "./techenhanced/Dropdown"; // ✅ use the component's value type
 
 /** Shared global answers/types */
-import type { AnswerMap, GlobalAnswerValue } from "../Exams/ExamSharedTypes";
+import type { AnswerMap } from "../Exams/ExamSharedTypes"; // ❌ removed GlobalAnswerValue
 
 /** Reading TEIs */
 import type { DragAnswer as DragMap, TableAnswer, ClozeAnswer } from "./techenhanced/types";
 
-/** Math dropdown answer type */
-import type { MathDropAnswer } from "../../types/MathTypes";
+// ❌ removed MathDropAnswer import
+// import type { MathDropAnswer } from "../../types/MathTypes";
 
 /** Tools */
 import { useEliminator } from "./Tools/AnswerEliminator";
@@ -905,12 +906,9 @@ export default function ExamRunnerPage() {
                   <InlineDropdowns
                     text={current.stemMarkdown}
                     dropdowns={current.dropdowns ?? []}
-                    value={(answers[current.globalId] as MathDropAnswer) ?? {}}
-                    onChange={(next) =>
-                      setAnswers((prev) => {
-                        const casted = next as unknown as GlobalAnswerValue;
-                        return { ...prev, [current.globalId]: casted };
-                      })
+                    value={(answers[current.globalId] as DropAnswer) ?? {}}
+                    onChange={(next: DropAnswer) =>
+                      setAnswers((prev) => ({ ...prev, [current.globalId]: next }))
                     }
                     className="mb-3"
                   />
