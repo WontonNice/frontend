@@ -304,14 +304,26 @@ function ExamRunnerPage() {
         insertedIntro.add(type);
       }
 
-      let sectionQuestions: any[] = [];
-      if (isMdType(type)) {
-        sectionQuestions = readingQs[sec.id] ?? [];
-      } else if (type === "ela_b") {
-        sectionQuestions = getQuestionsByIds((sec as any).questionIds ?? []);
-      } else {
-        sectionQuestions = (sec.questions ?? []);
-      }
+let sectionQuestions: any[] = [];
+
+if (isMdType(type)) {
+  // Reading + ELA A: from passage YAML
+  sectionQuestions = readingQs[sec.id] ?? [];
+} else if (Array.isArray((sec as any).questionIds) && (sec as any).questionIds.length) {
+  // Any section (incl. Math) can come from an external bank
+  try {
+    sectionQuestions = getQuestionsByIds((sec as any).questionIds);
+  } catch (e) {
+    console.warn(`[ExamRunner] Could not resolve questionIds for section ${sec.id}`, e);
+    sectionQuestions = [];
+  }
+} else {
+  // Inline questions (typical for Math)
+  sectionQuestions = Array.isArray((sec as any).questions) ? (sec as any).questions : [];
+  if ((type === "math" || String(type).toLowerCase() === "math") && sectionQuestions.length === 0) {
+    console.warn(`[ExamRunner] Math section '${sec.id}' has no questions and no questionIds.`);
+  }
+}
 
       (sectionQuestions as any[]).forEach((q: any) => {
         out.push({
