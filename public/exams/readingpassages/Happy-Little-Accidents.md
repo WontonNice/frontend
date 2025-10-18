@@ -6,72 +6,77 @@ questions:
   - id: q1
     type: single_select
     skillType: function
-    stemMarkdown: ""
+    stemMarkdown: "Which of the following choices best describes what the passage is about?"
     choices:
-      - "A. "
-      - "B. "
-      - "C. "
-      - "D. "
+      - "A. Radiation is caused by phosphorescence."
+      - "B. An important scientific discovery was made due in part to luck."
+      - "C. Phosphorescence is caused by the sun."
+      - "D. Scientists made a significant discovery about radioactivity."
     answerIndex: 0
     explanationMarkdown: ""
 
   - id: q2
     type: single_select
     skillType: function
-    stemMarkdown: ""
+    stemMarkdown: "The passage implies that all of the following were important to or used in the discovery of radiation **except** for a(n)"
     choices:
-      - "A. "
-      - "B. "
-      - "C. "
-      - "D. "
+      - "A. unexpected turn of events."
+      - "B. clever mind."
+      - "C. deliberate intent to do so."
+      - "D. impartial point of view."
     answerIndex: 0
     explanationMarkdown: ""
 
   - id: q3
     type: single_select
     skillType: function
-    stemMarkdown: ""
+    stemMarkdown: "How does paragraph 5 support the development of the central idea?"
     choices:
-      - "A. "
-      - "B. "
-      - "C. "
-      - "D. "
+      - "A. It highlights the importance of keeping weather changes in mind when designing experiments."
+      - "B. It explains what results Becquerel was expecting from his scientific experiment."
+      - "C. It shows how essential elements of Becquerel’s experiment were unplanned."
+      - "D. It emphasizes how successful scientists are able to predict the results of their experiments."
     answerIndex: 0
     explanationMarkdown: ""
 
   - id: q4
     type: single_select
     skillType: function
-    stemMarkdown: ""
+    stemMarkdown: "The passage states that phosphorescence is"
     choices:
-      - "A. "
-      - "B. "
-      - "C. "
-      - "D. "
+      - "A. the release of stored energy as light."
+      - "B. another word for radiation."
+      - "C. more apparent during a sunny day."
+      - "D. most visible on cloudy days."
     answerIndex: 0
     explanationMarkdown: ""
 
   - id: q5
     type: single_select
     skillType: function
-    stemMarkdown: ""
+    stemMarkdown: "Why was Becquerel surprised in paragraph 6?"
     choices:
-      - "A. "
-      - "B. "
-      - "C. "
-      - "D. "
+      - "A. He expected the uranium salt to produce a faint image."
+      - "B. The image on his photographic plates appeared exactly as expected."
+      - "C. He was confused when the uranium salt substance began glowing brightly during the day."
+      - "D. He did not expect to encounter a cloudy day, and was unable to continue his experiments that day."
     answerIndex: 0
     explanationMarkdown: ""
 
   - id: q6
     type: single_select
     skillType: function
-    stemMarkdown: ""
+    stemMarkdown: |
+      Read this sentence from paragraph 7.
+
+      **Becquerel reasoned that the phenomenon causing the image to appear on the film operated independently of light, so he conducted one more experiment.**
+
+      This sentence contributes to the development of the topic in the passage mainly by
     choices:
-      - "A. "
-      - "B. "
-      - "C. "
-      - "D. "
+      - "A. proving that Becquerel had always planned to perform the experiment of putting the film and uranium salt substance inside a cardboard box."
+      - "B. showing that Becquerel realized that there was an unknown force at work and needed to test a new idea."
+      - "C. demonstrating that phosphorescent light was indeed the cause of the images being captured on the film."
+      - "D. confirming that Becquerel made his discovery by accident while conducting an experiment to prove something else."
     answerIndex: 0
     explanationMarkdown: ""
 

@@ -49,7 +49,7 @@
       "id": "reading-7",
       "title": "Reading Passage 7",
       "type": "reading",
-      "passageMd": "/exams/readingpassages/All-About-The-Seeds.md",
+      "passageMd": "/exams/revising/All-About-The-Seeds.md",
       "passageImages": [""]
     },
     {
@@ -58,14 +58,14 @@
       "type": "math",
       "questions": [
         {
-          "id": "q3",
+          "id": "q1",
           "stemMarkdown": "Find the area of the triangle shown below.",
           "image": "/exams/shsat-2025-a/math-1/q3.png",
           "choices": ["10", "12", "15", "18"],
           "answerIndex": 2
         },
         {
-          "id": "q4",
+          "id": "q2",
           "stemMarkdown": "If the length of one side of a square is doubled, how does its area change?",
           "choices": [
             "A. It doubles",

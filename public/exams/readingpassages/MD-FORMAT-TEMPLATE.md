@@ -3,20 +3,17 @@ title: "Lady Bird Johnson"
 source: "Tutorverse"
 
 questions:
-  # ==== Your originals (now typed) ====
   - id: q1
     type: single_select
     skillType: function
-    stemMarkdown: "What is the most likely reason the author refers to Michelle Obama and Hillary Clinton in paragraph 2?"
+    stemMarkdown: "Select the correct answer."
     choices:
-      - "A. to contrast how expectations of First Ladies have changed over time"
-      - "B. to provide well-known examples of women that inspired Lady Bird Johnson"
-      - "C. to show how Lady Bird Johnson was held in higher regard than more recent First Ladies"
-      - "D. to prove that First Ladies have always been powerful political figures"
+      - "A. Correct"
+      - "B. Incorrect"
+      - "C. Incorrect"
+      - "D. Incorrect"
     answerIndex: 0
     explanationMarkdown: ""
-
-  # ==== Interactive examples you can use (optional) ====
 
   - id: q2
     type: multi_select
