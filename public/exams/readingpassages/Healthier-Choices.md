@@ -87,7 +87,7 @@ questions:
     choices:
       - "A. It shows how unhealthy dietary choices leads to obesity."
       - "B. It provides numerical evidence about how widespread obesity is."
-      - "C. It demonstrates the link between obesity and other health issues in different age groups, from early childhood to teenage years.
+      - "C. It demonstrates the link between obesity and other health issues in different age groups, from early childhood to teenage years."
       - "D. It shows that young children are the least likely age group to suffer from obesity, so it is important to educate them about healthy eating habits early on."
     answerIndex: 1
     explanationMarkdown: ""
