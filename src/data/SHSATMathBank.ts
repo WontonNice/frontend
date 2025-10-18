@@ -62,7 +62,7 @@ const Q: Record<string, MathQuestion> = {
     source: "tutorverse",
     stemMarkdown:
       "In the figure above, $ABCE$ is a parallelogram. The measure of $\\angle EAD$ is $27^\\circ$, and $\\angle ADE$ is a right angle. What is the measure of $\\angle ABC$?",
-    image: "../../public/exams/math/imgsrc/MATH-002.png", // put the file in /public/exams/math/
+    image: "/exams/math/imgsrc/MATH-002.png", // put the file in /public/exams/math/
     choices: ["$63^\\circ$", "$90^\\circ$", "$117^\\circ$", "$180^\\circ$"],
     answerIndex: 2,
     explanationMarkdown:

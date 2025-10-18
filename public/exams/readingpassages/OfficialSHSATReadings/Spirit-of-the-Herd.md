@@ -15,7 +15,6 @@ questions:
     answerIndex: 3
     explanationMarkdown: ""
 
-questions:
   - id: q2
     type: single_select
     skillType: function
@@ -28,7 +27,6 @@ questions:
     answerIndex: 0
     explanationMarkdown: ""
 
-questions:
   - id: q3
     type: single_select
     skillType: function
@@ -41,7 +39,6 @@ questions:
     answerIndex: 1
     explanationMarkdown: ""
 
-questions:
   - id: q4
     type: single_select
     skillType: function
@@ -54,7 +51,6 @@ questions:
     answerIndex: 3
     explanationMarkdown: ""
 
-questions:
   - id: q5
     type: single_select
     skillType: function
@@ -72,7 +68,6 @@ questions:
     answerIndex: 2
     explanationMarkdown: ""
 
-questions:
   - id: q6
     type: single_select
     skillType: function
@@ -92,7 +87,6 @@ questions:
     answerIndex: 2
     explanationMarkdown: ""
 
-questions:
   - id: q7
     type: single_select
     skillType: function
@@ -105,7 +99,6 @@ questions:
     answerIndex: 0
     explanationMarkdown: ""
 
-questions:
   - id: q8
     type: single_select
     skillType: function
