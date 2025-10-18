@@ -5,8 +5,6 @@ import { getExamBySlug } from "../../data/exams";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import { getQuestionsByIds } from "../../data/revEditB-QuestionBank.ts";
-import { getMathQuestionsByIds } from "../../data/SHSATMathBank.ts";
-import MathText from "../MathText";
 
 /** Results page (extracted) */
 import ExamResultsPage from "./ExamResultsPage";
@@ -16,16 +14,16 @@ import "./ExamRunnerPage.css";
 import DragToBins from "./techenhanced/DragToBins";
 import TableMatch from "./techenhanced/TableMatch";
 import ClozeDrag from "./techenhanced/ClozeDrag";
-import type {
-  DragAnswer as DragMap,
-  TableAnswer,
-  ClozeAnswer,
-} from "./techenhanced/types";
+import InlineDropdowns from "./techenhanced/Dropdown";
 
-/** NEW: separate type systems */
-import type { ReadingInteractionType } from "../../types/ReadingTypes";
-import type { MathInteractionType } from "../../types/MathTypes";
-import type { AnswerMap, SourceType } from "./ExamSharedTypes";
+/** Shared global answers/types */
+import type { AnswerMap, GlobalAnswerValue } from "../Exams/ExamSharedTypes";
+
+/** Reading TEIs */
+import type { DragAnswer as DragMap, TableAnswer, ClozeAnswer } from "./techenhanced/types";
+
+/** Math dropdown answer type */
+import type { MathDropAnswer } from "../../types/MathTypes";
 
 /** Tools */
 import { useEliminator } from "./Tools/AnswerEliminator";
@@ -33,11 +31,18 @@ import ExamToolButtons from "./Tools/ToolButtons";
 import GlobalNotepad from "./Tools/GlobalNotepad";
 import type { Tool } from "./Tools/types";
 
-/** Tabs in review popover */
+/** Stores selected value per question (keyed by globalId) */
 type ReviewTab = "all" | "unanswered" | "bookmarked";
 
 /** ---------- Frontmatter helpers ---------- */
-type InteractionType = ReadingInteractionType | MathInteractionType;
+type InteractionType =
+  | "single_select"
+  | "multi_select"
+  | "drag_to_bins"
+  | "table_match"
+  | "cloze_drag"
+  | "short_response"          // math (free response)
+  | "math_dropdowns";         // math (inline selects)
 
 type SkillType = "global" | "function" | "detail" | "inference";
 
@@ -49,7 +54,6 @@ type MdFrontmatter = {
 
     type?: InteractionType;
     skillType?: SkillType;
-    sourceType?: SourceType;
 
     stemMarkdown?: string;
     image?: string;
@@ -62,26 +66,23 @@ type MdFrontmatter = {
     selectCount?: number;
     correctIndices?: number[];
 
-    /** Drag to bins (reading) */
+    /** Drag to bins */
     bins?: { id: string; label: string }[];
     options?: { id: string; label: string }[];
     correctBins?: Record<string, string>;
 
-    /** Table match (reading) */
+    /** Table match */
     table?: {
       columns: { key: string; header: string }[];
       rows: { id: string; header: string }[];
     };
     correctCells?: Record<string, string>;
 
-    /** Cloze drag (reading) */
+    /** Cloze drag */
     blanks?: { id: string; correctOptionId: string }[];
 
-    /** Short response (math + reading) */
-    correctAnswer?: string | number | Array<string | number>;
-    tolerance?: number;
-    normalizeText?: boolean;
-    placeholder?: string;
+    /** NEW: inline dropdowns (math) */
+    dropdowns?: { id: string; options: string[]; correctIndex?: number }[];
 
     explanationMarkdown?: string;
   }>;
@@ -127,30 +128,26 @@ type FlatItem = {
   /** Choice interactions */
   choices?: string[];
 
-  /** Drag-to-bins interactions (reading) */
+  /** Drag-to-bins interactions */
   bins?: { id: string; label: string }[];
   options?: { id: string; label: string }[];
   correctBins?: Record<string, string>;
 
-  /** Table-match interactions (reading) */
+  /** Table-match interactions */
   tableColumns?: { key: string; header: string }[];
   tableRows?: { id: string; header: string }[];
   tableOptions?: { id: string; label: string }[];
   correctCells?: Record<string, string>;
 
-  /** Cloze-drag interactions (reading) */
+  /** Cloze-drag interactions */
   blanks?: { id: string; correctOptionId: string }[];
 
-  /** Short-response interactions (typed) */
-  shortResponsePlaceholder?: string;
-  correctAnswer?: string | number | Array<string | number>;
-  tolerance?: number;
-  normalizeText?: boolean;
+  /** NEW: math inline dropdowns */
+  dropdowns?: { id: string; options: string[]; correctIndex?: number }[];
 
   /** Interaction + skill on each item */
   interactionType?: InteractionType;
   skillType?: SkillType;
-  sourceType?: SourceType;
 
   selectCount?: number;
   explanationMarkdown?: string;
@@ -158,7 +155,7 @@ type FlatItem = {
   globalIndex: number;
   isEnd?: boolean;
 
-  /** Generic section intro pages */
+  /** NEW: generic section intro pages (reading, math, ELA A, ELA B) */
   isIntro?: boolean;
 };
 
@@ -301,17 +298,10 @@ export default function ExamRunnerPage() {
 
       let sectionQuestions: any[] = [];
       if (isMdType(type)) {
-        // reading/ELA-A frontmatter
         sectionQuestions = readingQs[sec.id] ?? [];
       } else if (type === "ela_b") {
         sectionQuestions = getQuestionsByIds((sec as any).questionIds ?? []);
-      } else if (type === "math") {
-        // MATH: prefer IDs from the bank, else fallback to inline
-        sectionQuestions = (sec as any).questionIds
-          ? getMathQuestionsByIds((sec as any).questionIds)
-          : (sec.questions ?? []);
       } else {
-        // math (inline)
         sectionQuestions = (sec.questions ?? []);
       }
 
@@ -331,29 +321,25 @@ export default function ExamRunnerPage() {
           // choice
           choices: q.choices,
 
-          // drag_to_bins (reading)
+          // drag_to_bins
           bins: q.bins,
           options: q.options,
           correctBins: q.correctBins,
 
-          // table_match (reading)
+          // table_match
           tableColumns: q.table?.columns,
           tableRows: q.table?.rows,
-          tableOptions: q.options,
+          tableOptions: q.options, // reuse the same pool
           correctCells: q.correctCells,
 
-          // cloze_drag (reading)
+          // cloze_drag
           blanks: q.blanks,
 
-          // short_response
-          shortResponsePlaceholder: q.placeholder ?? q.shortResponsePlaceholder,
-          correctAnswer: q.correctAnswer,
-          tolerance: q.tolerance,
-          normalizeText: q.normalizeText,
+          // NEW: math dropdowns
+          dropdowns: q.dropdowns,
 
           interactionType: q.type ?? "single_select",
           skillType: q.skillType,
-          sourceType: q.sourceType ?? (sec as any).sourceType,
           selectCount: q.selectCount,
           explanationMarkdown: q.explanationMarkdown,
 
@@ -511,7 +497,7 @@ export default function ExamRunnerPage() {
     return list.length ? list : undefined;
   })();
 
-  // Only reading/ela_a use a left passage pane
+  // NEW: only reading/ela_a use a left passage pane
   const isPassageSection =
     !current?.isEnd && !current?.isIntro && isMdType(current?.sectionType);
 
@@ -530,8 +516,8 @@ export default function ExamRunnerPage() {
   // ===== Helpers =====
   const isAnsweredGid = (gid: string) => {
     const v = answers[gid];
-    if (typeof v === "string") return v.trim().length > 0; // short_response
     if (typeof v === "number") return true;
+    if (typeof v === "string") return v.trim().length > 0;
     if (Array.isArray(v)) return v.length > 0;
     if (v && typeof v === "object") return Object.keys(v as Record<string, unknown>).length > 0;
     return false;
@@ -566,50 +552,11 @@ export default function ExamRunnerPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ===== Renderers =====
-  const renderShortResponse = (it: FlatItem) => {
-    const val = (answers[it.globalId] as string) ?? "";
-    const moveNext = () => setIdx((i) => Math.min(lastIndex, i + 1));
-    return (
-      <div className="space-y-2">
-        <label className="text-sm text-gray-600">Type your answer:</label>
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            inputMode="text"
-            value={val}
-            placeholder={it.shortResponsePlaceholder ?? "Type your answer…"}
-            onChange={(e) =>
-              setAnswers((prev) => ({ ...prev, [it.globalId]: e.target.value }))
-            }
-            onKeyDown={(e) => {
-              if (e.key === "Enter") moveNext();
-            }}
-            className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-[15px] focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {val && (
-            <button
-              type="button"
-              onClick={() =>
-                setAnswers((prev) => ({ ...prev, [it.globalId]: "" }))
-              }
-              className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm hover:bg-gray-50"
-              title="Clear answer"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
+  // ===== Choice renderer (single + multi) =====
   const renderChoices = (it: FlatItem) => {
     if (!Array.isArray(it.choices)) {
-      if (it.interactionType === "short_response") return renderShortResponse(it);
       return <p className="text-gray-500">No choices for this item.</p>;
     }
-  const isMath = it.sectionType === "math";
 
     // MULTI
     if (it.interactionType === "multi_select") {
@@ -627,7 +574,10 @@ export default function ExamRunnerPage() {
             const eliminated = isEliminated(it.globalId, i);
 
             return (
-              <li key={i} className={`choice-row ${eliminated ? "eliminated" : ""}`}>
+              <li
+                key={i}
+                className={`choice-row ${eliminated ? "eliminated" : ""}`}
+              >
                 <label
                   className="w-full flex items-start gap-3 cursor-pointer"
                   onClick={(e) => {
@@ -641,31 +591,28 @@ export default function ExamRunnerPage() {
                     type="checkbox"
                     className="h-4 w-4 mt-1"
                     checked={checked}
-                    onChange={() => {
-                      if (eliminatorActive) return;
+                    onChange={(e) => {
+                      if (eliminatorActive) {
+                        e.preventDefault();
+                        return;
+                      }
                       setAnswers((prev) => {
                         const set = new Set((prev[it.globalId] as number[] | undefined) ?? []);
                         if (checked) set.delete(i);
                         else {
-                          if (it.selectCount && set.size >= it.selectCount) return prev;
+                          if (it.selectCount && set.size >= it.selectCount) return prev; // cap
                           set.add(i);
                         }
                         return { ...prev, [it.globalId]: Array.from(set).sort((a, b) => a - b) };
                       });
                     }}
                   />
-                <span className="choice-text flex-1 prose prose-sm max-w-none">
-                  {isMath ? (
-                    <MathText text={choice} className="inline" />
-                  ) : (
-                    <ReactMarkdown
-                      rehypePlugins={[rehypeRaw]}
-                      components={{ p: ({ children }) => <span>{children}</span> }}
-                    >
+                  <span className="choice-text flex-1 prose prose-sm max-w-none">
+                    <ReactMarkdown rehypePlugins={[rehypeRaw]}
+                      components={{ p: ({children}) => <span>{children}</span> }}>
                       {choice}
                     </ReactMarkdown>
-                  )}
-                </span>
+                  </span>
                 </label>
               </li>
             );
@@ -682,7 +629,10 @@ export default function ExamRunnerPage() {
           const eliminated = isEliminated(it.globalId, i);
 
           return (
-            <li key={i} className={`choice-row ${eliminated ? "eliminated" : ""}`}>
+            <li
+              key={i}
+              className={`choice-row ${eliminated ? "eliminated" : ""}`}
+            >
               <label
                 className="w-full flex items-start gap-3 cursor-pointer"
                 onClick={(e) => {
@@ -697,22 +647,19 @@ export default function ExamRunnerPage() {
                   name={it.globalId}
                   className="h-4 w-4 mt-1"
                   checked={!!selected}
-                  onChange={() => {
-                    if (eliminatorActive) return;
+                  onChange={(e) => {
+                    if (eliminatorActive) {
+                      e.preventDefault();
+                      return;
+                    }
                     setAnswers((prev) => ({ ...prev, [it.globalId]: i }));
                   }}
                 />
                 <span className="choice-text flex-1 prose prose-sm max-w-none">
-                  {isMath ? (
-                    <MathText text={choice} className="inline" />
-                  ) : (
-                    <ReactMarkdown
-                      rehypePlugins={[rehypeRaw]}
-                      components={{ p: ({ children }) => <span>{children}</span> }}
-                    >
-                      {choice}
-                    </ReactMarkdown>
-                  )}
+                  <ReactMarkdown rehypePlugins={[rehypeRaw]}
+                    components={{ p: ({children}) => <span>{children}</span> }}>
+                    {choice}
+                  </ReactMarkdown>
                 </span>
               </label>
             </li>
@@ -812,7 +759,7 @@ export default function ExamRunnerPage() {
                     {Object.entries(groupedByDisplayGroup).map(([group, qs]) => {
                       const sectionType = qs[0]?.sectionType as string | undefined;
                       const introIdx =
-                        sectionType && introIndexByType.hasOwnProperty(sectionType)
+                        sectionType && Object.prototype.hasOwnProperty.call(introIndexByType, sectionType)
                           ? introIndexByType[sectionType]
                           : -1;
                       const hasIntro = introIdx >= 0;
@@ -954,9 +901,26 @@ export default function ExamRunnerPage() {
           <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
             <div className="rounded-lg border border-gray-200 shadow-sm p-4">
               {current?.stemMarkdown ? (
-                <div className="prose max-w-none mb-3 question-stem">
-                  <MathText text={current.stemMarkdown} />
-                </div>
+                current.interactionType === "math_dropdowns" ? (
+                  <InlineDropdowns
+                    text={current.stemMarkdown}
+                    dropdowns={current.dropdowns ?? []}
+                    value={(answers[current.globalId] as MathDropAnswer) ?? {}}
+                    onChange={(next) =>
+                      setAnswers((prev) => {
+                        const casted = next as unknown as GlobalAnswerValue;
+                        return { ...prev, [current.globalId]: casted };
+                      })
+                    }
+                    className="mb-3"
+                  />
+                ) : (
+                  <div className="prose max-w-none mb-3 question-stem">
+                    <ReactMarkdown rehypePlugins={[rehypeRaw]}>
+                      {current.stemMarkdown}
+                    </ReactMarkdown>
+                  </div>
+                )
               ) : null}
 
               {current?.image && (
@@ -967,10 +931,27 @@ export default function ExamRunnerPage() {
                 />
               )}
 
-              {/* Interaction renderer (math) */}
+              {/* Interaction renderer for Math */}
               {current.interactionType === "short_response" ? (
-                renderShortResponse(current)
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">
+                    Enter your answer:
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    className="w-full max-w-xs rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={(answers[current.globalId] as string) ?? ""}
+                    onChange={(e) =>
+                      setAnswers((prev) => ({ ...prev, [current.globalId]: e.target.value }))
+                    }
+                  />
+                </div>
+              ) : current.interactionType === "math_dropdowns" ? (
+                // Stem with InlineDropdowns already rendered above.
+                null
               ) : (
+                // default choices (legacy math MC)
                 renderChoices(current)
               )}
             </div>
@@ -1007,7 +988,7 @@ export default function ExamRunnerPage() {
                 </div>
               </div>
 
-              {/* Right: question (reading) */}
+              {/* Right: question */}
               <div className="rounded-lg border border-gray-200 shadow-sm p-4">
                 {current?.stemMarkdown ? (
                   <div className="prose max-w-none mb-3 question-stem">
@@ -1017,7 +998,7 @@ export default function ExamRunnerPage() {
                   </div>
                 ) : null}
 
-                {/* Interaction renderer (reading) */}
+                {/* Interaction renderer */}
                 {current.interactionType === "drag_to_bins" ? (
                   <DragToBins
                     bins={current.bins ?? []}
@@ -1050,8 +1031,6 @@ export default function ExamRunnerPage() {
                       setAnswers((prev) => ({ ...prev, [current.globalId]: next }))
                     }
                   />
-                ) : current.interactionType === "short_response" ? (
-                  renderShortResponse(current)
                 ) : (
                   renderChoices(current)
                 )}
@@ -1078,7 +1057,7 @@ export default function ExamRunnerPage() {
                 />
               )}
 
-              {/* Interaction renderer (non-passage) */}
+              {/* Interaction renderer */}
               {current.interactionType === "drag_to_bins" ? (
                 <DragToBins
                   bins={current.bins ?? []}
@@ -1111,8 +1090,6 @@ export default function ExamRunnerPage() {
                     setAnswers((prev) => ({ ...prev, [current.globalId]: next }))
                   }
                 />
-              ) : current.interactionType === "short_response" ? (
-                renderShortResponse(current)
               ) : (
                 renderChoices(current)
               )}

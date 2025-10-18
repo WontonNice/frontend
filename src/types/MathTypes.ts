@@ -4,11 +4,16 @@
 export type MathInteractionType =
   | "single_select"
   | "multi_select"
-  | "short_response";
+  | "short_response"
+  | "math_dropdowns";
+
+/** Dropdown answers: id -> selected option index (or undefined) */
+export type MathDropAnswer = Record<string, number | undefined>;
 
 /** Answer value shapes allowed in math items */
 export type MathAnswerValue =
-  | string        // short_response (often numeric-as-text)
-  | number        // single_select
-  | number[]      // multi_select (if used)
+  | string           // short_response (numeric-as-text OK)
+  | number           // single_select
+  | number[]         // multi_select
+  | MathDropAnswer   // math inline dropdowns
   | undefined;
