@@ -36,13 +36,13 @@ const REB_001: BankQuestion = {
   stemMarkdown:
     "Read this sentence:\n\n" +
     // Use a blockquote for the numbered paragraph and <u> for underlines
-    "> (1) <u>Yalina</u>, Michael, and Malcolm love making pancakes with <u>their</u> granddad on Saturday mornings.\n\n" +
+    "> (1) Although Morgan loves winning as much as his dog loves eating treats, he decided that he would purposely make it so that his cousin, and not he, would win.\n\n" +
     "Which of these is the most precise revision for the words “he decided that he would purposely make it so that his cousin, and not he, would win”?\"",
   choices: [
     "A. he believed his cousin wanted to win.",
-    "B. Sentence 2: Change *is* to *are*, AND delete the comma after *bowl*.",
-    "C. Sentence 3: Change *it is* to *they are*, AND delete the comma after *smooth*.",
-    "D. Sentence 4: Change *they start* to *it starts*, AND insert a comma after *sweet*."
+    "B. he thought that his cousin might like to win.",
+    "C. he decided to intentionally lose to his cousin.",
+    "D. he knew that his cousin would want to lose on purpose."
   ],
   answerIndex: 3,
   explanationMarkdown:
@@ -54,13 +54,46 @@ const REB_002: BankQuestion = {
   id: "REB-002",
   type: "single_select",
   stemMarkdown:
-    "Which revision best corrects the pronoun error in the sentence?\n\n" +
-    "> When the class finished <u>their</u> poster, it was hung in the hallway.",
+    "Read this sentence:\n\n" +
+    "> (1) The cat zoomed after the ball of yarn with folded, fuzzy ears.\n\n" +
+    "Which edit should be made to correct this sentence?",
   choices: [
-    "A. When the class finished *its* poster, it was hung in the hallway.",
-    "B. When the class finished *their* poster, they hung it in the hallway.",
-    "C. When the class finished *her* poster, it was hung in the hallway.",
-    "D. When the class finished *its* poster, they hung it in the hallway."
+    "A. move folded after the and before cat",
+    "B. move with folded, fuzzy ears before the ball of yarn",
+    "C. move with folded, fuzzy ears after cat",
+    "D. move with folded, fuzzy ears after zoomed"
+  ],
+  answerIndex: 0
+};
+
+const REB_003: BankQuestion = {
+  id: "REB-003",
+  type: "single_select",
+  stemMarkdown:
+    "Read this sentence:\n\n" +
+    "> (1) The humidity in Taiwan can be much, much higher than Arizona.\n\n" +
+    "Which edit should be made to correct this sentence?",
+  choices: [
+    "A. The humidity in Taiwan can be much, much higher than all of Arizona.",
+    "B. The humidity in Taiwan can be much, much higher than that in Arizona.",
+    "C. Taiwan’s humidity can be much, much higher than Arizona.",
+    "D. Taiwan humidity can be much, much higher than Arizona."
+  ],
+  answerIndex: 0
+};
+
+const REB_004: BankQuestion = {
+  id: "REB-004",
+  type: "single_select",
+  stemMarkdown:
+    "Read this sentence:\n\n" +
+    "> The cat zoomed after the ball of yarn with folded, fuzzy ears.\n\n" +
+    "Which edit should be made to correct this sentence?",
+  choices: [
+    "A. move folded after the and before cat",
+    "B. move with folded, fuzzy ears before the ball of yarn",
+    "C. move with folded, fuzzy ears after cat",
+    "D. move with folded, fuzzy ears after zoomed"
   ],
   answerIndex: 0
 };
@@ -68,7 +101,9 @@ const REB_002: BankQuestion = {
 // The store (keyed by id)
 const BANK: Record<string, BankQuestion> = {
   "REB-001": REB_001,
-  "REB-002": REB_002
+  "REB-002": REB_002,
+  "REB-003": REB_003,
+  "REB-004": REB_004
 };
 
 // Helper used by ExamRunnerPage

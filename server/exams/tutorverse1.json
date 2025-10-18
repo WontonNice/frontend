@@ -56,7 +56,7 @@
       "id": "ela_b",
       "title": "ELA Rev/Edit B Set 1",
       "type": "ela_b",
-      "questionIds": ["ELA-B-001", "ELA-B-002", "ELA-B-003", "ELA-B-004"]
+      "questionIds": ["ELA-B-001", "ELA-B-002", "ELA-B-003"]
     }, 
     {
       "id": "math-1",

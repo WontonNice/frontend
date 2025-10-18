@@ -4,8 +4,10 @@
   margin-right: calc(50% - 50vw);
   width: 100vw;
   /* prevents tiny horizontal scrollbars on some platforms */
-  overflow-x: hidden;            /* X only, so popovers can overflow vertically */
+  overflow-x: visible;            /* X only, so popovers can overflow vertically */
 }
+
+html { overflow-x: hidden; }
 
 /* ---------------- Passage typography helpers ---------------- */
 .passage h1,
