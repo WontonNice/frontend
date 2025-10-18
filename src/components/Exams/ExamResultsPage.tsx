@@ -38,13 +38,14 @@ type SectionKindAny = "reading" | "math" | "ela_a" | "ela_b" | (string & {});
 
 type ResultRow = {
   globalId: string;
-  kind: InteractionType;
   isScored: boolean;
   isUnanswered: boolean;
   isCorrect: boolean | null;
   displayGroup: string;           // Reading / Math
   sectionType: "reading" | "math";
   globalNumber: number;           // 1-based index across the whole test
+  pointsEarned: number;
+  maxPoints: number;
 };
 
 function groupLabelForDisplay(t: SectionKindAny) {
@@ -170,13 +171,14 @@ function ExamResultsPage({
 
         rows.push({
           globalId,
-          kind,
           isScored,
           isUnanswered,
           isCorrect: scored.correct,
           displayGroup,
           sectionType,
           globalNumber: g,
+          pointsEarned: scored.pointsEarned, 
+          maxPoints: scored.maxPoints,
         });
       }
     }
@@ -284,50 +286,109 @@ function ExamResultsPage({
   const overallPercent = toPercent(agg.pointsEarned, agg.pointsPossible);
 
   // ---- PDF (optional) ----
-  const downloadReportPdf = async () => {
-    let jsPDFMod: any = null;
+const downloadReportPdf = async () => {
+  // lazy-load jsPDF (local dep preferred, CDN fallback)
+  let jsPDFMod: any = null;
+  try {
+    jsPDFMod = await import("jspdf");
+  } catch {
     try {
-      jsPDFMod = await import("jspdf");
+      // @ts-ignore
+      jsPDFMod = await import(/* @vite-ignore */ "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
     } catch {
-      try {
-        // @ts-ignore
-        jsPDFMod = await import(/* @vite-ignore */ "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
-      } catch {
-        alert("Could not load PDF generator. Please install 'jspdf' (npm i jspdf).");
-        return;
-      }
+      alert("Could not load PDF generator. Please install 'jspdf' (npm i jspdf).");
+      return;
     }
-    const { jsPDF } = jsPDFMod;
-    const doc = new jsPDF({ unit: "pt", format: "letter" });
+  }
+  const { jsPDF } = jsPDFMod;
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
 
-    const marginX = 48;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const usableWidth = pageWidth - marginX * 2;
-    let y = 56;
+  // quick helpers
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const marginX = 48;
+  const usableW = pageW - marginX * 2;
+  let y = 56;
 
-    const addLine = (text: string, opts: { bold?: boolean } = {}) => {
-      const lines = doc.splitTextToSize(text, usableWidth);
-      doc.setFont("helvetica", opts.bold ? "bold" : "normal");
-      for (const line of lines) {
-        doc.text(line, marginX, y);
-        y += 18;
+  const addLine = (text: string, opts: { bold?: boolean } = {}) => {
+    const lines = doc.splitTextToSize(text, usableW);
+    doc.setFont("helvetica", opts.bold ? "bold" : "normal");
+    for (const line of lines) {
+      if (y > pageH - 56) {
+        doc.addPage();
+        y = 56;
       }
-    };
-
-    addLine(exam.title, { bold: true });
-    addLine(`Overall: ${agg.correctCount} correct out of ${agg.totalScored} scored · ${overallPercent}`);
-    addLine(`Reading: ${readingTotals.correct}/${readingTotals.scored}  ·  Math: ${mathTotals.correct}/${mathTotals.scored}`);
-
-    y += 10;
-    addLine("Per-question (scored only):", { bold: true });
-    for (const row of results.rows) {
-      if (!row.isScored) continue;
-      const verdict = row.isCorrect ? "Right" : "Wrong";
-      addLine(`#${row.globalNumber}  [${row.displayGroup}]  ${verdict}`);
+      doc.text(line, marginX, y);
+      y += 18;
     }
-
-    doc.save(`${exam.slug}-report.pdf`);
   };
+
+  // stringify a wide variety of answer value shapes
+  const stringifyVal = (v: unknown): string => {
+    if (v == null) return "—";
+    if (typeof v === "string" || typeof v === "number") return String(v);
+    if (Array.isArray(v)) return v.map((x) => stringifyVal(x)).join(", ");
+    if (typeof v === "object") {
+      const entries = Object.entries(v as Record<string, unknown>);
+      if (!entries.length) return "—";
+      return entries
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+        .map(([k, val]) => `${k}→${stringifyVal(val)}`)
+        .join(", ");
+    }
+    return String(v);
+  };
+
+  // Build a lookup of scored items (with details) so we can show user answers
+  const scoredById = new Map<string, { correct: boolean | null; detail?: any }>();
+  for (const it of agg.items) {
+    scoredById.set(it.questionId, { correct: it.correct, detail: it.detail });
+  }
+
+  const statusWord = (correct: boolean | null) =>
+    correct === true ? "Correct" : correct === false ? "Wrong" : "—";
+
+  // ====== Header ======
+  addLine(exam.title, { bold: true });
+  addLine(`Overall: ${agg.correctCount} correct out of ${agg.totalScored} scored`);
+  addLine("");
+
+  // ====== Per-question lines ======
+  addLine("Per-question results", { bold: true });
+
+  for (const row of results.rows) {
+    const scored = scoredById.get(row.globalId);
+    // pull user answer from the scorer detail when available; otherwise fall back to raw answers
+    let userAnswer = "—";
+    if (scored?.detail) {
+      const d = scored.detail;
+      switch (d.type) {
+        case "single_select":
+          userAnswer = stringifyVal(d.user);
+          break;
+        case "multi_select":
+          userAnswer = stringifyVal(d.user); // array
+          break;
+        case "drag_to_bins":
+        case "table_match":
+        case "cloze_drag":
+          userAnswer = stringifyVal(d.user); // object map
+          break;
+        default:
+          userAnswer = stringifyVal(answers[row.globalId]);
+          break;
+      }
+    } else {
+      userAnswer = stringifyVal(answers[row.globalId]);
+    }
+
+    addLine(`#${row.globalNumber}  [${row.displayGroup}]  ${statusWord(scored?.correct ?? null)}`, { bold: true });
+    addLine(`Your answer: ${userAnswer}`);
+    addLine(""); // spacer
+  }
+
+  doc.save(`${exam.slug}-per-question-report.pdf`);
+};
 
   // ---- UI ----
   return (
@@ -392,7 +453,7 @@ function ExamResultsPage({
                   <th className="py-2 pr-4">Section</th>
                   <th className="py-2 pr-4">Kind</th>
                   <th className="py-2 pr-4">Scored</th>
-                  <th className="py-2 pr-4">Correct</th>
+                  <th className="py-2 pr-4">Points Earned</th>
                 </tr>
               </thead>
               <tbody>
@@ -400,10 +461,9 @@ function ExamResultsPage({
                   <tr key={row.globalId} className="border-t">
                     <td className="py-2 pr-4">{row.globalNumber}</td>
                     <td className="py-2 pr-4">{row.displayGroup}</td>
-                    <td className="py-2 pr-4">{row.kind}</td>
                     <td className="py-2 pr-4">{row.isScored ? "Yes" : "—"}</td>
                     <td className="py-2 pr-4">
-                      {row.isScored ? (row.isCorrect ? "Right" : "Wrong") : "—"}
+                      {row.isScored ? row.pointsEarned : "—"}
                     </td>
                   </tr>
                 ))}
