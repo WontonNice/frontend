@@ -1,10 +1,16 @@
-// src/components/ExamResultsPage.tsx
+// src/components/Exams/ExamResultsPage.tsx
 import { useMemo } from "react";
 import type { Exam } from "../../types/exams";
-import type { DragAnswer as DragMap, TableAnswer } from "./techenhanced/types";
 import type { AnswerMap } from "./ExamSharedTypes";
+import { scoreExam, scoreQuestion } from "./scoring";
+import { percent as toPercent } from "./format";
 
-/** Local types (kept minimal to avoid coupling) */
+/**
+ * Updated Results page
+ * - Uses shared scoring helpers for ALL sections, including rev/edit A (ela_a) and rev/edit B (ela_b).
+ * - Avoids TS2367 by widening the local section type for comparisons in this file.
+ */
+
 type InteractionType =
   | "single_select"
   | "multi_select"
@@ -12,367 +18,275 @@ type InteractionType =
   | "table_match"
   | "cloze_drag";
 
-type IdLabel = { id: string; label: string };
-type RowHdr  = { id: string; header: string };
-
-/** 🔧 Extended so we can score from items (used for ELA B) */
-type FlatItemLike = {
-  globalId: string;
-  sectionId: string;
-  sectionTitle: string;
-  sectionType: "reading" | "math" | string;
-  stemMarkdown?: string;
-
-  // MC
-  choices?: string[];
-  answerIndex?: number;
-  correctIndices?: number[];
-
-  // Drag-to-bins
-  bins?: IdLabel[];
-  options?: IdLabel[];
-  correctBins?: Record<string, string>;
-
-  // Table-match
-  tableRows?: RowHdr[];
-  tableOptions?: IdLabel[];
-  correctCells?: Record<string, string>;
-
-  // Cloze-drag (single blank supported here)
-  blanks?: { id: string; correctOptionId: string }[];
-
-  interactionType?: InteractionType | string;
-  isIntro?: boolean;
-  isEnd?: boolean;
-};
-
-type SectionTotals = {
-  reading: { correct: number; scored: number };
-  math: { correct: number; scored: number };
+type Props = {
+  exam: Exam;
+  /** flattened items from Runner (has sectionId, globalId, interactionType, answer keys, etc.) */
+  items: Array<any>;
+  /** user answers keyed by globalId like "sectionId:questionId" */
+  answers: AnswerMap;
+  /** reading questions parsed from passage YAML, keyed by section.id */
+  readingQs: Record<string, any[] | undefined>;
+  /** e.g. "top-14" if a global app bar is showing */
+  stickyTopClass?: string;
 };
 
 type ResultRow = {
   globalId: string;
-  globalNumber: number;
-  displayGroup: string;        // "Reading" | "Mathematics"
-  sectionType: "reading" | "math";
   kind: InteractionType;
   isScored: boolean;
   isUnanswered: boolean;
-  isCorrect: boolean | null;   // null when not scored
-  user?: number | number[] | DragMap | TableAnswer;
-  correct?: number | number[] | Record<string, string> | undefined;
-  choices?: string[];
+  isCorrect: boolean | null;
+  user?: number | number[] | Record<string, string | undefined>;
+  correct?: number | number[] | Record<string, string>;
+  displayGroup: string; // Reading / Math
+  sectionType: "reading" | "math";
+  globalNumber: number; // 1-based index across the whole test
 };
 
-type Props = {
-  exam: Exam;
-  items: FlatItemLike[];
-  answers: AnswerMap;
-  /** reading(+) questions loaded from passage YAML; keyed by section.id */
-  readingQs: Record<string, any[] | undefined>;
-  /** e.g. "top-14" when a global bar is visible */
-  stickyTopClass?: string;
-};
+/** Locally widen the section type so we can compare against 'ela_a'/'ela_b' without TS2367 */
+type SectionKindAny = "reading" | "math" | "ela_a" | "ela_b" | (string & {});
 
-const groupLabel = (type: string) => {
-  if (type === "reading") return "Reading";
-  if (type === "math") return "Mathematics";
-  if (type === "ela_a") return "Reading";   // show with Reading
-  if (type === "ela_b") return "Reading";   // show with Reading
-  return type.charAt(0).toUpperCase() + type.slice(1);
-};
-const numAsc = (x: number, y: number) => x - y;
-const isEqualNumArrays = (a?: number[], b?: number[]) =>
-  Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => v === b[i]);
-
-function ExamResultsPage({
+export default function ExamResultsPage({
   exam,
   items,
   answers,
   readingQs,
   stickyTopClass = "top-14",
 }: Props) {
+  // Quick lookup for item metadata by globalId
   const itemsById = useMemo(() => {
-    const map: Record<string, FlatItemLike> = {};
+    const map: Record<string, any> = {};
     items.forEach((it) => (map[it.globalId] = it));
     return map;
   }, [items]);
 
-  const normalizeKind = (t?: string): InteractionType => {
-  const k = (t ?? "single_select").toLowerCase().replace(/[\s-]+/g, "_");
-  if (k === "multi_select" || k === "multiple_select" || k === "multi") return "multi_select";
-  if (k === "drag_to_bins" || k === "drag_bins" || k === "drag_to_categories") return "drag_to_bins";
-  if (k === "table_match" || k === "table" || k === "match_table") return "table_match";
-  if (k === "cloze_drag" || k === "cloze" || k === "drag_drop") return "cloze_drag";
-  return "single_select";
-};
+  // ---- Build detailed rows (per-question verdicts) using shared scorer ----
+  const results = useMemo(() => {
+    const rows: ResultRow[] = [];
+    let correctCount = 0;
+    let scoredCount = 0;
+    let unansweredCountLocal = 0;
 
-const pick = <T,>(...vals: Array<T | undefined>): T | undefined =>
-  vals.find((v) => v !== undefined);
+    // roll-up by broad group
+    const sectionTotals = {
+      reading: { correct: 0, scored: 0 },
+      math: { correct: 0, scored: 0 },
+    };
 
-const getSingleCorrect = (q: any, item?: FlatItemLike): number | undefined =>
-  pick(
-    typeof q?.answerIndex === "number" ? q.answerIndex : undefined,
-    typeof q?.correctIndex === "number" ? q.correctIndex : undefined,
-    typeof q?.correct === "number" ? q.correct : undefined,
-    typeof q?.answer === "number" ? q.answer : undefined,
-    typeof item?.answerIndex === "number" ? item.answerIndex : undefined
-  );
+    let g = 0; // global counter
 
-const getMultiCorrect = (q: any, item?: FlatItemLike): number[] | undefined => {
-  const arr =
-    pick(
-      Array.isArray(q?.correctIndices) ? q.correctIndices : undefined,
-      Array.isArray(q?.answers) ? q.answers : undefined,
-      Array.isArray(q?.correct) ? q.correct : undefined,
-      Array.isArray(item?.correctIndices) ? item.correctIndices : undefined
-    ) ?? undefined;
-  return Array.isArray(arr) ? arr.slice().sort(numAsc) : undefined;
-};
+    for (const sec of exam.sections) {
+      const secTypeAny = sec.type as SectionKindAny;
 
-const getBinsKey = (q: any, item?: FlatItemLike): Record<string, string> | undefined =>
-  pick(
-    q?.correctBins as Record<string, string> | undefined,
-    q?.answersMap as Record<string, string> | undefined,
-    q?.key as Record<string, string> | undefined,
-    item?.correctBins
-  );
+      // Map ela_a and ela_b into the Reading display bucket
+      const displayGroup = secTypeAny === "math" ? "Math" : "Reading";
+      const sectionType = (secTypeAny === "math" ? "math" : "reading") as "math" | "reading";
 
-const getCellsKey = (q: any, item?: FlatItemLike): Record<string, string> | undefined =>
-  pick(
-    q?.correctCells as Record<string, string> | undefined,
-    q?.answers as Record<string, string> | undefined,
-    q?.key as Record<string, string> | undefined,
-    item?.correctCells
-  );
-
-const getClozeBlank = (q: any, item?: FlatItemLike): { blankId?: string; correct?: string } => {
-  const b = (q?.blanks?.[0] ?? item?.blanks?.[0]) as { id?: string; correctOptionId?: string } | undefined;
-  return { blankId: b?.id, correct: b?.correctOptionId ?? (q?.correctOptionId as string | undefined) };
-};
-
-const results = useMemo(() => {
-  const rows: ResultRow[] = [];
-  let correctCount = 0;
-  let incorrectCount = 0;
-  let unansweredCountLocal = 0;
-  let scoredCount = 0;
-
-  const secTotals: SectionTotals = {
-    reading: { correct: 0, scored: 0 },
-    math: { correct: 0, scored: 0 },
-  };
-
-  let g = 0;
-  exam.sections.forEach((sec: any) => {
-    const displayGroup = groupLabel(sec.type);
-    const sectionType = (sec.type === "math" ? "math" : "reading") as "reading" | "math";
-
-    // Build list per your rules
-    const qList: any[] =
-      (sec.type === "reading" || sec.type === "ela_a")
-        ? (readingQs[sec.id] ?? [])
-        : (sec.type === "ela_b")
+      // Source of question objects varies by section family
+      const qList: any[] =
+        secTypeAny === "reading" || secTypeAny === "ela_a"
+          ? (readingQs[sec.id] ?? [])
+          : secTypeAny === "ela_b"
           ? items
-              .filter((it) => it.sectionId === sec.id && !(it as any).isIntro && !(it as any).isEnd)
+              .filter((it) => it.sectionId === sec.id && !it.isIntro && !it.isEnd)
               .map((it) => ({
                 id: it.globalId.split(":")[1],
-                type: (it as any).interactionType ?? "single_select",
-                choices: (it as any).choices,
-                answerIndex: (it as any).answerIndex,
-                correctIndices: (it as any).correctIndices,
-                correctBins: (it as any).correctBins,
-                correctCells: (it as any).correctCells,
-                blanks: (it as any).blanks,
+                type: (it.interactionType as InteractionType) ?? "single_select",
+                // carry answer keys from items if present
+                answerIndex: it.answerIndex,
+                correctIndex: it.correctIndex,
+                correctIndices: it.correctIndices,
+                correctBins: it.correctBins,
+                correctCells: it.correctCells,
+                blanks: it.blanks,
+                points: (it as any).points,
               }))
           : (sec.questions ?? []);
 
-    (qList as any[]).forEach((q: any) => {
-      const globalId = `${sec.id}:${q.id}`;
-      const item = itemsById[globalId];
-      const kind = normalizeKind(q?.type ?? item?.interactionType);
-      const choices = (q as any).choices ?? item?.choices;
+      for (const q of qList) {
+        g++;
+        const globalId = `${sec.id}:${q.id}`;
+        const itemMeta = itemsById[globalId] ?? {};
 
-      const pushRow = (row: Omit<ResultRow, "displayGroup" | "sectionType" | "globalNumber">) => {
+        const kind: InteractionType = (q?.type ?? itemMeta?.interactionType ?? "single_select") as InteractionType;
+
+        // Build a lightweight question-like object for the scorer with fallbacks to item metadata
+        const blanks = (q as any)?.blanks ?? itemMeta?.blanks;
+        const correctBlanks =
+          (q as any)?.correctBlanks ??
+          (blanks && blanks[0]?.id && blanks[0]?.correctOptionId
+            ? { [blanks[0].id]: blanks[0].correctOptionId }
+            : undefined);
+
+        const qLike = {
+          id: globalId,
+          kind,
+          answerIndex: (q as any)?.answerIndex ?? itemMeta?.answerIndex,
+          correctIndex: (q as any)?.correctIndex ?? itemMeta?.correctIndex,
+          correctIndices: (q as any)?.correctIndices ?? itemMeta?.correctIndices,
+          correctBins: (q as any)?.correctBins ?? itemMeta?.correctBins,
+          correctCells: (q as any)?.correctCells ?? itemMeta?.correctCells,
+          correctBlanks,
+          points: (q as any)?.points ?? itemMeta?.points,
+          sectionType: secTypeAny as any,
+        };
+
+        const userVal = answers[globalId];
+        const scored = scoreQuestion(qLike as any, userVal as any);
+
+        const isScored = scored.correct !== null;
+        const isUnanswered =
+          userVal == null ||
+          (Array.isArray(userVal) && userVal.length === 0) ||
+          (typeof userVal === "object" && Object.keys(userVal as Record<string, any>).length === 0);
+
+        if (isScored) {
+          scoredCount++;
+          sectionTotals[sectionType].scored += 1;
+          if (isUnanswered) {
+            unansweredCountLocal++;
+          } else if (scored.correct === true) {
+            correctCount++;
+            sectionTotals[sectionType].correct += 1;
+          }
+        } else if (isUnanswered) {
+          unansweredCountLocal++;
+        }
+
         rows.push({
-          ...row,
-          globalNumber: g + 1,
-          displayGroup,
-          sectionType,
-        });
-      };
-
-      if (kind === "multi_select") {
-        const correct = getMultiCorrect(q, item);
-        const user = (answers[globalId] as number[] | undefined) ?? [];
-        const isScored = Array.isArray(correct);
-        const isUnanswered = user.length === 0;
-        const isCorrect = isScored
-          ? (!isUnanswered && isEqualNumArrays(user.slice().sort(numAsc), (correct ?? []).slice().sort(numAsc)))
-          : null;
-
-        if (isScored) {
-          scoredCount++;
-          secTotals[sectionType].scored += 1;
-          if (isUnanswered) {
-            unansweredCountLocal++;
-          } else if (isCorrect) {
-            correctCount++;
-            secTotals[sectionType].correct += 1;
-          } else {
-            incorrectCount++;
-          }
-        } else if (isUnanswered) {
-          unansweredCountLocal++;
-        }
-
-        pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct, choices });
-
-      } else if (kind === "drag_to_bins") {
-        const key = getBinsKey(q, item);
-        const user = (answers[globalId] as DragMap) ?? {};
-        const hasAny = Object.keys(user).length > 0;
-        const isScored = !!key;
-        const isUnanswered = !hasAny;
-        const isCorrect = isScored
-          ? (hasAny &&
-             Object.keys(key!).length === Object.keys(user).length &&
-             Object.entries(key!).every(([opt, bin]) => user[opt] === bin))
-          : null;
-
-        if (isScored) {
-          scoredCount++;
-          secTotals[sectionType].scored += 1;
-          if (isUnanswered) {
-            unansweredCountLocal++;
-          } else if (isCorrect) {
-            correctCount++;
-            secTotals[sectionType].correct += 1;
-          } else {
-            incorrectCount++;
-          }
-        } else if (isUnanswered) {
-          unansweredCountLocal++;
-        }
-
-        pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct: key });
-
-      } else if (kind === "table_match") {
-        const key = getCellsKey(q, item);
-        const user = (answers[globalId] as TableAnswer) ?? {};
-        const hasAny = Object.keys(user).length > 0;
-        const isScored = !!key;
-        const isUnanswered = !hasAny;
-        const isCorrect = isScored
-          ? (hasAny &&
-             Object.keys(key!).length === Object.keys(user).length &&
-             Object.entries(key!).every(([rowId, optId]) => user[rowId] === optId))
-          : null;
-
-        if (isScored) {
-          scoredCount++;
-          secTotals[sectionType].scored += 1;
-          if (isUnanswered) {
-            unansweredCountLocal++;
-          } else if (isCorrect) {
-            correctCount++;
-            secTotals[sectionType].correct += 1;
-          } else {
-            incorrectCount++;
-          }
-        } else if (isUnanswered) {
-          unansweredCountLocal++;
-        }
-
-        pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct: key });
-
-      } else if (kind === "cloze_drag") {
-        const { blankId, correct } = getClozeBlank(q, item);
-        const userObj = (answers[globalId] as Record<string, string> | undefined) ?? {};
-        const hasAny = Object.keys(userObj).length > 0;
-        const isScored = !!blankId && !!correct;
-        const isUnanswered = !hasAny;
-        const isCorrect = isScored ? (hasAny && userObj[blankId!] === correct) : null;
-
-        if (isScored) {
-          scoredCount++;
-          secTotals[sectionType].scored += 1;
-          if (isUnanswered) {
-            unansweredCountLocal++;
-          } else if (isCorrect) {
-            correctCount++;
-            secTotals[sectionType].correct += 1;
-          } else {
-            incorrectCount++;
-          }
-        } else if (isUnanswered) {
-          unansweredCountLocal++;
-        }
-
-        pushRow({
           globalId,
           kind,
           isScored,
           isUnanswered,
-          isCorrect,
-          user: userObj,
-          correct: blankId ? { [blankId]: correct! } : undefined,
+          isCorrect: scored.correct,
+          user:
+            Array.isArray(userVal) || typeof userVal === "number"
+              ? (userVal as any)
+              : typeof userVal === "object"
+              ? (userVal as any)
+              : undefined,
+          correct:
+            (kind === "single_select"
+              ? (qLike as any).correctIndex ?? (qLike as any).answerIndex
+              : kind === "multi_select"
+              ? (qLike as any).correctIndices
+              : kind === "drag_to_bins"
+              ? (qLike as any).correctBins
+              : kind === "table_match"
+              ? (qLike as any).correctCells
+              : kind === "cloze_drag"
+              ? (qLike as any).correctBlanks
+              : undefined) as any,
+          displayGroup,
+          sectionType,
+          globalNumber: g,
         });
-
-      } else {
-        // single_select (default)
-        const correct = getSingleCorrect(q, item);
-        const user = answers[globalId] as number | undefined;
-        const isScored = typeof correct === "number";
-        const isUnanswered = user == null;
-        const isCorrect = isScored ? (!isUnanswered && user === correct) : null;
-
-        if (isScored) {
-          scoredCount++;
-          secTotals[sectionType].scored += 1;
-          if (isUnanswered) {
-            unansweredCountLocal++;
-          } else if (isCorrect) {
-            correctCount++;
-            secTotals[sectionType].correct += 1;
-          } else {
-            incorrectCount++;
-          }
-        } else if (isUnanswered) {
-          unansweredCountLocal++;
-        }
-
-        pushRow({ globalId, kind, isScored, isUnanswered, isCorrect, user, correct, choices });
       }
+    }
 
-      g++;
+    return {
+      rows,
+      correctCount,
+      unansweredCount: unansweredCountLocal,
+      scoredCount,
+      sectionTotals,
+    };
+  }, [exam, items, readingQs, answers, itemsById]);
+
+  // ---- Topline aggregate (points & percent) from shared scorer for ALL sections ----
+  const _scoreAgg = useMemo(() => {
+    const allQuestions: any[] = [];
+    for (const sec of exam.sections) {
+      const secTypeAny = sec.type as SectionKindAny;
+      const secId = sec.id;
+
+      const qList =
+        secTypeAny === "reading" || secTypeAny === "ela_a"
+          ? (readingQs[sec.id] ?? [])
+          : secTypeAny === "ela_b"
+          ? items
+              .filter((it) => it.sectionId === secId && !it.isIntro && !it.isEnd)
+              .map((it) => ({
+                id: it.globalId.split(":")[1],
+                kind: it.interactionType,
+                answerIndex: it.answerIndex,
+                correctIndex: it.correctIndex,
+                correctIndices: it.correctIndices,
+                correctBins: it.correctBins,
+                correctCells: it.correctCells,
+                correctBlanks:
+                  it.blanks && it.blanks[0]?.id && it.blanks[0]?.correctOptionId
+                    ? { [it.blanks[0].id]: it.blanks[0].correctOptionId }
+                    : undefined,
+                points: (it as any).points,
+              }))
+          : (sec.questions ?? []);
+
+      for (const q of qList as any[]) {
+        const gid = `${sec.id}:${q.id}`;
+        const itemMeta = (itemsById as any)[gid] ?? {};
+        const blanks = (q as any)?.blanks ?? itemMeta?.blanks;
+        const correctBlanks =
+          (q as any)?.correctBlanks ??
+          (blanks && blanks[0]?.id && blanks[0]?.correctOptionId
+            ? { [blanks[0].id]: blanks[0].correctOptionId }
+            : undefined);
+
+        allQuestions.push({
+          id: gid,
+          kind: (q?.type ?? itemMeta?.interactionType ?? (q as any)?.kind) as string | undefined,
+          answerIndex: (q as any)?.answerIndex ?? itemMeta?.answerIndex,
+          correctIndex: (q as any)?.correctIndex ?? itemMeta?.correctIndex,
+          correctIndices: (q as any)?.correctIndices ?? itemMeta?.correctIndices,
+          correctBins: (q as any)?.correctBins ?? itemMeta?.correctBins,
+          correctCells: (q as any)?.correctCells ?? itemMeta?.correctCells,
+          correctBlanks,
+          points: (q as any)?.points ?? itemMeta?.points,
+          sectionType: secTypeAny as any,
+        });
+      }
+    }
+    return scoreExam(allQuestions, answers, (qid) => {
+      const sectionId = qid.split(":")[0];
+      const sec = exam.sections.find((s) => s.id === sectionId);
+      return { id: sectionId, type: (sec?.type as any) };
     });
-  });
+  }, [exam, items, readingQs, answers, itemsById]);
 
-  return {
-    rows,
-    correctCount,
-    incorrectCount,
-    unansweredCount: unansweredCountLocal,
-    scoredCount,
-    sectionTotals: secTotals,
-  };
-}, [exam, items, readingQs, answers]);
+  // Reading vs Math tiles (treat ela_a / ela_b as Reading in display)
+  const readingTotals = useMemo(() => {
+    const r = { correct: 0, scored: 0 };
+    for (const sec of _scoreAgg.sections ?? []) {
+      if (sec.sectionType === "reading" || sec.sectionType === "ela_a" || sec.sectionType === "ela_b") {
+        r.correct += sec.correctCount;
+        r.scored += sec.totalScored;
+      }
+    }
+    return r;
+  }, [_scoreAgg.sections]);
 
-  const { correctCount, scoredCount, sectionTotals } = results;
-  const percent = scoredCount ? Math.round((correctCount / scoredCount) * 100) : 0;
+  const mathTotals = useMemo(() => {
+    const m = { correct: 0, scored: 0 };
+    for (const sec of _scoreAgg.sections ?? []) {
+      if (sec.sectionType === "math") {
+        m.correct += sec.correctCount;
+        m.scored += sec.totalScored;
+      }
+    }
+    return m;
+  }, [_scoreAgg.sections]);
 
-  // PDF generator (moved here)
+  const percent = toPercent(_scoreAgg.pointsEarned, _scoreAgg.pointsPossible);
+
+  // ---- PDF: compact score report
   const downloadReportPdf = async () => {
-    // Try local dep first; fallback to CDN
     let jsPDFMod: any = null;
     try {
       jsPDFMod = await import("jspdf");
     } catch {
       try {
         // @ts-ignore
-        jsPDFMod = await import(/* @vite-ignore */ "https://cdn.skypack.dev/jspdf");
+        jsPDFMod = await import(/* @vite-ignore */ "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js");
       } catch {
         alert("Could not load PDF generator. Please install 'jspdf' (npm i jspdf).");
         return;
@@ -388,165 +302,108 @@ const results = useMemo(() => {
 
     const addLine = (text: string, opts: { bold?: boolean } = {}) => {
       const lines = doc.splitTextToSize(text, usableWidth);
+      doc.setFont("helvetica", opts.bold ? "bold" : "normal");
       for (const line of lines) {
-        if (y > doc.internal.pageSize.getHeight() - 56) {
-          doc.addPage();
-          y = 56;
-        }
-        if (opts.bold) doc.setFont(undefined, "bold");
         doc.text(line, marginX, y);
-        if (opts.bold) doc.setFont(undefined, "normal");
-        y += 16;
+        y += 18;
       }
     };
 
-    // Header
-    doc.setFontSize(16);
-    doc.setFont(undefined, "bold");
-    doc.text(exam.title, marginX, y);
-    doc.setFont(undefined, "normal");
-    y += 22;
-    doc.setFontSize(12);
+    addLine(exam.title, { bold: true });
+    addLine(`Overall: ${_scoreAgg.correctCount} correct out of ${_scoreAgg.totalScored} scored · ${percent}`);
+    addLine(`Reading: ${readingTotals.correct}/${readingTotals.scored}  ·  Math: ${mathTotals.correct}/${mathTotals.scored}`);
 
-    // Summary
-    addLine(`Overall: ${results.correctCount} correct out of ${results.scoredCount} scored`);
-    const r = results.sectionTotals.reading;
-    const m = results.sectionTotals.math;
-    addLine(`Reading: ${r.correct}/${r.scored}  ·  Math: ${m.correct}/${m.scored}`);
-    y += 8;
-
-    // Divider
-    doc.setDrawColor(180);
-    doc.line(marginX, y, pageWidth - marginX, y);
-    y += 14;
-
-    // Per-question (only scored)
-    const rows = results.rows;
-    let currentGroup = "";
-
-    const letter = (i?: number) => (i == null || i < 0 ? "-" : String.fromCharCode(65 + i));
-
-    rows.forEach((row) => {
-      if (!row.isScored) return;
-
-      // find presentation item (for labels/choices)
-      const item = itemsById[row.globalId];
-
-      // Also read the original question object for labels if item is missing fields
-      const [secId] = row.globalId.split(":");
-      const sec = exam.sections.find((s) => s.id === secId) as any;
-      const isReading = sec?.type === "reading" || sec?.type === "ela_a";
-      const q =
-        isReading
-          ? (readingQs[secId] ?? []).find((qq: any) => `${secId}:${qq.id}` === row.globalId)
-          : (sec?.questions ?? []).find((qq: any) => `${secId}:${qq.id}` === row.globalId);
-
-      const secName = row.displayGroup;
-      if (secName !== currentGroup) {
-        addLine(secName, { bold: true });
-        currentGroup = secName;
-      }
-
-      const stem = (item?.stemMarkdown || q?.stemMarkdown || q?.promptMarkdown || "")
-        .replace(/\s+/g, " ")
-        .trim();
-      addLine(`Q${row.globalNumber}: ${stem || "(No prompt text)"}`);
-
-      // Build user answer preview
-      let answerStr = "—";
-      if (row.kind === "single_select") {
-        const i = row.user as number | undefined;
-        const choices = item?.choices ?? q?.choices ?? [];
-        answerStr = typeof i === "number" ? `${letter(i)}${choices[i] ? ` — ${choices[i]}` : ""}` : "—";
-      } else if (row.kind === "multi_select") {
-        const picks = (row.user as number[] | undefined) ?? [];
-        const choices = item?.choices ?? q?.choices ?? [];
-        answerStr = picks.length
-          ? picks.map((i) => `${letter(i)}${choices[i] ? ` — ${choices[i]}` : ""}`).join("; ")
-          : "—";
-      } else if (row.kind === "drag_to_bins") {
-        const user = (row.user as DragMap) || {};
-        const entries = Object.entries(user as Record<string, string | undefined>);
-        const optSrc: IdLabel[] = (item?.options ?? q?.options ?? []) as IdLabel[];
-        const binSrc: IdLabel[] = (item?.bins ?? q?.bins ?? []) as IdLabel[];
-
-        const optLabel = (id?: string) =>
-          id ? (optSrc.find((o: IdLabel) => o.id === id)?.label ?? id) : "—";
-        const binLabel = (id?: string) =>
-          id ? (binSrc.find((b: IdLabel) => b.id === id)?.label ?? id) : "—";
-
-        const pairs = entries.map(([optId, binId]) => `${optLabel(optId)} → ${binLabel(binId)}`);
-        answerStr = pairs.length ? pairs.join("; ") : "—";
-      } else if (row.kind === "table_match") {
-        const user = (row.user as TableAnswer) || {};
-        const entries = Object.entries(user as Record<string, string | undefined>);
-        const rowSrc: RowHdr[]   = (item?.tableRows ?? q?.table?.rows ?? []) as RowHdr[];
-        const optSrcTM: IdLabel[] = (item?.tableOptions ?? q?.options ?? []) as IdLabel[];
-
-        const rowLabel = (rid?: string) =>
-          rid ? (rowSrc.find((r: RowHdr) => r.id === rid)?.header ?? rid) : "—";
-        const optLabelTM = (oid?: string) =>
-          oid ? (optSrcTM.find((o: IdLabel) => o.id === oid)?.label ?? oid) : "—";
-
-        const pairs = entries.map(([rid, oid]) => `${rowLabel(rid)} → ${optLabelTM(oid)}`);
-        answerStr = pairs.length ? pairs.join("; ") : "—";
-      }
-
+    y += 10;
+    addLine("Per-question (scored only):", { bold: true });
+    for (const row of results.rows) {
+      if (!row.isScored) continue;
       const verdict = row.isCorrect ? "Right" : "Wrong";
-      addLine(`Your Answer: ${answerStr}`);
-      addLine(`Result: ${verdict}`);
-      y += 6;
-    });
+      addLine(`#${row.globalNumber}  [${row.displayGroup}]  ${verdict}`);
+    }
 
-    const file = `${exam.slug}-report.pdf`;
-    doc.save(file);
+    doc.save(`${exam.slug}-report.pdf`);
   };
 
+  // ---- UI ----
   return (
     <div className="space-y-6">
-      {/* Full-bleed status */}
+      {/* ======= Top bar summary ======= */}
       <div className={`sticky ${stickyTopClass} z-30 full-bleed`}>
-        <div className="h-[3px] bg-sky-500 border-t border-gray-300" />
-        <div className="w-full bg-[#5e5e5e] text-white text-[13px]">
-          <div className="flex items-center gap-2 px-6 py-1">
-            <span className="font-semibold">{exam.title.toUpperCase()}</span>
-            <span>/</span>
-            <span>RESULTS</span>
+        <div className="w-full bg-white border-b border-gray-300 px-4 py-2 shadow-sm">
+          <div className="max-w-5xl mx-auto flex items-center justify-between">
+            <div className="text-lg font-semibold">{exam.title}</div>
+            <div className="text-sm">
+              {_scoreAgg.correctCount}/{_scoreAgg.totalScored} scored · {percent}
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-8 max-w-4xl mx-auto">
+      {/* ======= Main ======= */}
+      <div className="max-w-5xl mx-auto px-4">
+        {/* Header */}
         <div className="text-center mb-6">
           <h2 className="text-4xl font-bold">Your Score</h2>
           <div className="mt-3 text-xl">
-            <span className="font-semibold">{correctCount}</span> correct out of{" "}
-            <span className="font-semibold">{scoredCount}</span> scored questions ·{" "}
-            <span className="font-semibold">{percent}%</span>
+            <span className="font-semibold">{_scoreAgg.correctCount}</span> correct out of{" "}
+            <span className="font-semibold">{_scoreAgg.totalScored}</span> scored questions ·{" "}
+            <span className="font-semibold">{percent}</span>
           </div>
 
+        {/* Tiles: Reading / Math (ela_a / ela_b rolled into Reading) */}
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto text-sm">
-            <div className="rounded-md border border-gray-200 p-3">
+            <div className="rounded-md border p-3 bg-gray-50">
               <div className="text-gray-600">Reading</div>
               <div className="text-lg font-semibold">
-                {sectionTotals.reading.correct} / {sectionTotals.reading.scored}
+                {readingTotals.correct} / {readingTotals.scored}
               </div>
             </div>
-            <div className="rounded-md border border-gray-200 p-3">
+            <div className="rounded-md border p-3 bg-gray-50">
               <div className="text-gray-600">Math</div>
               <div className="text-lg font-semibold">
-                {sectionTotals.math.correct} / {sectionTotals.math.scored}
+                {mathTotals.correct} / {mathTotals.scored}
               </div>
             </div>
           </div>
 
-          <div className="mt-6 flex justify-center">
+          <div className="mt-4">
             <button
               onClick={downloadReportPdf}
-              className="px-5 py-2.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+              className="inline-flex items-center gap-2 rounded-md bg-slate-700 hover:bg-slate-800 text-white px-4 py-2"
             >
-              Download Report (PDF)
+              Download PDF Report
             </button>
+          </div>
+        </div>
+
+        {/* Results table */}
+        <div className="rounded-2xl bg-white shadow-md border border-gray-200">
+          <div className="p-4 border-b font-semibold">Question Results</div>
+          <div className="p-4 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-600">
+                  <th className="py-2 pr-4">#</th>
+                  <th className="py-2 pr-4">Section</th>
+                  <th className="py-2 pr-4">Kind</th>
+                  <th className="py-2 pr-4">Scored</th>
+                  <th className="py-2 pr-4">Correct</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.rows.map((row) => (
+                  <tr key={row.globalId} className="border-t">
+                    <td className="py-2 pr-4">{row.globalNumber}</td>
+                    <td className="py-2 pr-4">{row.displayGroup}</td>
+                    <td className="py-2 pr-4">{row.kind}</td>
+                    <td className="py-2 pr-4">{row.isScored ? "Yes" : "—"}</td>
+                    <td className="py-2 pr-4">
+                      {row.isScored ? (row.isCorrect ? "Right" : "Wrong") : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -558,5 +415,4 @@ const results = useMemo(() => {
   );
 }
 
-export default ExamResultsPage;
 export { ExamResultsPage };
