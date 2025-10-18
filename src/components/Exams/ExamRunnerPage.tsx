@@ -4,7 +4,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getExamBySlug } from "../../data/exams";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
-import { getQuestionsByIds } from "../../data/revEditB-QuestionBank.ts";
+import { getQuestionsByIds as getRevEditBQuestionsByIds } from "../../data/revEditB-QuestionBank.ts";
+import { getMathQuestionsByIds } from "../../data/SHSATMathBank";
 
 /** Results page */
 import ExamResultsPage from "./ExamResultsPage";
@@ -307,22 +308,21 @@ function ExamRunnerPage() {
 let sectionQuestions: any[] = [];
 
 if (isMdType(type)) {
-  // Reading + ELA A: from passage YAML
+  // Reading + ELA A: YAML frontmatter
   sectionQuestions = readingQs[sec.id] ?? [];
 } else if (Array.isArray((sec as any).questionIds) && (sec as any).questionIds.length) {
-  // Any section (incl. Math) can come from an external bank
-  try {
-    sectionQuestions = getQuestionsByIds((sec as any).questionIds);
-  } catch (e) {
-    console.warn(`[ExamRunner] Could not resolve questionIds for section ${sec.id}`, e);
+  // Resolve by section type
+  if (type === "ela_b") {
+    sectionQuestions = getRevEditBQuestionsByIds((sec as any).questionIds);
+  } else if (type === "math") {
+    sectionQuestions = getMathQuestionsByIds((sec as any).questionIds);
+  } else {
+    console.warn(`[ExamRunner] No loader for questionIds in section type '${type}'. Using empty list.`);
     sectionQuestions = [];
   }
 } else {
-  // Inline questions (typical for Math)
+  // Inline questions (typical for math without banks)
   sectionQuestions = Array.isArray((sec as any).questions) ? (sec as any).questions : [];
-  if ((type === "math" || String(type).toLowerCase() === "math") && sectionQuestions.length === 0) {
-    console.warn(`[ExamRunner] Math section '${sec.id}' has no questions and no questionIds.`);
-  }
 }
 
       (sectionQuestions as any[]).forEach((q: any) => {
