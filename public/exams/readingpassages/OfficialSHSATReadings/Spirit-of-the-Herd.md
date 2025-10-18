@@ -80,10 +80,10 @@ questions:
 
         How do these sentences develop a central idea in the excerpt?
     choices:
-      - "A. struggled to see the front of the herd."
-      - "B. had to ride quickly to keep up with the herd."
-      - "C. was forced to ride between the edge of the cliff and the herd."
-      - "D. knew that the drop of the cliff would frighten the herd."
+      - "A. They suggest that Wade would have been unable to save the herd without Peroxide Jim."
+      - "B. They imply that Wade spent many hours training Peroxide Jim to herd cattle.
+      - "C. They show that Peroxide Jim was able to understand a situation and take action."
+      - "D. They indicate that Peroxide Jim was unafraid of the dangers presented by the stampede and the cliff."
     answerIndex: 2
     explanationMarkdown: ""
 
