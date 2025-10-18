@@ -483,6 +483,19 @@ export default function ExamRunnerPage() {
   const isPassageSection =
     !current?.isEnd && !current?.isIntro && isMdType(current?.sectionType);
 
+  // ===== CLOZE helper: split stem around [blank:...] =====
+  const clozePieces = useMemo(() => {
+    if (!current?.stemMarkdown) return null;
+    const md = current.stemMarkdown;
+    const m = md.match(/\[blank:([^\]]+)\](.*)$/s); // capture first [blank:id] and everything after
+    if (!m || m.index == null) return null;
+    const before = md.slice(0, m.index).trim();
+    const after = (m[2] || "").trim();
+    const idFromStem = m[1];
+    const id = current.blanks?.[0]?.id ?? idFromStem ?? "blank";
+    return { before, after, id };
+  }, [current?.stemMarkdown, current?.blanks]);
+
   // ===== Progress (GLOBAL) =====
   const questionCount = questionItems.length;
   const questionOrdinal = Math.min(
@@ -669,27 +682,29 @@ export default function ExamRunnerPage() {
       {/* ======= Toolbar + Status (full-bleed) ======= */}
       <div className={`sticky ${stickyTopClass} z-30 full-bleed`}>
         <div className="w-full flex items-center gap-2 bg-white border-b border-gray-300 px-4 py-1 shadow-sm">
-          {/* Joined Prev/Next */}
-          <div className="inline-flex overflow-hidden rounded-md">
+          {/* Joined Prev/Next (glossy blue pair) */}
+          <div className="nav-pair" role="group" aria-label="Pagination">
             <button
               onClick={() => setIdx((i) => Math.max(0, i - 1))}
               disabled={idx === 0}
-              className={`px-3 py-1.5 text-white text-sm font-medium border-r ${
-                idx === 0 ? "bg-blue-300 cursor-not-allowed border-blue-300" : "bg-blue-600 hover:bg-blue-500 border-blue-700"
-              }`}
+              className="nav-btn"
               title="Previous"
+              aria-label="Previous"
             >
-              ←
+              <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M15 6l-6 6 6 6" />
+              </svg>
             </button>
             <button
               onClick={() => setIdx((i) => Math.min(lastIndex, i + 1))}
               disabled={idx === lastIndex}
-              className={`px-3 py-1.5 text-white text-sm font-medium ${
-                idx === lastIndex ? "bg-blue-300 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500"
-              }`}
+              className="nav-btn"
               title="Next"
+              aria-label="Next"
             >
-              →
+              <svg className="nav-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
             </button>
           </div>
 
@@ -936,7 +951,9 @@ export default function ExamRunnerPage() {
                 {current?.stemMarkdown ? (
                   <div className="prose max-w-none mb-3 question-stem">
                     <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                      {current.stemMarkdown}
+                      {current.interactionType === "cloze_drag" && clozePieces
+                        ? clozePieces.before
+                        : current.stemMarkdown}
                     </ReactMarkdown>
                   </div>
                 ) : null}
@@ -966,9 +983,9 @@ export default function ExamRunnerPage() {
                   />
                 ) : current.interactionType === "cloze_drag" ? (
                   <ClozeDrag
-                    blankId={current.blanks?.[0]?.id ?? "blank"}
+                    blankId={(clozePieces?.id ?? current.blanks?.[0]?.id ?? "blank")}
                     options={(current.options ?? []) as { id: string; label: string }[]}
-                    textAfter={current.stemMarkdown ?? ""}
+                    textAfter={(clozePieces?.after ?? "").trim()}
                     value={((answers[current.globalId] as ClozeAnswer) ?? {}) as ClozeAnswer}
                     onChange={(next) =>
                       setAnswers((prev) => ({ ...prev, [current.globalId]: next }))
@@ -987,7 +1004,9 @@ export default function ExamRunnerPage() {
               {current?.stemMarkdown ? (
                 <div className="prose max-w-none mb-3 question-stem">
                   <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                    {current.stemMarkdown}
+                    {current.interactionType === "cloze_drag" && clozePieces
+                      ? clozePieces.before
+                      : current.stemMarkdown}
                   </ReactMarkdown>
                 </div>
               ) : null}
@@ -1025,9 +1044,9 @@ export default function ExamRunnerPage() {
                 />
               ) : current.interactionType === "cloze_drag" ? (
                 <ClozeDrag
-                  blankId={current.blanks?.[0]?.id ?? "blank"}
+                  blankId={(clozePieces?.id ?? current.blanks?.[0]?.id ?? "blank")}
                   options={(current.options ?? []) as { id: string; label: string }[]}
-                  textAfter={current.stemMarkdown ?? ""}
+                  textAfter={(clozePieces?.after ?? "").trim()}
                   value={((answers[current.globalId] as ClozeAnswer) ?? {}) as ClozeAnswer}
                   onChange={(next) =>
                     setAnswers((prev) => ({ ...prev, [current.globalId]: next }))

@@ -28,7 +28,7 @@ questions:
       - "C. by criticizing Southern audiences for intolerance"
       - "D. by describing how her speech makes the crowd listen"
       - "E. by quoting Lyndon Johnson’s remarks about the South"
-    correctIndices: [0, 3]
+    correctIndices: [0, 1]
     explanationMarkdown: ""
 
   - id: q3
@@ -52,11 +52,11 @@ questions:
       - id: o5
         label: "“The south horizon … wide floors of blue-green ice”"
     correctBins:
-      o1: themeB
+      o1: themeA
       o2: themeA
-      o3: themeB
-      o4: themeA
-      o5: themeA
+      o3: themeA
+      o4: themeB
+      o5: themeB
     explanationMarkdown: ""
 
   - id: q4
