@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { listExams, getExamBySlug } from "../../data/exams";
 import ReactMarkdown from "react-markdown";
-import { fetchExamLock } from "./ExamLock";
 
 type ParsedMd = {
   title?: string;
@@ -33,28 +32,6 @@ function parsePassageMd(md: string): ParsedMd {
   });
 
   return { title, source, body };
-}
-
-function StartButton({ slug, onStart }: { slug: string; onStart: () => void }) {
-  const [locked, setLocked] = useState<boolean | null>(null);
-
-useEffect(() => {
-    let alive = true;
-    fetchExamLock(slug).then(v => alive && setLocked(v)).catch(() => alive && setLocked(false));
-    return () => { alive = false; };
-  }, [slug]);
-
-  const disabled = locked === null ? true : locked;
-  return (
-    <button
-      onClick={() => !disabled && onStart()}
-      disabled={disabled}
-      className={`px-3 py-1 rounded ${disabled ? "bg-gray-200 text-gray-500 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"}`}
-      title={disabled ? "This exam is locked" : "Start exam"}
-    >
-      {locked ? "Locked" : locked === null ? "…" : "Start"}
-    </button>
-  );
 }
 
 function PassageBlock({
