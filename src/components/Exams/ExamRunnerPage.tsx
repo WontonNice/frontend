@@ -4,11 +4,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getExamBySlug } from "../../data/exams";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
-import { getQuestionsByIds as getRevEditBQuestionsByIds } from "../../data/revEditB-QuestionBank.ts";
-import { getMathQuestionsByIds } from "../../data/SHSATMathBank";
 
-/** Results page */
-import ExamResultsPage from "./ExamResultsPage";
+// Question banks
+import { getQuestionsByIds as getRevEditBQuestionsByIds } from "../../data/revEditB-QuestionBank.ts";
+import { getMathQuestionsByIds } from "../../data/SHSATMathBank.ts";
+
+// Results page (use named import so props are typed)
+import { ExamResultsPage } from "./ExamResultsPage";
 import "./ExamRunnerPage.css";
 
 /** Tech-enhanced interactions */
@@ -17,6 +19,9 @@ import TableMatch from "./techenhanced/TableMatch";
 import ClozeDrag from "./techenhanced/ClozeDrag";
 import InlineDropdowns from "./techenhanced/Dropdown";
 import type { DropAnswer } from "./techenhanced/Dropdown";
+
+/** Math renderer */
+import MathText from "../MathText";
 
 /** Shared global answers/types */
 import type { AnswerMap } from "../Exams/ExamSharedTypes";
@@ -130,7 +135,7 @@ type FlatItem = {
   /** Choices can be string[] or object[] (with ids) */
   choices?: any[] | string[];
 
-  /** Answer keys (forwarded so Results can score ELA-B and others) */
+  /** Answer keys (forwarded so Results can score ELA-B / Math / etc.) */
   answerIndex?: number;
   correctIndex?: number;
   correctIndices?: number[];
@@ -206,7 +211,36 @@ const BackArrowIcon = (props: any) => (
   <svg viewBox="0 0 24 24" {...props}><path d="M10 19l-7-7 7-7M3 12h18" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
 );
 
-function ExamRunnerPage() {
+/** ---------- Helpers to render stems/choices (Math uses MathText) ---------- */
+const renderStemBlock = (it: FlatItem) => {
+  if (!it?.stemMarkdown) return null;
+  const content = it.stemMarkdown;
+  if (it.sectionType === "math") {
+    return (
+      <div className="prose max-w-none mb-3 question-stem">
+        <MathText text={content} />
+      </div>
+    );
+  }
+  return (
+    <div className="prose max-w-none mb-3 question-stem">
+      <ReactMarkdown rehypePlugins={[rehypeRaw]}>{content}</ReactMarkdown>
+    </div>
+  );
+};
+
+const ChoiceText = ({ it, text }: { it: FlatItem; text: string }) => {
+  if (it.sectionType === "math") {
+    return <MathText text={text} />;
+  }
+  return (
+    <ReactMarkdown rehypePlugins={[rehypeRaw]} components={{ p: ({ children }) => <span>{children}</span> }}>
+      {text}
+    </ReactMarkdown>
+  );
+};
+
+export default function ExamRunnerPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const exam = slug ? getExamBySlug(slug) : undefined;
@@ -305,25 +339,25 @@ function ExamRunnerPage() {
         insertedIntro.add(type);
       }
 
-let sectionQuestions: any[] = [];
+      let sectionQuestions: any[] = [];
 
-if (isMdType(type)) {
-  // Reading + ELA A: YAML frontmatter
-  sectionQuestions = readingQs[sec.id] ?? [];
-} else if (Array.isArray((sec as any).questionIds) && (sec as any).questionIds.length) {
-  // Resolve by section type
-  if (type === "ela_b") {
-    sectionQuestions = getRevEditBQuestionsByIds((sec as any).questionIds);
-  } else if (type === "math") {
-    sectionQuestions = getMathQuestionsByIds((sec as any).questionIds);
-  } else {
-    console.warn(`[ExamRunner] No loader for questionIds in section type '${type}'. Using empty list.`);
-    sectionQuestions = [];
-  }
-} else {
-  // Inline questions (typical for math without banks)
-  sectionQuestions = Array.isArray((sec as any).questions) ? (sec as any).questions : [];
-}
+      if (isMdType(type)) {
+        // Reading + ELA A: YAML frontmatter
+        sectionQuestions = readingQs[sec.id] ?? [];
+      } else if (Array.isArray((sec as any).questionIds) && (sec as any).questionIds.length) {
+        // Resolve by section type for any bank-backed section
+        if (type === "ela_b") {
+          sectionQuestions = getRevEditBQuestionsByIds((sec as any).questionIds);
+        } else if (type === "math") {
+          sectionQuestions = getMathQuestionsByIds((sec as any).questionIds);
+        } else {
+          console.warn(`[ExamRunner] No loader for questionIds in section type '${type}'.`);
+          sectionQuestions = [];
+        }
+      } else {
+        // Inline questions (typical for math without banks)
+        sectionQuestions = Array.isArray((sec as any).questions) ? (sec as any).questions : [];
+      }
 
       (sectionQuestions as any[]).forEach((q: any) => {
         out.push({
@@ -338,7 +372,7 @@ if (isMdType(type)) {
           stemMarkdown: q.stemMarkdown ?? q.promptMarkdown,
           image: q.image,
 
-          // Keep choices "raw" so scoring can read ids if present.
+          // keep choices "raw" so scoring can read ids if present
           choices: q.choices,
 
           // ***** PASS THROUGH ANSWER KEYS FOR RESULTS SCORING *****
@@ -356,7 +390,7 @@ if (isMdType(type)) {
           // table_match
           tableColumns: q.table?.columns,
           tableRows: q.table?.rows,
-          tableOptions: q.options, // reuse the same pool
+          tableOptions: q.options,
           correctCells: q.correctCells,
 
           // cloze_drag
@@ -579,7 +613,7 @@ if (isMdType(type)) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ===== Choice renderer (single + multi) =====
+  // ===== Choice helpers =====
   const renderChoiceText = (choice: any): string => {
     if (typeof choice === "string") return choice;
     return (
@@ -590,6 +624,7 @@ if (isMdType(type)) {
     ).toString();
   };
 
+  // ===== Choice renderer (single + multi) =====
   const renderChoices = (it: FlatItem) => {
     if (!Array.isArray(it.choices)) {
       return <p className="text-gray-500">No choices for this item.</p>;
@@ -611,10 +646,7 @@ if (isMdType(type)) {
             const eliminated = isEliminated(it.globalId, i);
 
             return (
-              <li
-                key={i}
-                className={`choice-row ${eliminated ? "eliminated" : ""}`}
-              >
+              <li key={i} className={`choice-row ${eliminated ? "eliminated" : ""}`}>
                 <label
                   className="w-full flex items-start gap-3 cursor-pointer"
                   onClick={(e) => {
@@ -645,10 +677,7 @@ if (isMdType(type)) {
                     }}
                   />
                   <span className="choice-text flex-1 prose prose-sm max-w-none">
-                    <ReactMarkdown rehypePlugins={[rehypeRaw]}
-                      components={{ p: ({children}) => <span>{children}</span> }}>
-                      {renderChoiceText(choice)}
-                    </ReactMarkdown>
+                    <ChoiceText it={it} text={renderChoiceText(choice)} />
                   </span>
                 </label>
               </li>
@@ -666,10 +695,7 @@ if (isMdType(type)) {
           const eliminated = isEliminated(it.globalId, i);
 
           return (
-            <li
-              key={i}
-              className={`choice-row ${eliminated ? "eliminated" : ""}`}
-            >
+            <li key={i} className={`choice-row ${eliminated ? "eliminated" : ""}`}>
               <label
                 className="w-full flex items-start gap-3 cursor-pointer"
                 onClick={(e) => {
@@ -693,10 +719,7 @@ if (isMdType(type)) {
                   }}
                 />
                 <span className="choice-text flex-1 prose prose-sm max-w-none">
-                  <ReactMarkdown rehypePlugins={[rehypeRaw]}
-                    components={{ p: ({children}) => <span>{children}</span> }}>
-                    {renderChoiceText(choice)}
-                  </ReactMarkdown>
+                  <ChoiceText it={it} text={renderChoiceText(choice)} />
                 </span>
               </label>
             </li>
@@ -937,25 +960,20 @@ if (isMdType(type)) {
         current?.sectionType === "math" ? (
           <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
             <div className="rounded-lg border border-gray-200 shadow-sm p-4">
-              {current?.stemMarkdown ? (
-                current.interactionType === "math_dropdowns" ? (
-                  <InlineDropdowns
-                    text={current.stemMarkdown}
-                    dropdowns={current.dropdowns ?? []}
-                    value={(answers[current.globalId] as DropAnswer) ?? {}}
-                    onChange={(next: DropAnswer) =>
-                      setAnswers((prev) => ({ ...prev, [current.globalId]: next }))
-                    }
-                    className="mb-3"
-                  />
-                ) : (
-                  <div className="prose max-w-none mb-3 question-stem">
-                    <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                      {current.stemMarkdown}
-                    </ReactMarkdown>
-                  </div>
-                )
-              ) : null}
+              {/* Math stem: use MathText unless this is the inline dropdown item */}
+              {current?.stemMarkdown && current.interactionType !== "math_dropdowns" ? renderStemBlock(current) : null}
+
+              {current.interactionType === "math_dropdowns" && (
+                <InlineDropdowns
+                  text={current.stemMarkdown ?? ""}
+                  dropdowns={current.dropdowns ?? []}
+                  value={(answers[current.globalId] as DropAnswer) ?? {}}
+                  onChange={(next: DropAnswer) =>
+                    setAnswers((prev) => ({ ...prev, [current.globalId]: next }))
+                  }
+                  className="mb-3"
+                />
+              )}
 
               {current?.image && (
                 <img
@@ -981,10 +999,7 @@ if (isMdType(type)) {
                     }
                   />
                 </div>
-              ) : current.interactionType === "math_dropdowns" ? (
-                // Stem with InlineDropdowns already rendered above.
-                null
-              ) : (
+              ) : current.interactionType === "math_dropdowns" ? null : (
                 // default choices (legacy math MC)
                 renderChoices(current)
               )}
@@ -1024,13 +1039,7 @@ if (isMdType(type)) {
 
               {/* Right: question */}
               <div className="rounded-lg border border-gray-200 shadow-sm p-4">
-                {current?.stemMarkdown ? (
-                  <div className="prose max-w-none mb-3 question-stem">
-                    <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                      {current.stemMarkdown}
-                    </ReactMarkdown>
-                  </div>
-                ) : null}
+                {renderStemBlock(current)}
 
                 {/* Interaction renderer */}
                 {current.interactionType === "drag_to_bins" ? (
@@ -1075,13 +1084,7 @@ if (isMdType(type)) {
           /* ELA B (and other non-passage types): single column ONLY */
           <div className="rounded-2xl bg-white shadow-md border border-gray-200 p-6">
             <div className="rounded-lg border border-gray-200 shadow-sm p-4">
-              {current?.stemMarkdown ? (
-                <div className="prose max-w-none mb-3 question-stem">
-                  <ReactMarkdown rehypePlugins={[rehypeRaw]}>
-                    {current.stemMarkdown}
-                  </ReactMarkdown>
-                </div>
-              ) : null}
+              {renderStemBlock(current)}
 
               {current?.image && (
                 <img
@@ -1208,7 +1211,3 @@ if (isMdType(type)) {
     </div>
   );
 }
-
-/** Export both default and named to support either import style */
-export default ExamRunnerPage;
-export { ExamRunnerPage };

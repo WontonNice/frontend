@@ -451,7 +451,6 @@ const downloadReportPdf = async () => {
                 <tr className="text-left text-gray-600">
                   <th className="py-2 pr-4">#</th>
                   <th className="py-2 pr-4">Section</th>
-                  <th className="py-2 pr-4">Kind</th>
                   <th className="py-2 pr-4">Scored</th>
                   <th className="py-2 pr-4">Points Earned</th>
                 </tr>
