@@ -105,20 +105,28 @@ export default function TeacherDashboard() {
     };
   }, [exams.length]);
 
-  const toggleLock = async (slug: string) => {
-    setSaving((s) => ({ ...s, [slug]: true }));
-    try {
-      const nextLocked = !(locks[slug] === "locked");
-      const result = await setExamLock(slug, nextLocked);
-      setLocks((prev) => ({ ...prev, [slug]: result ? "locked" : "open" }));
-    } catch (err: any) {
-      const msg = (err?.message || "").replace(/<[^>]*>/g, "").slice(0, 200);
-      alert(`Failed to update lock for ${slug}: ${msg || "unknown error"}`);
-      setLocks((prev) => ({ ...prev, [slug]: "error" }));
-    } finally {
-      setSaving((s) => ({ ...s, [slug]: false }));
-    }
-  };
+const toggleLock = async (slug: string) => {
+  setSaving(s => ({ ...s, [slug]: true }));
+  try {
+    const nextLocked = !(locks[slug] === "locked");
+
+    // setExamLock returns Promise<void>; just await it
+    await setExamLock(slug, nextLocked);
+
+    // optimistic local update
+    setLocks(prev => ({ ...prev, [slug]: nextLocked ? "locked" : "open" }));
+
+    // (optional) verify with a GET; uncomment if you prefer to read back from server
+    // const lockedNow = await fetchExamLock(slug);
+    // setLocks(prev => ({ ...prev, [slug]: lockedNow ? "locked" : "open" }));
+  } catch (err: any) {
+    const msg = (err?.message || "").replace(/<[^>]*>/g, "").slice(0, 200);
+    alert(`Failed to update lock for ${slug}: ${msg || "unknown error"}`);
+    setLocks(prev => ({ ...prev, [slug]: "error" }));
+  } finally {
+    setSaving(s => ({ ...s, [slug]: false }));
+  }
+};
 
   // ---------- SAT Bank (unchanged) ----------
   const [bank, setBank] = useState<SatMathQuestion[]>([]);
