@@ -1,8 +1,6 @@
 // src/components/Study/AgePractice.tsx
-import { useMemo, useState } from "react";
-import MathText from "../MathText";
-import { useStreak } from "../../hooks/useStreak";
-import StreakBadge from "../ui/StreakBadge";
+import PracticeEngine from "../practice/engine/PracticeEngine";
+import type { PracticeQuestion } from "../practice/engine/PracticeEngine";
 
 /* ------------------------- utilities ------------------------- */
 type Fraction = { p: number; q: number };
@@ -32,7 +30,7 @@ function rand<T>(arr: readonly T[]): T {
 function randint(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-function shuffle<T>(arr: T[]): T[] {
+function shuffle<T>(arr: readonly T[]): T[] {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -41,7 +39,7 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-/* ----------------------- question shape ---------------------- */
+/* ----------------------- builder output ---------------------- */
 type BuiltQuestion = {
   id: string;
   prompt: string;                  // Markdown/KaTeX via <MathText/>
@@ -84,7 +82,7 @@ function buildAgeFractionChange(): BuiltQuestion {
     if (v >= 5 && v <= 90) raw.add(v);
     if (raw.size >= 4) break;
   }
-  const choices = shuffle(Array.from(raw).slice(0, 4));
+  const choices = shuffle(Array.from(raw)).slice(0, 4);
 
   const explanation =
     `Let ${Bname} be $J$ and ${Aname} be $T$. We pick integers so ` +
@@ -139,7 +137,7 @@ function buildTimesFutureThenAgo(): BuiltQuestion {
     if (v > 0 && v <= 95) opts.add(v);
     if (opts.size >= 4) break;
   }
-  const choices = shuffle(Array.from(opts).slice(0, 4));
+  const choices = shuffle(Array.from(opts)).slice(0, 4);
 
   const explanation =
     `Let ${youngerName} now be $y$ and ${olderName} now be $x$. ` +
@@ -200,7 +198,7 @@ function buildAgeSymbolicExpression(): BuiltQuestion {
   const k = randint(2, 8);
   const t = randint(5, 12);
   const older = Math.random() < 0.7;
-  const ago = true; // sample uses “ago”
+  const ago = true; // “years ago” phrasing
 
   const nowExprOffset = older ? +k : -k;
   const finalOffset = nowExprOffset + (ago ? -t : +t);
@@ -233,120 +231,40 @@ function buildAgeSymbolicExpression(): BuiltQuestion {
   };
 }
 
-/* ------------------------------ Page component ------------------------------ */
+/* ------------------------- glue to engine ------------------------- */
+
+function toPracticeQuestion(b: BuiltQuestion): PracticeQuestion {
+  const correctIndex = b.choices.findIndex((c) => c === b.answer);
+  return {
+    id: b.id,
+    stem: b.prompt,
+    choices: b.choices,
+    correctIndex,
+    explanation: b.explanation,
+  };
+}
+
+function buildPQ(): PracticeQuestion {
+  const r = Math.random();
+  const built =
+    r < 0.25 ? buildAgeFractionChange()
+  : r < 0.50 ? buildTimesFutureThenAgo()
+  : r < 0.75 ? buildAgeInequality()
+             : buildAgeSymbolicExpression();
+  return toPracticeQuestion(built);
+}
+
+/* ------------------------------ Page ------------------------------ */
+
 export default function AgePractice() {
-  const makeQ = (): BuiltQuestion => {
-    const pick = Math.random();
-    if (pick < 0.25) return buildAgeFractionChange();
-    if (pick < 0.5) return buildTimesFutureThenAgo();
-    if (pick < 0.75) return buildAgeInequality();
-    return buildAgeSymbolicExpression();
-  };
-
-  const [q, setQ] = useState<BuiltQuestion>(() => makeQ());
-  const [picked, setPicked] = useState<number | string | null>(null);
-  const [result, setResult] = useState<"idle" | "right" | "wrong">("idle");
-
-  // 🔥 Streak tracking (persists under key "age")
-  const { current, best, record /*, clearAll*/ } = useStreak("age");
-
-  const header = useMemo(() => "Age Problems — Infinite Practice", []);
-
-  const check = () => {
-    if (picked == null || result !== "idle") return;
-    const correct = picked === q.answer;
-    setResult(correct ? "right" : "wrong");
-    record(correct); // update streak exactly once per question
-  };
-
-  const next = () => {
-    setQ(makeQ());
-    setPicked(null);
-    setResult("idle");
-  };
-
   return (
-    <div className="min-h-[calc(100vh-var(--topbar-height,56px))] bg-[#0f1115] text-white">
-      <div className="mx-auto max-w-3xl p-6">
-        <div className="mb-2 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">{header}</h1>
-          <StreakBadge current={current} best={best} />
-        </div>
-        <p className="text-sm text-white/70 mb-6">
-          Fresh problems generated each time. Numeric and symbolic answers supported.
-        </p>
-
-        <div className="rounded-xl bg-[#141821] ring-1 ring-white/10 p-6 space-y-5">
-          <div className="text-lg leading-7">
-            <MathText text={q.prompt} />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {q.choices.map((c, i) => {
-              const isSel = picked === c;
-              const isRight = result !== "idle" && c === q.answer;
-              const isWrong = result === "wrong" && isSel && c !== q.answer;
-              const label = typeof c === "number" ? `${c} years old` : String(c);
-
-              return (
-                <button
-                  key={i}
-                  onClick={() => setPicked(c)}
-                  className={[
-                    "rounded-lg px-4 py-3 text-left transition ring-1",
-                    isSel
-                      ? "bg-emerald-500/10 ring-emerald-400"
-                      : "bg-[#0f131b] ring-white/10 hover:ring-white/20",
-                    isRight ? "bg-emerald-600/20 ring-emerald-400" : "",
-                    isWrong ? "bg-red-600/10 ring-red-400" : "",
-                  ].join(" ")}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={check}
-              disabled={picked == null || result !== "idle"}
-              className="px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50"
-            >
-              Check
-            </button>
-            <button
-              onClick={next}
-              className="px-4 py-2 rounded-md bg-slate-700 hover:bg-slate-600"
-            >
-              Next problem
-            </button>
-            {/* Dev helper:
-            <button onClick={clearAll} className="text-xs text-white/50 underline">
-              Reset streak
-            </button> */}
-          </div>
-
-          {result !== "idle" && (
-            <div
-              className={[
-                "rounded-md p-4 text-sm",
-                result === "right"
-                  ? "bg-emerald-500/10 text-emerald-300"
-                  : "bg-red-500/10 text-red-300",
-              ].join(" ")}
-            >
-              {result === "right" ? "Correct!" : "Not quite."} The answer is{" "}
-              <strong>
-                {typeof q.answer === "number"
-                  ? `${q.answer} years old`
-                  : String(q.answer)}
-              </strong>.{" "}
-              <span className="opacity-80">{q.explanation}</span>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    <PracticeEngine
+      title="Age Problems — Infinite Practice"
+      instruction="Pick the best answer. Watch the time shifts and relationships."
+      streakKey="age"
+      build={buildPQ}
+      // show numbers as “N years old”; symbolic strings render as-is
+      choiceFormatter={(c) => (typeof c === "number" ? `${c}~\\text{ years old}` : String(c))}
+    />
   );
 }

@@ -1,8 +1,5 @@
 // src/components/practice/SetTheoryPractice.tsx
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useStreak } from "../../hooks/useStreak";
-import StreakBadge from "../ui/StreakBadge";
+import PracticeEngine, { type PracticeQuestion } from "./engine/PracticeEngine";
 
 /* --------------------------- helpers --------------------------- */
 
@@ -11,7 +8,7 @@ function rng(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-// ✅ accept readonly arrays (fixes readonly tuple complaints)
+// ✅ accept readonly arrays
 function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -52,16 +49,7 @@ function randomABN() {
 
 /* ---------------------- question templates --------------------- */
 
-type BuiltQuestion = {
-  id: string;
-  stem: string;
-  choices: number[];
-  answerIndex: number;
-  explanation: string;
-  tag: string; // template label
-};
-
-function buildMinOverlap(): BuiltQuestion {
+function buildMinOverlap(): PracticeQuestion {
   const { N, A, B, minK } = randomABN();
   const correct = minK;
 
@@ -75,7 +63,7 @@ function buildMinOverlap(): BuiltQuestion {
   let pool = unique<number>([correct, ...bads]);
   while (pool.length < 5) pool = unique<number>([...pool, rng(0, Math.min(A, B))]);
   const choices = shuffle(pool).slice(0, 5);
-  const answerIndex = choices.indexOf(correct);
+  const correctIndex = choices.indexOf(correct);
 
   return {
     id: `set-min-${Date.now()}`,
@@ -84,14 +72,16 @@ function buildMinOverlap(): BuiltQuestion {
       B
     )} are in set B. What is the **smallest** possible number in both A and B?`,
     choices,
-    answerIndex,
+    correctIndex,
     explanation:
       `By inclusion–exclusion, the smallest possible intersection is ` +
-      `max(0, A + B − N). Here A + B − N = ${fmt(A + B - N)}, so the answer is ${fmt(correct)}.`,
+      `\\(\\max(0, A + B - N)\\). Here \\(A + B - N = ${fmt(A + B - N)}\\), so the answer is \\(${fmt(
+        correct
+      )}\\).`,
   };
 }
 
-function buildMaxOverlap(): BuiltQuestion {
+function buildMaxOverlap(): PracticeQuestion {
   const { N, A, B } = randomABN();
   const correct = Math.min(A, B);
 
@@ -104,7 +94,7 @@ function buildMaxOverlap(): BuiltQuestion {
   let pool = unique<number>([correct, ...bads]);
   while (pool.length < 5) pool = unique<number>([...pool, rng(0, Math.min(A, B))]);
   const choices = shuffle(pool).slice(0, 5);
-  const answerIndex = choices.indexOf(correct);
+  const correctIndex = choices.indexOf(correct);
 
   return {
     id: `set-max-${Date.now()}`,
@@ -113,14 +103,14 @@ function buildMaxOverlap(): BuiltQuestion {
       B
     )} are in set B. What is the **largest** possible number in both A and B?`,
     choices,
-    answerIndex,
+    correctIndex,
     explanation:
-      `The largest possible intersection is min(A, B) — ` +
-      `everyone from the smaller set could be in the overlap. That’s ${fmt(correct)}.`,
+      `The largest possible intersection is \\(\\min(A, B)\\) — ` +
+      `everyone from the smaller set could be in the overlap. That’s \\(${fmt(correct)}\\).`,
   };
 }
 
-function buildUnion(): BuiltQuestion {
+function buildUnion(): PracticeQuestion {
   const { N, A, B, K } = randomABN();
   const correct = A + B - K;
 
@@ -134,7 +124,7 @@ function buildUnion(): BuiltQuestion {
   while (pool.length < 5)
     pool = unique<number>([...pool, rng(Math.max(A, B), Math.min(N, A + B))]);
   const choices = shuffle(pool).slice(0, 5);
-  const answerIndex = choices.indexOf(correct);
+  const correctIndex = choices.indexOf(correct);
 
   return {
     id: `set-union-${Date.now()}`,
@@ -143,15 +133,15 @@ function buildUnion(): BuiltQuestion {
       B
     )} are in set B, and ${fmt(K)} are in both. How many are in **A ∪ B** (at least one of A or B)?`,
     choices,
-    answerIndex,
+    correctIndex,
     explanation:
-      `Use inclusion–exclusion: |A ∪ B| = A + B − |A ∩ B| = ${fmt(A)} + ${fmt(
+      `Use inclusion–exclusion: \\(|A ∪ B| = A + B − |A ∩ B| = ${fmt(A)} + ${fmt(
         B
-      )} − ${fmt(K)} = ${fmt(correct)}.`,
+      )} − ${fmt(K)} = ${fmt(correct)}\\).`,
   };
 }
 
-function buildExactlyOne(): BuiltQuestion {
+function buildExactlyOne(): PracticeQuestion {
   const { N, A, B, K } = randomABN();
   const correct = A + B - 2 * K;
 
@@ -164,7 +154,7 @@ function buildExactlyOne(): BuiltQuestion {
   let pool = unique<number>([correct, ...bads]);
   while (pool.length < 5) pool = unique<number>([...pool, rng(0, Math.min(N, A + B))]);
   const choices = shuffle(pool).slice(0, 5);
-  const answerIndex = choices.indexOf(correct);
+  const correctIndex = choices.indexOf(correct);
 
   return {
     id: `set-ex1-${Date.now()}`,
@@ -173,13 +163,13 @@ function buildExactlyOne(): BuiltQuestion {
       B
     )} are in set B, and ${fmt(K)} are in both. How many are in **exactly one** of A or B?`,
     choices,
-    answerIndex,
+    correctIndex,
     explanation:
-      `Exactly one = |A \\ B| + |B \\ A| = A + B − 2K = ${fmt(correct)}.`,
+      `Exactly one = \\(|A \\setminus B| + |B \\setminus A| = A + B − 2K = ${fmt(correct)}\\).`,
   };
 }
 
-function buildNeither(): BuiltQuestion {
+function buildNeither(): PracticeQuestion {
   const { N, A, B, K } = randomABN();
   const union = A + B - K;
   const correct = N - union;
@@ -193,7 +183,7 @@ function buildNeither(): BuiltQuestion {
   let pool = unique<number>([correct, ...bads]);
   while (pool.length < 5) pool = unique<number>([...pool, rng(0, N)]);
   const choices = shuffle(pool).slice(0, 5);
-  const answerIndex = choices.indexOf(correct);
+  const correctIndex = choices.indexOf(correct);
 
   return {
     id: `set-neither-${Date.now()}`,
@@ -202,16 +192,16 @@ function buildNeither(): BuiltQuestion {
       B
     )} are in set B, and ${fmt(K)} are in both. How many are in **neither** A nor B?`,
     choices,
-    answerIndex,
+    correctIndex,
     explanation:
-      `First, |A ∪ B| = A + B − K = ${fmt(union)}. Neither = total − union = ${fmt(
+      `First, \\(|A ∪ B| = A + B − K = ${fmt(union)}\\). Neither = total − union = \\(${fmt(
         N
-      )} − ${fmt(union)} = ${fmt(correct)}.`,
+      )} − ${fmt(union)} = ${fmt(correct)}\\).`,
   };
 }
 
 // ✅ readonly list so pick(...) type-checks cleanly
-const BUILDERS: ReadonlyArray<() => BuiltQuestion> = [
+const BUILDERS: ReadonlyArray<() => PracticeQuestion> = [
   buildMinOverlap,
   buildMaxOverlap,
   buildUnion,
@@ -222,114 +212,13 @@ const BUILDERS: ReadonlyArray<() => BuiltQuestion> = [
 /* --------------------------- component ------------------------- */
 
 export default function SetTheoryPractice() {
-  const navigate = useNavigate();
-
-  // 🔥 Streak tracking (unique key for this practice set)
-  const { current, best, record /*, clearAll*/ } = useStreak("settheory");
-
-  const [q, setQ] = useState<BuiltQuestion>(() => pick(BUILDERS)());
-  const [sel, setSel] = useState<number | null>(null);
-  const [submitted, setSubmitted] = useState(false);
-
-  const correct = useMemo(() => q.choices[q.answerIndex], [q]);
-  const isCorrect = submitted && sel === q.answerIndex;
-
-  const onCheck = () => {
-    if (sel === null || submitted) return;
-    setSubmitted(true);
-    record(sel === q.answerIndex); // update streak exactly once per question
-  };
-
-  const next = () => {
-    setQ(pick(BUILDERS)());
-    setSel(null);
-    setSubmitted(false);
-  };
-
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Set Theory / Venn Diagrams</h1>
-        <div className="flex items-center gap-3">
-          <StreakBadge current={current} best={best} />
-          <button
-            onClick={() => navigate(-1)}
-            className="rounded-lg bg-white/10 hover:bg-white/15 px-3 py-1.5 text-sm"
-          >
-            Back
-          </button>
-        </div>
-      </div>
-
-      <div className="rounded-2xl bg-[#121419] ring-1 ring-white/10 p-5">
-        <div className="text-xs uppercase tracking-wide text-white/50 mb-2">
-          {q.tag}
-        </div>
-        <p className="text-white/90 mb-4">{q.stem}</p>
-
-        <div className="grid sm:grid-cols-2 gap-2">
-          {q.choices.map((c, i) => {
-            const active = sel === i;
-            const showCorrect = submitted && i === q.answerIndex;
-            const showWrong = submitted && active && i !== q.answerIndex;
-
-            return (
-              <button
-                key={i}
-                onClick={() => !submitted && setSel(i)}
-                className={[
-                  "text-left rounded-lg px-3 py-2 ring-1 transition",
-                  active && !submitted
-                    ? "ring-emerald-500/60 bg-emerald-500/10"
-                    : "ring-white/10 hover:bg-white/5",
-                  showCorrect && "ring-emerald-500 bg-emerald-500/15",
-                  showWrong && "ring-red-500 bg-red-500/10",
-                ].join(" ")}
-              >
-                {fmt(c)}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-4 flex items-center gap-2">
-          <button
-            onClick={onCheck}
-            disabled={sel === null || submitted}
-            className={`rounded-lg px-4 py-2 font-medium transition ${
-              sel === null || submitted
-                ? "bg-white/10 cursor-not-allowed"
-                : "bg-emerald-600 hover:bg-emerald-500"
-            }`}
-          >
-            Check
-          </button>
-
-        <button
-          onClick={next}
-          className="rounded-lg px-4 py-2 bg-white/10 hover:bg-white/15 transition"
-        >
-          Next
-        </button>
-
-          {submitted && (
-            <span className={`text-sm ml-2 ${isCorrect ? "text-emerald-400" : "text-red-400"}`}>
-              {isCorrect ? "Correct!" : `Answer: ${fmt(correct)}`}
-            </span>
-          )}
-        </div>
-
-        {submitted && (
-          <div className="mt-4 rounded-lg bg-black/20 p-3 text-sm text-white/80">
-            <div className="font-medium mb-1">Why?</div>
-            <p className="leading-relaxed">{q.explanation}</p>
-          </div>
-        )}
-      </div>
-
-      <p className="text-white/50 text-xs mt-4">
-        New numbers each time — generated so all quantities are valid and integers.
-      </p>
-    </div>
+    <PracticeEngine
+      title="Set Theory / Venn Diagrams"
+      instruction="Fresh numbers each time. Use inclusion–exclusion and bounds for intersections."
+      streakKey="settheory"
+      build={() => pick(BUILDERS)()}
+      choiceFormatter={(c) => (typeof c === "number" ? fmt(c) : String(c))}
+    />
   );
 }
