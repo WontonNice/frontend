@@ -1,6 +1,8 @@
 // src/components/practice/SetTheoryPractice.tsx
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useStreak } from "../../hooks/useStreak";
+import StreakBadge from "../ui/StreakBadge";
 
 /* --------------------------- helpers --------------------------- */
 
@@ -222,12 +224,21 @@ const BUILDERS: ReadonlyArray<() => BuiltQuestion> = [
 export default function SetTheoryPractice() {
   const navigate = useNavigate();
 
+  // 🔥 Streak tracking (unique key for this practice set)
+  const { current, best, record /*, clearAll*/ } = useStreak("settheory");
+
   const [q, setQ] = useState<BuiltQuestion>(() => pick(BUILDERS)());
   const [sel, setSel] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
   const correct = useMemo(() => q.choices[q.answerIndex], [q]);
   const isCorrect = submitted && sel === q.answerIndex;
+
+  const onCheck = () => {
+    if (sel === null || submitted) return;
+    setSubmitted(true);
+    record(sel === q.answerIndex); // update streak exactly once per question
+  };
 
   const next = () => {
     setQ(pick(BUILDERS)());
@@ -239,12 +250,15 @@ export default function SetTheoryPractice() {
     <div className="mx-auto max-w-3xl px-6 py-10">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Set Theory / Venn Diagrams</h1>
-        <button
-          onClick={() => navigate(-1)}
-          className="rounded-lg bg-white/10 hover:bg-white/15 px-3 py-1.5 text-sm"
-        >
-          Back
-        </button>
+        <div className="flex items-center gap-3">
+          <StreakBadge current={current} best={best} />
+          <button
+            onClick={() => navigate(-1)}
+            className="rounded-lg bg-white/10 hover:bg-white/15 px-3 py-1.5 text-sm"
+          >
+            Back
+          </button>
+        </div>
       </div>
 
       <div className="rounded-2xl bg-[#121419] ring-1 ring-white/10 p-5">
@@ -280,7 +294,7 @@ export default function SetTheoryPractice() {
 
         <div className="mt-4 flex items-center gap-2">
           <button
-            onClick={() => setSubmitted(true)}
+            onClick={onCheck}
             disabled={sel === null || submitted}
             className={`rounded-lg px-4 py-2 font-medium transition ${
               sel === null || submitted
@@ -291,12 +305,12 @@ export default function SetTheoryPractice() {
             Check
           </button>
 
-          <button
-            onClick={next}
-            className="rounded-lg px-4 py-2 bg-white/10 hover:bg-white/15 transition"
-          >
-            Next
-          </button>
+        <button
+          onClick={next}
+          className="rounded-lg px-4 py-2 bg-white/10 hover:bg-white/15 transition"
+        >
+          Next
+        </button>
 
           {submitted && (
             <span className={`text-sm ml-2 ${isCorrect ? "text-emerald-400" : "text-red-400"}`}>

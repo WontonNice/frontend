@@ -1,0 +1,68 @@
+{
+  "slug": "201718-digital-shsat-practice-test-form-a",
+  "title": "2017-2018 Form A",
+  "description": "Digital Version of 2017-2018 Form A",
+  "sections": [
+    {
+      "id": "reading-1",
+      "title": "Reading Passage 1",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/OfficialSHSATReadings/Volcano.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "reading-2",
+      "title": "Reading Passage 2",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/The-Black-Hand.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "reading-3",
+      "title": "Reading Passage 3",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/From-Devastation-Beauty.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "reading-4",
+      "title": "Reading Passage 4",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/Healthier-Choices.md",
+      "passageImages": ["/exams/readingpassages/imgsrc/Healthier-Choices.png"]
+    },
+    {
+      "id": "reading-5",
+      "title": "Reading Passage 5",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/Merry-Autumn.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "reading-6",
+      "title": "Reading Passage 6",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/Happy-Little-Accidents.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "ela_a",
+      "title": "Reading Passage 7",
+      "type": "ela_a",
+      "passageMd": "/exams/revising/All-About-The-Seeds.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "ela_b",
+      "title": "ELA Rev/Edit B Set 1",
+      "type": "ela_b",
+      "questionIds": ["REB-001", "REB-002", "REB-003"]
+    }, 
+    {
+      "id": "math-1",
+      "title": "Math Set 1",
+      "type": "math",
+      "questionIds": ["OFFICIAL-0001", "OFFICIAL-0002", "OFFICIAL-0003", "OFFICIAL-0004", "OFFICIAL-0005", "OFFICIAL-0006", "OFFICIAL-0007"]
+    }
+  ]
+}

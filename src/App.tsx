@@ -19,6 +19,7 @@ import ExamFullscreenLayout from "./components/Exams/ExamFullscreenLayout";
 import AuthSplit from "./components/AuthSplit";
 
 import SetTheoryPractice from "./components/practice/SetTheoryPractice";
+import AgePractice from "./components/practice/AgePractice";
 
 export default function App() {
   return (
@@ -61,6 +62,7 @@ export default function App() {
         <Route path="/study/math/panel-1" element={<SATMathPanel1 />} />
         <Route path="/study/math/panel-2" element={<SATMathPanel2 />} />
         <Route path="/study/math/set-theory" element={<SetTheoryPractice />} />
+        <Route path="/study/math/age-practice" element={<AgePractice />} />
 
         {/* ✅ Live Activities route */}
         <Route path="/live-activities" element={<LiveActivitiesPage />} />

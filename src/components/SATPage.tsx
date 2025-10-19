@@ -10,7 +10,7 @@ export default function SATPage() {
       <p className="text-white/70">Choose a subject below to get started.</p>
 
       <button
-        onClick={() => navigate("/sat/math")}
+        onClick={() => navigate("/study/math")}
         className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 transition text-white font-semibold"
       >
         Math

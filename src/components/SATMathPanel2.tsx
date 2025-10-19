@@ -19,11 +19,11 @@ const CATEGORIES: Category[] = [
     path: "/study/math/set-theory", // practice page
   },
   {
-    id: "algebra-linear",
-    title: "Linear Equations & Inequalities",
-    blurb: "One-variable equations, systems, word problems.",
+    id: "age",
+    title: "Age Problems",
+    blurb: "Practice solving for the ages of people in word problems.",
     icon: Sigma,
-    path: "/study/math/algebra-linear",
+    path: "/study/math/age-practice",
   },
   {
     id: "geometry-angles",
