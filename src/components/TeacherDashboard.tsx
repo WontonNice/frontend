@@ -8,11 +8,34 @@ import {
   importOverrides,
 } from "../data/satMathStore";
 import type { SatMathQuestion } from "../data/satMathBank";
+import { listExams } from "../data/exams";
 
 // Reuse your realtime server base
 const API_BASE = (import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3001").replace(/\/$/, "");
 const SOCKET_URL = API_BASE;
 const ROOM = "global";
+
+// --- tiny API helpers to your backend ---
+async function apiFetchLock(slug: string): Promise<boolean> {
+  const r = await fetch(`${API_BASE}/api/exams/${encodeURIComponent(slug)}/lock`);
+  if (!r.ok) throw new Error(await r.text());
+  const j = await r.json();
+  return !!j.locked;
+}
+async function apiSetLock(slug: string, locked: boolean): Promise<boolean> {
+  const r = await fetch(`${API_BASE}/api/exams/${encodeURIComponent(slug)}/lock`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      // If your backend checks role, replace this header with your real auth header.
+      "x-user-role": "teacher",
+    },
+    body: JSON.stringify({ locked }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  const j = await r.json();
+  return !!j.locked;
+}
 
 export default function TeacherDashboard() {
   // ---------- Socket state ----------
@@ -20,7 +43,6 @@ export default function TeacherDashboard() {
   const [participants, setParticipants] = useState<number>(0);
   const [drawingDisabled, setDrawingDisabled] = useState<boolean>(false);
 
-  // Connect socket for live controls
   useEffect(() => {
     const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
     socketRef.current = socket;
@@ -30,11 +52,9 @@ export default function TeacherDashboard() {
         .toString()
         .slice(0, 64);
       socket.emit("join", { name, room: ROOM });
-      // Announce initial move position (optional)
       socket.emit("move", { x: 0.5, y: 0.5 });
     });
 
-    // Track presence to show a count
     socket.on("presence", (snapshot: Array<{ id: string; name: string; x: number; y: number }>) => {
       setParticipants(snapshot?.length ?? 0);
     });
@@ -55,8 +75,6 @@ export default function TeacherDashboard() {
   const toggleStudentDrawing = () => {
     const next = !drawingDisabled;
     setDrawingDisabled(next);
-    // Emit an admin directive. Your LiveSessionPage should listen for this to enforce on clients.
-    // Event payload kept simple; extend as needed.
     socketRef.current?.emit("admin:drawing:set", { room: ROOM, disabled: next });
   };
 
@@ -76,6 +94,51 @@ export default function TeacherDashboard() {
     }
   };
 
+  // ---------- Exam locks (NEW) ----------
+  const exams = useMemo(() => listExams(), []);
+  const [locks, setLocks] = useState<Record<string, boolean | null>>(
+    Object.fromEntries(exams.map((e) => [e.slug, null]))
+  );
+  const [locksBusy, setLocksBusy] = useState<Record<string, boolean>>({});
+
+  const refreshLocks = async () => {
+    await Promise.all(
+      exams.map(async (e) => {
+        try {
+          const locked = await apiFetchLock(e.slug);
+          setLocks((m) => ({ ...m, [e.slug]: locked }));
+        } catch {
+          setLocks((m) => ({ ...m, [e.slug]: false }));
+        }
+      })
+    );
+  };
+
+  useEffect(() => {
+    refreshLocks();
+    // optional: poll occasionally to reflect other teachers' changes
+    const t = setInterval(refreshLocks, 15000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const toggleLock = async (slug: string) => {
+    const cur = locks[slug] ?? false;
+    const next = !cur;
+    setLocksBusy((b) => ({ ...b, [slug]: true }));
+    setLocks((m) => ({ ...m, [slug]: next })); // optimistic
+    try {
+      const serverVal = await apiSetLock(slug, next);
+      setLocks((m) => ({ ...m, [slug]: serverVal }));
+    } catch (e: any) {
+      // revert on failure
+      setLocks((m) => ({ ...m, [slug]: cur }));
+      alert(`Failed to update lock for ${slug}: ${e?.message ?? e}`);
+    } finally {
+      setLocksBusy((b) => ({ ...b, [slug]: false }));
+    }
+  };
+
   // ---------- SAT Bank (unchanged) ----------
   const [bank, setBank] = useState<SatMathQuestion[]>([]);
   const [search, setSearch] = useState("");
@@ -83,16 +146,19 @@ export default function TeacherDashboard() {
   const [showImport, setShowImport] = useState(false);
 
   const refresh = () => setBank(getEffectiveSatMathBank());
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    refresh();
+  }, []);
 
   const filtered = useMemo(() => {
     const s = search.toLowerCase();
-    return bank.filter(q =>
-      !s ||
-      q.id.toLowerCase().includes(s) ||
-      q.prompt.toLowerCase().includes(s) ||
-      q.source.toLowerCase().includes(s) ||
-      q.topic.toLowerCase().includes(s)
+    return bank.filter(
+      (q) =>
+        !s ||
+        q.id.toLowerCase().includes(s) ||
+        q.prompt.toLowerCase().includes(s) ||
+        q.source.toLowerCase().includes(s) ||
+        q.topic.toLowerCase().includes(s)
     );
   }, [bank, search]);
 
@@ -159,7 +225,9 @@ export default function TeacherDashboard() {
             </button>
             <button
               onClick={toggleStudentDrawing}
-              className={`px-3 py-2 rounded-lg text-sm font-semibold ${drawingDisabled ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-white/10 hover:bg-white/20"}`}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold ${
+                drawingDisabled ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-white/10 hover:bg-white/20"
+              }`}
               title="Toggle whether students can draw"
             >
               {drawingDisabled ? "Enable Student Drawing" : "Disable Student Drawing"}
@@ -175,6 +243,63 @@ export default function TeacherDashboard() {
         </div>
       </div>
 
+      {/* NEW: Exam Access & Locking */}
+      <div className="rounded-2xl bg-[#111318] ring-1 ring-white/10 p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-base font-semibold">Exam Access &amp; Locking</div>
+            <div className="text-xs text-white/60">Toggle whether each exam can be started by students</div>
+          </div>
+          <button
+            onClick={refreshLocks}
+            className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold"
+            title="Refresh lock status"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div className="mt-3 divide-y divide-white/10 rounded-lg overflow-hidden">
+          {exams.map((e) => {
+            const locked = locks[e.slug];
+            const busy = !!locksBusy[e.slug];
+            const disabled = locked === null || busy;
+            return (
+              <div key={e.slug} className="flex items-center justify-between p-3 bg-[#0f1116]">
+                <div>
+                  <div className="font-medium">{e.title}</div>
+                  <div className="text-xs text-white/50">{e.slug}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`text-xs px-2 py-1 rounded ${
+                      locked ? "bg-red-500/20 text-red-300" : "bg-emerald-500/20 text-emerald-300"
+                    }`}
+                  >
+                    {locked === null ? "Loading…" : locked ? "Locked" : "Unlocked"}
+                  </span>
+                  <button
+                    disabled={disabled}
+                    onClick={() => toggleLock(e.slug)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold border ${
+                      locked
+                        ? "bg-red-600/90 hover:bg-red-600 text-white border-red-500/40"
+                        : "bg-emerald-600/90 hover:bg-emerald-600 text-white border-emerald-500/40"
+                    } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+                    title={locked ? "Unlock exam" : "Lock exam"}
+                  >
+                    {busy ? "…" : locked ? "Unlock" : "Lock"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {exams.length === 0 && (
+            <div className="p-3 text-sm text-white/60">No exams found.</div>
+          )}
+        </div>
+      </div>
+
       {/* SAT Math Bank Header */}
       <header className="flex items-center justify-between">
         <h3 className="text-xl font-semibold">SAT Math Bank</h3>
@@ -186,7 +311,7 @@ export default function TeacherDashboard() {
             Export
           </button>
           <button
-            onClick={() => setShowImport(s => !s)}
+            onClick={() => setShowImport((s) => !s)}
             className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold"
           >
             Import

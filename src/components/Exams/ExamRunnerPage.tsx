@@ -12,7 +12,7 @@ import { getMathQuestionsByIds } from "../../data/SHSATMathBank.ts";
 // Results page (use named import so props are typed)
 import { ExamResultsPage } from "./ExamResultsPage";
 import "./ExamRunnerPage.css";
-
+import { fetchExamLock } from "./ExamLock";
 
 /** Tech-enhanced interactions */
 import DragToBins from "./techenhanced/DragToBins";
@@ -245,6 +245,29 @@ export default function ExamRunnerPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const exam = slug ? getExamBySlug(slug) : undefined;
+
+  const [locked, setLocked] = useState<boolean | null>(null);
+useEffect(() => {
+  let alive = true;
+  if (exam?.slug) {
+    fetchExamLock(exam.slug).then(v => alive && setLocked(v)).catch(() => alive && setLocked(false));
+  }
+  return () => { alive = false; };
+}, [exam?.slug]);
+
+if (locked === null) {
+  return <div className="mx-auto max-w-2xl p-6 text-gray-600">Checking exam status…</div>;
+}
+if (locked) {
+  return (
+    <div className="mx-auto max-w-2xl p-6">
+      <div className="rounded-md border border-amber-300 bg-amber-50 p-4">
+        <h2 className="text-lg font-semibold text-amber-800">This exam is locked</h2>
+        <p className="text-amber-800/80 mt-1">Your teacher has locked this exam. Please try again later.</p>
+      </div>
+    </div>
+  );
+}
 
   /** Cache reading MD bodies and questions by section.id */
   const [readingBodies, setReadingBodies] = useState<Record<string, string>>({});
