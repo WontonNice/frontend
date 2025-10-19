@@ -6,8 +6,8 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 
 // Question banks
-import { getQuestionsByIds as getRevEditBQuestionsByIds } from "../../data/revEditB-QuestionBank.ts";
-import { getMathQuestionsByIds } from "../../data/SHSATMathBank.ts";
+import { getQuestionsByIds as getRevEditBQuestionsByIds } from "../../data/revEditB-QuestionBank";
+import { getMathQuestionsByIds } from "../../data/SHSATMathBank";
 
 // Results page (use named import so props are typed)
 import { ExamResultsPage } from "./ExamResultsPage";
@@ -246,24 +246,59 @@ export default function ExamRunnerPage() {
   const navigate = useNavigate();
   const exam = slug ? getExamBySlug(slug) : undefined;
 
-  const [locked, setLocked] = useState<boolean | null>(null);
+  const [lockState, setLockState] = useState<"loading" | "open" | "locked">("loading");
+
 useEffect(() => {
-  let alive = true;
-  if (exam?.slug) {
-    fetchExamLock(exam.slug).then(v => alive && setLocked(v)).catch(() => alive && setLocked(false));
+  let done = false;
+  const ctrl = new AbortController();
+
+  async function go() {
+    if (!exam?.slug) {
+      setLockState("open"); // no slug, nothing to check
+      return;
+    }
+
+    // Hard timeout so we never show a blank screen if backend is unreachable
+    const tm = setTimeout(() => {
+      if (!done) {
+        ctrl.abort();        // cancel the fetch
+        setLockState("open"); // fail-open
+      }
+    }, 4500);
+
+    try {
+      const locked = await fetchExamLock(exam.slug, ctrl.signal);
+      if (!done) setLockState(locked ? "locked" : "open");
+    } catch {
+      if (!done) setLockState("open"); // fail-open on network/404/etc
+    } finally {
+      done = true;
+      clearTimeout(tm);
+    }
   }
-  return () => { alive = false; };
+
+  setLockState("loading");
+  go();
+  return () => {
+    done = true;
+    ctrl.abort();
+  };
 }, [exam?.slug]);
 
-if (locked === null) {
-  return <div className="mx-auto max-w-2xl p-6 text-gray-600">Checking exam status…</div>;
+if (lockState === "loading") {
+  return (
+    <div className="mx-auto max-w-2xl p-6 text-gray-300">
+      Checking exam status…
+    </div>
+  );
 }
-if (locked) {
+
+if (lockState === "locked") {
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <div className="rounded-md border border-amber-300 bg-amber-50 p-4">
-        <h2 className="text-lg font-semibold text-amber-800">This exam is locked</h2>
-        <p className="text-amber-800/80 mt-1">Your teacher has locked this exam. Please try again later.</p>
+      <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-900">
+        <h2 className="text-lg font-semibold">This exam is locked</h2>
+        <p className="mt-1">Your teacher has locked this exam. Please try again later.</p>
       </div>
     </div>
   );
