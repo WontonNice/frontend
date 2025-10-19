@@ -46,11 +46,15 @@ export default function SATMathPage() {
         <PanelCard
           title="Full Practice"
           description="all sat questions relevant to shsat"
-          onStart={() => navigate("/sat/math/panel-1")}
+          onStart={() => navigate("/study/math/panel-1")}
+        />
+        <PanelCard
+          title="Endless Practice"
+          description="An unlimited amount of practice for any selected topic"
+          onStart={() => navigate("/study/math/panel-2")}
         />
 
         {/* Future panels (placeholders for now) */}
-        <PanelCard title="General Practice" description="mixed math drills" disabled />
         <PanelCard title="Ratio Practice" description="ratios, proportions, and rates" disabled />
       </div>
     </div>

@@ -6,7 +6,7 @@ export default function SATPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-semibold">SAT — Advanced Questions</h2>
+      <h2 className="text-2xl font-semibold">SHSAT Study Hall</h2>
       <p className="text-white/70">Choose a subject below to get started.</p>
 
       <button

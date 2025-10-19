@@ -67,6 +67,19 @@ const Q: Record<string, MathQuestion> = {
     answerIndex: 2,
     explanationMarkdown:
       "Since $AD\\perp AB$ and $\\angle EAD=27^\\circ$, $\\angle EAB=27^\\circ+90^\\circ=117^\\circ$. Because $AE\\parallel BC$, $\\angle ABC=\\angle EAB=117^\\circ$."
+  },
+
+  "MATH-0004": {
+    id: "MATH-0004",
+    type: "single_select",
+    source: "tutorverse",
+    stemMarkdown:
+      "A builder uses tiles at a rate of 3 boxes for every 69 square feet of floor covered. At this rate, how many boxes of tiles will the builder need in order to cover a floor that is 322 square feet?",
+    image: "/exams/math/imgsrc/MATH-002.png", // put the file in /public/exams/math/
+    choices: ["$63^\\circ$", "$90^\\circ$", "$117^\\circ$", "$180^\\circ$"],
+    answerIndex: 2,
+    explanationMarkdown:
+      "Since $AD\\perp AB$ and $\\angle EAD=27^\\circ$, $\\angle EAB=27^\\circ+90^\\circ=117^\\circ$. Because $AE\\parallel BC$, $\\angle ABC=\\angle EAB=117^\\circ$."
   }
   // …add more questions here
 };

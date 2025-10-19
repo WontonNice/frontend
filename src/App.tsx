@@ -10,12 +10,15 @@ import SATPage from "./components/SATPage";
 import DashboardLayout from "./components/DashboardLayout";
 import SATMathPage from "./components/SATMathPage";
 import SATMathPanel1 from "./components/SATMathPanel1";
+import SATMathPanel2 from "./components/SATMathPanel2";
 import LiveActivitiesPage from "./components/LiveActivitiesPage"; 
 import LiveSessionPage from "./components/LiveSessionPage";
 import ExamsPage from "./components/Exams/ExamsPage";
 import ExamRunnerPage from "./components/Exams/ExamRunnerPage";           // ⬅️ new
 import ExamFullscreenLayout from "./components/Exams/ExamFullscreenLayout";
 import AuthSplit from "./components/AuthSplit";
+
+import SetTheoryPractice from "./components/practice/SetTheoryPractice";
 
 export default function App() {
   return (
@@ -53,9 +56,11 @@ export default function App() {
         />
 
         {/* SAT routes */}
-        <Route path="/sat" element={<SATPage />} />
-        <Route path="/sat/math" element={<SATMathPage />} />
-        <Route path="/sat/math/panel-1" element={<SATMathPanel1 />} />
+        <Route path="/study" element={<SATPage />} />
+        <Route path="/study/math" element={<SATMathPage />} />
+        <Route path="/study/math/panel-1" element={<SATMathPanel1 />} />
+        <Route path="/study/math/panel-2" element={<SATMathPanel2 />} />
+        <Route path="/study/math/set-theory" element={<SetTheoryPractice />} />
 
         {/* ✅ Live Activities route */}
         <Route path="/live-activities" element={<LiveActivitiesPage />} />
