@@ -1,6 +1,12 @@
 // src/components/DashboardLayout.tsx
-import { useState, type PropsWithChildren, type ReactNode, useRef, useEffect } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom"; // ⬅️ useLocation added
+import {
+  useState,
+  type PropsWithChildren,
+  type ReactNode,
+  useRef,
+  useEffect,
+} from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Home, Database, BookOpen, Boxes, Activity, Settings } from "lucide-react";
 import LogoutButton from "./LogoutButton";
 
@@ -9,24 +15,66 @@ type LayoutProps = PropsWithChildren<{
   subtitle?: string;
 }>;
 
-export default function DashboardLayout({
-  title = "WontonNice’s Project",
-  subtitle,
-}: LayoutProps) {
+type StoredUser = {
+  username?: string;
+  first_name?: string; // backend snake_case
+  firstName?: string;  // future client camelCase
+  email?: string;
+  role?: "student" | "teacher" | string;
+
+  // streak & gamification
+  last_login_at?: string;
+  streak_count?: number;
+  best_streak?: number;
+  achievements_count?: number;
+  level?: number;
+
+  [k: string]: unknown;
+};
+
+function safeGetUser(): StoredUser | null {
+  try {
+    const raw = localStorage.getItem("user");
+    if (!raw) return null;
+    const u = JSON.parse(raw);
+    return u && typeof u === "object" ? (u as StoredUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+export default function DashboardLayout({ title, subtitle }: LayoutProps) {
   const location = useLocation();
-  const isLive = location.pathname.startsWith("/live-activities"); // ⬅️ adjust if your route differs
+  const isLive = location.pathname.startsWith("/live-activities");
+
+  const user = safeGetUser();
+  const firstName =
+    (user?.first_name && String(user.first_name)) ||
+    (user?.firstName && String(user.firstName)) ||
+    "";
+  const displayName = firstName || user?.username || "Student";
+
+  // Stats (with sensible fallbacks)
+  const streak = user?.streak_count ?? 0;
+  const achievements = user?.achievements_count ?? 0;
+  const level = user?.level ?? (1 + Math.floor(streak / 7));
+
+  const greetingTitle = title ?? `Welcome, ${displayName}!`;
 
   return (
     <div className="min-h-screen bg-[#0f1115] text-white antialiased flex">
-      <Sidebar />
+      <Sidebar displayName={displayName} />
 
-      {/* Keep overlay behavior for now */}
       <div className="flex-1 pl-16 transition-all duration-300">
-        <TopBar />
-        {/* Hide hero on the live page */}
-        {!isLive && <Hero title={title} subtitle={subtitle} />}
+        <TopBar displayName={displayName} user={user} />
+        {!isLive && (
+          <Hero
+            title={greetingTitle}
+            subtitle={subtitle}
+            stats={{ streak, achievements, level }}
+          />
+        )}
 
-        {/* Live = full-bleed; Others = centered container */}
         <main className={isLive ? "p-0" : "mx-auto max-w-7xl px-6 pb-10"}>
           <Outlet />
         </main>
@@ -36,7 +84,7 @@ export default function DashboardLayout({
 }
 
 /* ---------- Sidebar ---------- */
-function Sidebar() {
+function Sidebar({ displayName }: { displayName: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -49,14 +97,20 @@ function Sidebar() {
       role="navigation"
       aria-label="Sidebar"
     >
-      {/* Header / Project badge */}
+      {/* Header / Greeting */}
       <div className="flex items-center gap-3 border-b border-white/10 px-3 h-14">
         <div className="grid h-7 w-7 place-items-center rounded bg-emerald-500/80 text-xs font-bold">
-          N
+          {(displayName.charAt(0) || "?").toUpperCase()}
         </div>
-        <div className={`transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}>
-          <div className="text-sm font-semibold leading-4">WontonNice’s Project</div>
-          <div className="text-[10px] text-white/60">main · Production</div>
+        <div
+          className={`transition-opacity duration-200 ${
+            open ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <div className="text-sm font-semibold leading-4">
+            Welcome, {displayName}
+          </div>
+          <div className="text-[10px] text-white/60">Signed in</div>
         </div>
       </div>
 
@@ -112,7 +166,11 @@ function SideLink({
             {icon}
           </span>
           {/* Label */}
-          <span className={`whitespace-nowrap transition-opacity duration-150 ${open ? "opacity-100" : "opacity-0"}`}>
+          <span
+            className={`whitespace-nowrap transition-opacity duration-150 ${
+              open ? "opacity-100" : "opacity-0"
+            }`}
+          >
             {label}
           </span>
         </>
@@ -122,7 +180,7 @@ function SideLink({
 }
 
 /* ---------- Top bar ---------- */
-function TopBar() {
+function TopBar({ displayName, user }: { displayName: string; user: StoredUser | null }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
@@ -183,8 +241,7 @@ function TopBar() {
     };
   }, []);
 
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const initial = (user?.username?.trim?.()?.[0] ?? "?").toUpperCase();
+  const initial = (displayName.trim?.()?.[0] ?? "?").toUpperCase();
 
   return (
     <header
@@ -204,12 +261,13 @@ function TopBar() {
             Project Status
           </span>
 
-          <button
+        <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="relative h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white text-sm font-semibold flex items-center justify-center hover:opacity-90"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             aria-controls="user-menu"
+            title={displayName}
           >
             {initial}
           </button>
@@ -221,8 +279,12 @@ function TopBar() {
               className="absolute right-0 top-10 w-64 bg-[#1a1c22] border border-white/10 rounded-xl shadow-xl overflow-hidden"
             >
               <div className="px-4 py-3 border-b border-white/10">
-                <div className="text-sm font-semibold text-white">{user?.username || "User"}</div>
-                <div className="text-xs text-white/50">{user?.email || "user@example.com"}</div>
+                <div className="text-sm font-semibold text-white">
+                  {displayName}
+                </div>
+                <div className="text-xs text-white/50">
+                  {user?.email || "student"}
+                </div>
               </div>
 
               <ul className="py-1 text-sm text-white/80">
@@ -253,7 +315,17 @@ function TopBar() {
 }
 
 /* ---------- Hero ---------- */
-function Hero({ title, subtitle }: { title: string; subtitle?: string }) {
+function Hero({
+  title,
+  subtitle,
+  stats,
+}: {
+  title: string;
+  subtitle?: string;
+  stats: { streak: number; achievements: number; level: number };
+}) {
+  const { streak, achievements, level } = stats;
+
   return (
     <div className="border-b border-white/10">
       <div className="mx-auto max-w-7xl px-6 py-10">
@@ -264,9 +336,9 @@ function Hero({ title, subtitle }: { title: string; subtitle?: string }) {
           </div>
 
           <div className="flex items-center gap-3">
-            <InfoPill label="Tables" value="1" />
-            <InfoPill label="Functions" value="0" />
-            <InfoPill label="Replicas" value="0" />
+            <InfoPill label="Streak" value={String(streak)} />
+            <InfoPill label="Achievements" value={String(achievements)} />
+            <InfoPill label="Level" value={String(level)} />
           </div>
         </div>
       </div>

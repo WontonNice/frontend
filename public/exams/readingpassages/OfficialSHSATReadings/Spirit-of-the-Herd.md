@@ -81,7 +81,7 @@ questions:
         How do these sentences develop a central idea in the excerpt?
     choices:
       - "A. They suggest that Wade would have been unable to save the herd without Peroxide Jim."
-      - "B. They imply that Wade spent many hours training Peroxide Jim to herd cattle.
+      - "B. They imply that Wade spent many hours training Peroxide Jim to herd cattle."
       - "C. They show that Peroxide Jim was able to understand a situation and take action."
       - "D. They indicate that Peroxide Jim was unafraid of the dangers presented by the stampede and the cliff."
     answerIndex: 2

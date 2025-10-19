@@ -136,7 +136,7 @@ export default function AuthSplit() {
                   <div className={[
                     "h-9 w-9 rounded-lg flex items-center justify-center font-bold transition-colors duration-700",
                     isSignup ? "bg-white/20 text-white" : "bg-teal-600/10 text-teal-600",
-                  ].join(" ")}>D</div>
+                  ].join(" ")}>NI</div>
                   <div className={[
                     "font-semibold text-lg transition-colors duration-700",
                     isSignup ? "text-white" : "text-teal-700",
@@ -147,7 +147,7 @@ export default function AuthSplit() {
                   "text-3xl md:text-4xl font-extrabold mb-2 transition-colors duration-700",
                   isSignup ? "text-white" : "text-teal-700",
                 ].join(" ")}>
-                  {isSignup ? "Welcome Back!" : "Hello, Student!"}
+                  {isSignup ? "Hello, Student!" : "Welcome Back!"}
                 </h2>
 
                 <p className={[
