@@ -8,18 +8,34 @@ import {
   importOverrides,
 } from "../data/satMathStore";
 import type { SatMathQuestion } from "../data/satMathBank";
-
-// NEW: list exams + lock helpers
 import { listExams } from "../data/exams";
-// ✅ correct path (not "./Exams/ExamLock")
-import { fetchExamLock, setExamLock } from "./Exams/ExamLock";
 
 // Reuse your realtime server base
 const API_BASE = (import.meta.env.VITE_SOCKET_URL ?? "http://localhost:3001").replace(/\/$/, "");
 const SOCKET_URL = API_BASE;
 const ROOM = "global";
 
-type LockStatus = "loading" | "open" | "locked" | "error";
+// --- tiny API helpers to your backend ---
+async function apiFetchLock(slug: string): Promise<boolean> {
+  const r = await fetch(`${API_BASE}/api/exams/${encodeURIComponent(slug)}/lock`);
+  if (!r.ok) throw new Error(await r.text());
+  const j = await r.json();
+  return !!j.locked;
+}
+async function apiSetLock(slug: string, locked: boolean): Promise<boolean> {
+  const r = await fetch(`${API_BASE}/api/exams/${encodeURIComponent(slug)}/lock`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      // If your backend checks role, replace this header with your real auth header.
+      "x-user-role": "teacher",
+    },
+    body: JSON.stringify({ locked }),
+  });
+  if (!r.ok) throw new Error(await r.text());
+  const j = await r.json();
+  return !!j.locked;
+}
 
 export default function TeacherDashboard() {
   // ---------- Socket state ----------
@@ -50,6 +66,7 @@ export default function TeacherDashboard() {
     };
   }, []);
 
+  // ---------- Live session controls ----------
   const clearBoardForAll = () => {
     if (!confirm("Clear the entire board for everyone?")) return;
     socketRef.current?.emit("draw:clear");
@@ -77,48 +94,50 @@ export default function TeacherDashboard() {
     }
   };
 
-  // ---------- Exam locks ----------
-  const exams = listExams();
-  const [locks, setLocks] = useState<Record<string, LockStatus>>(() =>
-    Object.fromEntries(exams.map((e) => [e.slug, "loading" as LockStatus])),
+  // ---------- Exam locks (NEW) ----------
+  const exams = useMemo(() => listExams(), []);
+  const [locks, setLocks] = useState<Record<string, boolean | null>>(
+    Object.fromEntries(exams.map((e) => [e.slug, null]))
   );
-  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [locksBusy, setLocksBusy] = useState<Record<string, boolean>>({});
+
+  const refreshLocks = async () => {
+    await Promise.all(
+      exams.map(async (e) => {
+        try {
+          const locked = await apiFetchLock(e.slug);
+          setLocks((m) => ({ ...m, [e.slug]: locked }));
+        } catch {
+          setLocks((m) => ({ ...m, [e.slug]: false }));
+        }
+      })
+    );
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const entries = await Promise.all(
-        exams.map(async (e) => {
-          try {
-            const locked = await fetchExamLock(e.slug);
-            return [e.slug, locked ? "locked" : "open"] as const;
-          } catch (err) {
-            console.warn("lock GET failed for", e.slug, err);
-            return [e.slug, "error"] as const;
-          }
-        }),
-      );
-      if (!cancelled) setLocks(Object.fromEntries(entries));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [exams.length]);
+    refreshLocks();
+    // optional: poll occasionally to reflect other teachers' changes
+    const t = setInterval(refreshLocks, 15000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-const toggleLock = async (slug: string) => {
-  setSaving(s => ({ ...s, [slug]: true }));
-  try {
-    const nextLocked = !(locks[slug] === "locked");
-    await setExamLock(slug, nextLocked);                 // just await; it returns void
-    setLocks(prev => ({ ...prev, [slug]: nextLocked ? "locked" : "open" }));
-  } catch (err: any) {
-    const msg = (err?.message || "").replace(/<[^>]*>/g, "").slice(0, 300);
-    alert(`Failed to update lock for ${slug}: ${msg || "unknown error"}`);
-    // don't guess state on failure
-  } finally {
-    setSaving(s => ({ ...s, [slug]: false }));
-  }
-};
+  const toggleLock = async (slug: string) => {
+    const cur = locks[slug] ?? false;
+    const next = !cur;
+    setLocksBusy((b) => ({ ...b, [slug]: true }));
+    setLocks((m) => ({ ...m, [slug]: next })); // optimistic
+    try {
+      const serverVal = await apiSetLock(slug, next);
+      setLocks((m) => ({ ...m, [slug]: serverVal }));
+    } catch (e: any) {
+      // revert on failure
+      setLocks((m) => ({ ...m, [slug]: cur }));
+      alert(`Failed to update lock for ${slug}: ${e?.message ?? e}`);
+    } finally {
+      setLocksBusy((b) => ({ ...b, [slug]: false }));
+    }
+  };
 
   // ---------- SAT Bank (unchanged) ----------
   const [bank, setBank] = useState<SatMathQuestion[]>([]);
@@ -139,7 +158,7 @@ const toggleLock = async (slug: string) => {
         q.id.toLowerCase().includes(s) ||
         q.prompt.toLowerCase().includes(s) ||
         q.source.toLowerCase().includes(s) ||
-        q.topic.toLowerCase().includes(s),
+        q.topic.toLowerCase().includes(s)
     );
   }, [bank, search]);
 
@@ -224,68 +243,71 @@ const toggleLock = async (slug: string) => {
         </div>
       </div>
 
-      {/* NEW: Exam Locks */}
+      {/* NEW: Exam Access & Locking */}
       <div className="rounded-2xl bg-[#111318] ring-1 ring-white/10 p-4">
-        <div className="mb-3">
-          <div className="text-base font-semibold">Exam Locks</div>
-          <div className="text-xs text-white/60">Lock/unlock each exam. Students cannot start a locked exam.</div>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-base font-semibold">Exam Access &amp; Locking</div>
+            <div className="text-xs text-white/60">Toggle whether each exam can be started by students</div>
+          </div>
+          <button
+            onClick={refreshLocks}
+            className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold"
+            title="Refresh lock status"
+          >
+            Refresh
+          </button>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-[#0e1014]">
-              <tr>
-                <th className="text-left px-4 py-3">Title</th>
-                <th className="text-left px-4 py-3">Slug</th>
-                <th className="text-left px-4 py-3">Status</th>
-                <th className="text-right px-4 py-3">Toggle</th>
-              </tr>
-            </thead>
-            <tbody>
-              {exams.map((e) => {
-                const st = locks[e.slug] || "loading";
-                const disabled = st === "loading" || saving[e.slug];
-                return (
-                  <tr key={e.slug} className="border-t border-white/10">
-                    <td className="px-4 py-3">{e.title}</td>
-                    <td className="px-4 py-3 text-white/60">{e.slug}</td>
-                    <td className="px-4 py-3">
-                      {st === "loading" && <span className="text-white/60">Loading…</span>}
-                      {st === "open" && <span className="text-emerald-400">Open</span>}
-                      {st === "locked" && <span className="text-amber-400">Locked</span>}
-                      {st === "error" && <span className="text-red-400">Error</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => toggleLock(e.slug)}
-                        disabled={disabled}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${
-                          st === "locked" ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-white/10 hover:bg-white/20"
-                        }`}
-                        title={st === "locked" ? "Unlock exam" : "Lock exam"}
-                      >
-                        {saving[e.slug] ? "Saving…" : st === "locked" ? "Unlock" : "Lock"}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {exams.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-white/60">
-                    No exams found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+
+        <div className="mt-3 divide-y divide-white/10 rounded-lg overflow-hidden">
+          {exams.map((e) => {
+            const locked = locks[e.slug];
+            const busy = !!locksBusy[e.slug];
+            const disabled = locked === null || busy;
+            return (
+              <div key={e.slug} className="flex items-center justify-between p-3 bg-[#0f1116]">
+                <div>
+                  <div className="font-medium">{e.title}</div>
+                  <div className="text-xs text-white/50">{e.slug}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`text-xs px-2 py-1 rounded ${
+                      locked ? "bg-red-500/20 text-red-300" : "bg-emerald-500/20 text-emerald-300"
+                    }`}
+                  >
+                    {locked === null ? "Loading…" : locked ? "Locked" : "Unlocked"}
+                  </span>
+                  <button
+                    disabled={disabled}
+                    onClick={() => toggleLock(e.slug)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-semibold border ${
+                      locked
+                        ? "bg-red-600/90 hover:bg-red-600 text-white border-red-500/40"
+                        : "bg-emerald-600/90 hover:bg-emerald-600 text-white border-emerald-500/40"
+                    } ${disabled ? "opacity-60 cursor-not-allowed" : ""}`}
+                    title={locked ? "Unlock exam" : "Lock exam"}
+                  >
+                    {busy ? "…" : locked ? "Unlock" : "Lock"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {exams.length === 0 && (
+            <div className="p-3 text-sm text-white/60">No exams found.</div>
+          )}
         </div>
       </div>
 
-      {/* SAT Math Bank (existing UI) */}
+      {/* SAT Math Bank Header */}
       <header className="flex items-center justify-between">
         <h3 className="text-xl font-semibold">SAT Math Bank</h3>
         <div className="flex gap-2">
-          <button onClick={doExport} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">
+          <button
+            onClick={doExport}
+            className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold"
+          >
             Export
           </button>
           <button
@@ -297,6 +319,7 @@ const toggleLock = async (slug: string) => {
         </div>
       </header>
 
+      {/* Search */}
       <input
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -304,6 +327,7 @@ const toggleLock = async (slug: string) => {
         className="w-full rounded-xl bg-[#111318] ring-1 ring-white/10 px-4 py-2 text-sm"
       />
 
+      {/* Table */}
       <div className="overflow-x-auto rounded-2xl ring-1 ring-white/10">
         <table className="w-full text-sm">
           <thead className="bg-[#111318]">
@@ -345,6 +369,7 @@ const toggleLock = async (slug: string) => {
         </table>
       </div>
 
+      {/* Import Drawer */}
       {showImport && (
         <div className="rounded-2xl bg-[#111318] ring-1 ring-white/10 p-4 space-y-2">
           <div className="text-sm font-semibold">Import Overrides JSON</div>

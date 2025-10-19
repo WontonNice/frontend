@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { listExams, getExamBySlug } from "../../data/exams";
 import ReactMarkdown from "react-markdown";
-import { fetchExamLock } from "./ExamLock";
 
 type ParsedMd = {
   title?: string;
@@ -14,7 +13,9 @@ type ParsedMd = {
 /** Minimal front-matter parser for title/source; keeps everything else in body. */
 function parsePassageMd(md: string): ParsedMd {
   const trimmed = md.trimStart();
-  if (!trimmed.startsWith("---")) return { body: md };
+  if (!trimmed.startsWith("---")) {
+    return { body: md };
+  }
   const end = trimmed.indexOf("\n---", 3);
   if (end === -1) return { body: md };
   const fmRaw = trimmed.slice(3, end + 1).trim(); // between --- and ---
@@ -118,7 +119,13 @@ function PassageBlock({
   );
 }
 
-function QuestionPreview({ q, examTitle }: { q: any; examTitle: string }) {
+function QuestionPreview({
+  q,
+  examTitle,
+}: {
+  q: any;
+  examTitle: string;
+}) {
   const stem = q.stemMarkdown ?? q.promptMarkdown ?? "";
   const badge = q.type ?? (Array.isArray(q.choices) && q.answerIndex != null ? "single_select" : undefined);
 
@@ -158,25 +165,6 @@ function QuestionPreview({ q, examTitle }: { q: any; examTitle: string }) {
   );
 }
 
-function LockBadge({ locked }: { locked: boolean | null }) {
-  if (locked === null) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-gray-600/40 text-white/80">
-        <span className="h-2 w-2 rounded-full bg-gray-400" /> Checking…
-      </span>
-    );
-  }
-  return locked ? (
-    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-red-500/20 text-red-300">
-      <span className="h-2 w-2 rounded-full bg-red-400" /> Locked
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded bg-emerald-500/20 text-emerald-300">
-      <span className="h-2 w-2 rounded-full bg-emerald-400" /> Unlocked
-    </span>
-  );
-}
-
 export default function ExamsPage() {
   const navigate = useNavigate();
   const { slug } = useParams<{ slug?: string }>();
@@ -184,19 +172,6 @@ export default function ExamsPage() {
   // If there's a slug, show the detail page for that exam
   if (slug) {
     const exam = getExamBySlug(slug);
-
-    const [locked, setLocked] = useState<boolean | null>(null);
-    useEffect(() => {
-      let alive = true;
-      if (exam?.slug) {
-        fetchExamLock(exam.slug)
-          .then((v) => alive && setLocked(v))
-          .catch(() => alive && setLocked(false));
-      }
-      return () => {
-        alive = false;
-      };
-    }, [exam?.slug]);
 
     if (!exam) {
       return (
@@ -212,8 +187,6 @@ export default function ExamsPage() {
       );
     }
 
-    const startDisabled = locked === null ? true : locked;
-
     return (
       <div className="space-y-8">
         <button
@@ -223,43 +196,19 @@ export default function ExamsPage() {
           ← Back to Exams
         </button>
 
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-bold text-white">{exam.title}</h1>
-            {exam.description && <p className="text-white/70">{exam.description}</p>}
-          </div>
-          <div className="flex items-center gap-2">
-            <LockBadge locked={locked} />
-            <button
-              onClick={() => !startDisabled && navigate(`/exam/${exam.slug}`)}
-              disabled={startDisabled}
-              className={`px-4 py-2 rounded-lg font-medium transition ${
-                startDisabled
-                  ? "bg-gray-700 text-gray-300 cursor-not-allowed"
-                  : "bg-emerald-600 hover:bg-emerald-500 text-white"
-              }`}
-              title={locked ? "This exam is locked by your teacher" : "Start Exam"}
-            >
-              {locked ? "Locked" : locked === null ? "…" : "Start Exam"}
-            </button>
-          </div>
-        </div>
+        <h1 className="text-3xl font-bold text-white">{exam.title}</h1>
+        {exam.description && <p className="text-white/70">{exam.description}</p>}
 
         {exam.sections.map((section) => (
           <div key={section.id} className="rounded-xl border border-gray-700 p-6 space-y-4 bg-gray-800">
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-2xl font-semibold text-white">{section.title}</h2>
               <button
-                onClick={() => !startDisabled && navigate(`/exam/${exam.slug}`)}
-                disabled={startDisabled}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  startDisabled
-                    ? "bg-gray-700 text-gray-300 cursor-not-allowed"
-                    : "bg-emerald-600 hover:bg-emerald-500 text-white"
-                }`}
-                title={locked ? "This exam is locked by your teacher" : "Start Exam"}
+                onClick={() => navigate(`/exam/${exam.slug}`)}
+                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 transition text-white font-medium"
+                title="Start Exam"
               >
-                {locked ? "Locked" : locked === null ? "…" : "Start this exam"}
+                Start this exam
               </button>
             </div>
 
@@ -289,63 +238,27 @@ export default function ExamsPage() {
   // Otherwise, show the list of all exams
   const exams = listExams();
 
-  const [locks, setLocks] = useState<Record<string, boolean | null>>(
-    () => Object.fromEntries(exams.map((e) => [e.slug, null])) as Record<string, boolean | null>
-  );
-
-  useEffect(() => {
-    let alive = true;
-    Promise.all(
-      exams.map(async (e) => {
-        try {
-          const v = await fetchExamLock(e.slug);
-          if (alive) setLocks((m) => ({ ...m, [e.slug]: v }));
-        } catch {
-          if (alive) setLocks((m) => ({ ...m, [e.slug]: false })); // treat error as unlocked
-        }
-      })
-    );
-    return () => {
-      alive = false;
-    };
-  }, [exams]);
-
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-semibold">SHSAT — Practice Exams</h2>
       <p className="text-white/70">Choose an exam to get started.</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {exams.map((exam) => {
-          const locked = locks[exam.slug];
-          const disabled = locked === null ? true : locked;
-
-          return (
-            <div
-              key={exam.slug}
-              className="p-6 rounded-xl bg-gray-800 border border-gray-700 shadow-md hover:shadow-lg transition"
+        {exams.map((exam) => (
+          <div
+            key={exam.slug}
+            className="p-6 rounded-xl bg-gray-800 border border-gray-700 shadow-md hover:shadow-lg transition"
+          >
+            <h3 className="text-xl font-semibold mb-2 text-white">{exam.title}</h3>
+            {exam.description && <p className="text-white/60 mb-4">{exam.description}</p>}
+            <button
+              onClick={() => navigate(`/exam/${exam.slug}`)}
+              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 transition text-white font-medium"
             >
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="text-xl font-semibold mb-2 text-white">{exam.title}</h3>
-                <LockBadge locked={locked ?? null} />
-              </div>
-              {exam.description && <p className="text-white/60 mb-4">{exam.description}</p>}
-
-              <button
-                onClick={() => !disabled && navigate(`/exam/${exam.slug}`)}
-                disabled={disabled}
-                className={`px-4 py-2 rounded-lg font-medium transition ${
-                  disabled
-                    ? "bg-gray-700 text-gray-300 cursor-not-allowed"
-                    : "bg-emerald-600 hover:bg-emerald-500 text-white"
-                }`}
-                title={locked ? "This exam is locked by your teacher" : "Start Exam"}
-              >
-                {locked ? "Locked" : locked === null ? "…" : "Start"}
-              </button>
-            </div>
-          );
-        })}
+              Start
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
