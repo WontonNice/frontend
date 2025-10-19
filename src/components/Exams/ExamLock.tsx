@@ -1,117 +1,113 @@
 // src/components/ExamLock.ts
-// Robust exam-lock client with no-credentials (avoids CORS-with-credentials).
-// If your backend later requires cookies, flip USE_CREDENTIALS to true and
-// add CORS headers on the server per Option B.
+// Autodetects the lock API route shape (GET + PUT/POST) and reuses it.
 
-type Cached = { getPath?: string; setPath: string; setMethod: "PUT" | "POST" };
-const CACHE_KEY = "lockApi:v2";
+const BASE = (import.meta.env.VITE_BACKEND_URL ?? "").replace(/\/$/, "");
 
-// ---- toggle this if your backend ever needs cookies
-const USE_CREDENTIALS = false; // <- keep false for now
+type Pattern =
+  | { kind: "exams-lock"; get: (slug: string) => string; set: (slug: string) => { url: string; method: "PUT" } }
+  | { kind: "exam-lock-path"; get: (slug: string) => string; set: (slug: string) => { url: string; method: "POST" } }
+  | { kind: "exam-lock-query"; get: (slug: string) => string; set: (slug: string) => { url: string; method: "POST" } };
 
-const BASE = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/$/, "");
-const withBase = (p: string) => `${BASE}${p}`;
+let discovered: Pattern | null = null;
 
-const fetchOpts = (extra?: RequestInit): RequestInit =>
-  ({ ...(extra || {}), credentials: USE_CREDENTIALS ? "include" : "omit" });
+const headers = {
+  Accept: "application/json, text/plain, */*",
+  "Content-Type": "application/json",
+} as const;
 
-const looksJson = (r: Response) =>
-  (r.headers.get("content-type") || "").includes("application/json");
+async function tryGet(url: string, signal?: AbortSignal): Promise<null | boolean> {
+  try {
+    const r = await fetch(url, { method: "GET", headers, credentials: "omit", signal });
+    if (!r.ok) return null;
 
-async function readJson(r: Response) {
-  if (!r.ok) {
-    const txt = await r.text().catch(() => "");
-    throw new Error(`${r.status} ${txt.slice(0, 200)}`);
-  }
-  if (!looksJson(r)) {
-    const txt = await r.text().catch(() => "");
-    throw new Error(`Expected JSON; got ${r.headers.get("content-type") || "unknown"} ${txt.slice(0, 200)}`);
-  }
-  return r.json();
-}
-
-const load = (): Cached | null => {
-  try { const raw = localStorage.getItem(CACHE_KEY); return raw ? JSON.parse(raw) as Cached : null; } catch { return null; }
-};
-const save = (c: Cached) => { try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch {} };
-
-const pathCandidates = (slug: string) => [
-  `/exam-lock/${encodeURIComponent(slug)}`,
-  `/api/exam-lock/${encodeURIComponent(slug)}`,
-  `/api/v1/exams/${encodeURIComponent(slug)}/lock`,
-  `/v1/exams/${encodeURIComponent(slug)}/lock`,
-  `/exams/${encodeURIComponent(slug)}/lock`,
-  `/api/exams/${encodeURIComponent(slug)}/lock`,
-];
-
-async function discoverGet(slug: string, signal?: AbortSignal): Promise<string | undefined> {
-  for (const p of pathCandidates(slug)) {
-    try {
-      const r = await fetch(withBase(p), fetchOpts({ signal }));
-      if (!r.ok) continue;
-      const j = await r.clone().json().catch(() => null);
-      if (j && typeof j.locked === "boolean") return p;
-    } catch {}
-  }
-  return undefined; // GET not required; we’ll fail-open
-}
-
-async function trySet(path: string, locked: boolean, method: "PUT" | "POST", signal?: AbortSignal) {
-  const r = await fetch(
-    withBase(path),
-    fetchOpts({
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ locked }),
-      signal,
-    })
-  );
-  const j = await readJson(r);
-  if (typeof j.locked !== "boolean") throw new Error("Bad response");
-  return !!j.locked;
-}
-
-async function discoverSet(slug: string, locked: boolean, signal?: AbortSignal) {
-  for (const p of pathCandidates(slug)) {
-    for (const m of ["PUT", "POST"] as const) {
-      try {
-        await trySet(p, locked, m, signal);
-        return { setPath: p, setMethod: m };
-      } catch {}
+    const ct = r.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      const data = await r.json().catch(() => null);
+      if (data && typeof data.locked === "boolean") return data.locked;
+      return null;
     }
-  }
-  throw new Error("No PUT/POST lock endpoint matched.");
-}
 
-// ---------- public API ----------
-
-export async function fetchExamLock(slug: string, signal?: AbortSignal): Promise<boolean> {
-  const cached = load();
-  if (cached?.getPath) {
+    const t = (await r.text()).trim().toLowerCase();
+    if (t === "true") return true;
+    if (t === "false") return false;
     try {
-      const j = await readJson(await fetch(withBase(cached.getPath), fetchOpts({ signal })));
-      return !!j.locked;
+      const j = JSON.parse(t);
+      if (j && typeof j.locked === "boolean") return j.locked;
     } catch {}
+    return null;
+  } catch {
+    return null;
   }
-  const getPath = await discoverGet(slug, signal);
-  if (getPath) {
-    const j = await readJson(await fetch(withBase(getPath), fetchOpts({ signal })));
-    const prev = load();
-    save({ ...(prev ?? {}), getPath, setPath: prev?.setPath || getPath, setMethod: prev?.setMethod || "PUT" });
-    return !!j.locked;
-  }
-  // No GET available — treat as OPEN
-  return false;
 }
 
-export async function setExamLock(slug: string, locked: boolean): Promise<boolean> {
-  const cached = load();
-  if (cached?.setPath && cached?.setMethod) {
-    try { return await trySet(cached.setPath, locked, cached.setMethod); } catch {}
+async function discoverPattern(slug: string, signal?: AbortSignal): Promise<Pattern | null> {
+  // 1) REST: /api/exams/:slug/lock (PUT to set)
+  const p1 = {
+    kind: "exams-lock" as const,
+    get: (s: string) => `${BASE}/api/exams/${encodeURIComponent(s)}/lock`,
+    set: (s: string) => ({ url: `${BASE}/api/exams/${encodeURIComponent(s)}/lock`, method: "PUT" as const }),
+  };
+  if (await tryGet(p1.get(slug), signal) !== null) return p1;
+
+  // 2) Path: /exam-lock/:slug (or /api/exam-lock/:slug) (POST to set)
+  const p2s = [
+    {
+      kind: "exam-lock-path" as const,
+      get: (s: string) => `${BASE}/exam-lock/${encodeURIComponent(s)}`,
+      set: (s: string) => ({ url: `${BASE}/exam-lock/${encodeURIComponent(s)}`, method: "POST" as const }),
+    },
+    {
+      kind: "exam-lock-path" as const,
+      get: (s: string) => `${BASE}/api/exam-lock/${encodeURIComponent(s)}`,
+      set: (s: string) => ({ url: `${BASE}/api/exam-lock/${encodeURIComponent(s)}`, method: "POST" as const }),
+    },
+  ] as const;
+  for (const p of p2s) if (await tryGet(p.get(slug), signal) !== null) return p;
+
+  // 3) Query: /exam-lock?slug=... (or /api/exam-lock?slug=...) (POST to same)
+  const p3s = [
+    {
+      kind: "exam-lock-query" as const,
+      get: (s: string) => `${BASE}/exam-lock?slug=${encodeURIComponent(s)}`,
+      set: (s: string) => ({ url: `${BASE}/exam-lock?slug=${encodeURIComponent(s)}`, method: "POST" as const }),
+    },
+    {
+      kind: "exam-lock-query" as const,
+      get: (s: string) => `${BASE}/api/exam-lock?slug=${encodeURIComponent(s)}`,
+      set: (s: string) => ({ url: `${BASE}/api/exam-lock?slug=${encodeURIComponent(s)}`, method: "POST" as const }),
+    },
+  ] as const;
+  for (const p of p3s) if (await tryGet(p.get(slug), signal) !== null) return p;
+
+  return null;
+}
+
+/** GET the current lock state. */
+export async function fetchExamLock(slug: string, signal?: AbortSignal): Promise<boolean> {
+  if (!BASE) return false; // no backend configured → treat as open
+  if (!discovered) discovered = await discoverPattern(slug, signal);
+  if (!discovered) throw new Error("No lock GET endpoint matched.");
+
+  const state = await tryGet(discovered.get(slug), signal);
+  if (state === null) throw new Error("Lock GET returned unexpected response.");
+  return state;
+}
+
+/** SET the lock state. Throws on failure. */
+export async function setExamLock(slug: string, locked: boolean): Promise<void> {
+  if (!BASE) return;
+  if (!discovered) discovered = await discoverPattern(slug);
+  if (!discovered) throw new Error("No PUT/POST lock endpoint matched.");
+
+  const { url, method } = discovered.set(slug);
+  const res = await fetch(url, {
+    method,
+    headers,
+    credentials: "omit", // avoid the CORS “Allow-Credentials must be true” trap
+    body: JSON.stringify({ slug, locked }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${text || res.statusText}`);
   }
-  const { setPath, setMethod } = await discoverSet(slug, locked);
-  const ok = await trySet(setPath, locked, setMethod);
-  const prev = load();
-  save({ getPath: prev?.getPath, setPath, setMethod });
-  return ok;
 }
