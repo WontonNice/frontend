@@ -1,4 +1,13 @@
-import { useState } from "react";
+// src/components/Register.tsx
+import { useEffect, useState } from "react";
+
+/**
+ * API base:
+ * - Dev: leave VITE_API_URL unset -> "" so requests are RELATIVE and Vite proxies them
+ * - Prod: set VITE_API_URL to your backend origin (e.g., https://backend.yourapp.com)
+ */
+const API_BASE = (import.meta.env?.VITE_API_URL ?? "").replace(/\/+$/, "");
+const apiUrl = (path: string) => `${API_BASE}${path}`;
 
 export default function Register() {
   const [username, setUsername] = useState("");
@@ -6,45 +15,65 @@ export default function Register() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
-async function handleSubmit(e: React.FormEvent) {
-  e.preventDefault();
-  if (!username || !password) return;
+  // Optional: warm the backend (helps cold starts in prod)
+  useEffect(() => {
+    const ctl = new AbortController();
+    fetch(apiUrl("/health"), { signal: ctl.signal }).catch(() => {});
+    return () => ctl.abort();
+  }, []);
 
-  setLoading(true);
-  setMsg("");
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!username || !password || loading) return;
 
-  try {
-    const res = await fetch(`/api/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-      // credentials: "include", // if you use cookie sessions
-    });
+    setLoading(true);
+    setMsg("");
 
-    const text = await res.text();
-    let data: any = null;
-    try { data = text ? JSON.parse(text) : null; } catch { /* ignore bad JSON */ }
+    try {
+      const res = await fetch(apiUrl("/api/auth/register"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // If your backend uses cookie sessions, also set:
+        // credentials: "include",
+        body: JSON.stringify({ username, password }),
+      });
 
-    if (!res.ok) {
-      const message = data?.error || text || `HTTP ${res.status} ${res.statusText}`;
-      throw new Error(message);
+      // Robust parsing (handles empty or non-JSON error bodies)
+      const text = await res.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch {}
+
+      if (!res.ok) {
+        // Common helpful messages
+        const message =
+          data?.error ||
+          (res.status === 409 ? "Username already taken" : "") ||
+          text ||
+          `HTTP ${res.status} ${res.statusText}`;
+        throw new Error(message);
+      }
+
+      if (!data?.user?.username) {
+        throw new Error("Server returned an unexpected/empty response.");
+      }
+
+      setMsg(`✅ Account created for "${data.user.username}"`);
+      setUsername("");
+      setPassword("");
+    } catch (err: any) {
+      const m = String(err?.message || "");
+      // Map the classic fetch failure to something clearer
+      const friendly =
+        m.includes("Failed to fetch")
+          ? "Network/CORS error — is the backend reachable and allowing this origin?"
+          : m;
+      setMsg(`❌ ${friendly}`);
+    } finally {
+      setLoading(false);
     }
-
-    if (!data?.user?.username) {
-      throw new Error("Server returned an unexpected/empty response.");
-    }
-
-    setMsg(`✅ Account created for "${data.user.username}"`);
-    setUsername("");
-    setPassword("");
-  } catch (err: any) {
-    // Map the classic fetch failure to a clearer message
-    const m = String(err?.message || "");
-    setMsg(`❌ ${m.includes("Failed to fetch") ? "Network/CORS error — is the backend reachable?" : m}`);
-  } finally {
-    setLoading(false);
   }
-}
+
+  const canSubmit = !!username && !!password && !loading;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-6">
@@ -69,6 +98,7 @@ async function handleSubmit(e: React.FormEvent) {
             className="w-full rounded-lg px-3 py-2 text-black"
             placeholder="username"
             required
+            autoComplete="username"
           />
         </div>
 
@@ -81,14 +111,17 @@ async function handleSubmit(e: React.FormEvent) {
             className="w-full rounded-lg px-3 py-2 text-black"
             placeholder="password"
             required
+            autoComplete="new-password"
           />
         </div>
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={!canSubmit}
           className={`w-full py-2 rounded-lg font-medium transition ${
-            loading ? "bg-blue-600/50" : "bg-blue-600 hover:bg-blue-500"
+            !canSubmit
+              ? "bg-blue-600/50 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-500"
           }`}
         >
           {loading ? "Creating…" : "Create Account"}

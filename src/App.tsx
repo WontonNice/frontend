@@ -15,6 +15,7 @@ import LiveSessionPage from "./components/LiveSessionPage";
 import ExamsPage from "./components/Exams/ExamsPage";
 import ExamRunnerPage from "./components/Exams/ExamRunnerPage";           // ⬅️ new
 import ExamFullscreenLayout from "./components/Exams/ExamFullscreenLayout";
+import AuthSplit from "./components/AuthSplit";
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
       {/* Public */}
       <Route path="/" element={<HomeGate />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/auth" element={<AuthSplit />} />
 
       {/* Authenticated layout (keeps Sidebar/TopBar/Hero) */}
       <Route
