@@ -6,32 +6,45 @@ export default function Register() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!username || !password) return;
+async function handleSubmit(e: React.FormEvent) {
+  e.preventDefault();
+  if (!username || !password) return;
 
-    setLoading(true);
-    setMsg("");
+  setLoading(true);
+  setMsg("");
 
-    try {
-      const res = await fetch(`/api/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      });
+  try {
+    const res = await fetch(`/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+      // credentials: "include", // if you use cookie sessions
+    });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to create account.");
+    const text = await res.text();
+    let data: any = null;
+    try { data = text ? JSON.parse(text) : null; } catch { /* ignore bad JSON */ }
 
-      setMsg(`✅ Account created for "${data.user.username}"`);
-      setUsername("");
-      setPassword("");
-    } catch (err: any) {
-      setMsg(`❌ ${err.message}`);
-    } finally {
-      setLoading(false);
+    if (!res.ok) {
+      const message = data?.error || text || `HTTP ${res.status} ${res.statusText}`;
+      throw new Error(message);
     }
+
+    if (!data?.user?.username) {
+      throw new Error("Server returned an unexpected/empty response.");
+    }
+
+    setMsg(`✅ Account created for "${data.user.username}"`);
+    setUsername("");
+    setPassword("");
+  } catch (err: any) {
+    // Map the classic fetch failure to a clearer message
+    const m = String(err?.message || "");
+    setMsg(`❌ ${m.includes("Failed to fetch") ? "Network/CORS error — is the backend reachable?" : m}`);
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-6">
