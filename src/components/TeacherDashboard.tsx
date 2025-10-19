@@ -109,11 +109,12 @@ const toggleLock = async (slug: string) => {
   setSaving(s => ({ ...s, [slug]: true }));
   try {
     const nextLocked = !(locks[slug] === "locked");
-    await setExamLock(slug, nextLocked);             // sends cookies/JWT now
+    await setExamLock(slug, nextLocked);                 // just await; it returns void
     setLocks(prev => ({ ...prev, [slug]: nextLocked ? "locked" : "open" }));
   } catch (err: any) {
-    alert(`Failed to update lock for ${slug}: ${err?.message || "unknown error"}`);
-    setLocks(prev => ({ ...prev, [slug]: "error" }));
+    const msg = (err?.message || "").replace(/<[^>]*>/g, "").slice(0, 300);
+    alert(`Failed to update lock for ${slug}: ${msg || "unknown error"}`);
+    // don't guess state on failure
   } finally {
     setSaving(s => ({ ...s, [slug]: false }));
   }
