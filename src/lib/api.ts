@@ -1,9 +1,7 @@
-// src/lib/api.ts
-//const BASE_URL = "https://frontend-tgl3.onrender.com";
-const BASE_URL = "https://frontend-0s8v.onrender.com";
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
     credentials: "include",
     ...init,
@@ -15,11 +13,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// Example typed endpoints:
 export const api = {
-  health: () => fetch(`${BASE_URL}/health`).then(r => r.text()), // plain text
+  health: () => fetch(`/health`).then(r => r.text()),
   hello: () => request<{ msg: string }>("/api/hello"),
-  // add more: request("/api/students"), request("/api/tests"), etc.
 };
-
-export { BASE_URL };
