@@ -1,7 +1,5 @@
 import { useState } from "react";
 
-const API = "https://backend-3wuq.onrender.com";
-
 export default function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -16,7 +14,7 @@ export default function Register() {
     setMsg("");
 
     try {
-      const res = await fetch(`${API}/api/auth/register`, {
+      const res = await fetch(`/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
