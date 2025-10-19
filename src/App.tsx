@@ -22,8 +22,9 @@ export default function App() {
     <Routes>
       {/* Public */}
       <Route path="/" element={<HomeGate />} />
-      <Route path="/register" element={<Register />} />
       <Route path="/auth" element={<AuthSplit />} />
+      <Route path="/login" element={<AuthSplit />} />
+      <Route path="/register" element={<AuthSplit />} />
 
       {/* Authenticated layout (keeps Sidebar/TopBar/Hero) */}
       <Route

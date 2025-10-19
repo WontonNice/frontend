@@ -16,7 +16,7 @@ export default function RequireAuth({ children }: PropsWithChildren): ReactNode 
     }
 
     // Redirect to login/root (no need to also pass state; we prefer sessionStorage)
-    return <Navigate to="/" replace />;
+    return <Navigate to="/auth" replace />;
   }
 
   return children as ReactNode;

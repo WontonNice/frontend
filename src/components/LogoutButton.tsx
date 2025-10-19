@@ -5,7 +5,7 @@ export default function LogoutButton() {
 
   function handleLogout() {
     localStorage.removeItem("user"); // clear session
-    navigate("/", { replace: true }); // back to login
+    navigate("/auth", { replace: true }); // back to login
   }
 
   return (
