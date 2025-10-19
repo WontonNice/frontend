@@ -254,6 +254,9 @@ function buildPQ(): PracticeQuestion {
   return toPracticeQuestion(built);
 }
 
+const choiceFormatter = (c: string | number) =>
+  typeof c === "number" ? `$${c}~\\text{ years old}$` : `$${String(c)}$`;
+
 /* ------------------------------ Page ------------------------------ */
 
 export default function AgePractice() {
@@ -264,7 +267,7 @@ export default function AgePractice() {
       streakKey="age"
       build={buildPQ}
       // show numbers as “N years old”; symbolic strings render as-is
-      choiceFormatter={(c) => (typeof c === "number" ? `${c}~\\text{ years old}` : String(c))}
+      choiceFormatter={choiceFormatter}
     />
   );
 }

@@ -15,12 +15,12 @@ export type PracticeQuestion = {
 };
 
 type Props = {
-  title: string;                        // Page title
-  build: () => PracticeQuestion;        // Build a fresh question
-  streakKey: string;                    // Unique key per practice set (e.g., "age", "set")
-  instruction?: string;                 // Optional subtext under title
+  title: string;
+  build: () => PracticeQuestion;
+  streakKey: string;
+  instruction?: string;
   choiceFormatter?: (c: string | number, i: number, q: PracticeQuestion) => string;
-  onNext?: () => void;                  // Optional side-effect after Next
+  onNext?: () => void;
 };
 
 const LETTERS = ["A","B","C","D","E","F","G","H","I","J"] as const;
@@ -70,7 +70,6 @@ export default function PracticeEngine({
 
           <div className="flex items-center gap-2">
             <StreakBadge current={current} best={best} />
-            {/* optional: show a tiny reset link; remove if you don't want it */}
             <button
               onClick={clearAll}
               className="text-xs text-white/50 hover:text-white/80 underline decoration-dotted"
@@ -95,7 +94,7 @@ export default function PracticeEngine({
             <MathText text={q.stem} />
           </div>
 
-          {/* Choices as radio rows */}
+          {/* Choices */}
           <div className="space-y-3">
             {q.choices.map((c, i) => {
               const active = sel === i;
@@ -153,9 +152,17 @@ export default function PracticeEngine({
             >
               Next Question
             </button>
+
             {submitted && (
               <div className={`text-sm ml-2 ${isCorrect ? "text-emerald-600" : "text-red-600"}`}>
-                {isCorrect ? "Correct!" : `Answer: ${fmtChoice(correct, q.correctIndex)}`}
+                {isCorrect ? (
+                  "Correct!"
+                ) : (
+                  <MathText
+                    className="inline"
+                    text={`Answer: ${fmtChoice(correct, q.correctIndex)}`}
+                  />
+                )}
               </div>
             )}
           </div>
