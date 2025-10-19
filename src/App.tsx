@@ -1,6 +1,6 @@
 // src/App.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
-import Register from "./components/Register";
+//import Register from "./components/Register";
 import StudentDashboard from "./components/StudentDashboard";
 import TeacherDashboard from "./components/TeacherDashboard";
 import RequireAuth from "./auth/RequireAuth";
