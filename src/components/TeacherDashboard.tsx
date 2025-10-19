@@ -11,6 +11,7 @@ import type { SatMathQuestion } from "../data/satMathBank";
 
 // NEW: list exams + lock helpers
 import { listExams } from "../data/exams";
+// ✅ correct path (not "./Exams/ExamLock")
 import { fetchExamLock, setExamLock } from "./Exams/ExamLock";
 
 // Reuse your realtime server base
@@ -32,7 +33,8 @@ export default function TeacherDashboard() {
 
     socket.on("connect", () => {
       const name = (JSON.parse(localStorage.getItem("user") || "{}")?.username || "Teacher")
-        .toString().slice(0, 64);
+        .toString()
+        .slice(0, 64);
       socket.emit("join", { name, room: ROOM });
       socket.emit("move", { x: 0.5, y: 0.5 });
     });
@@ -76,41 +78,45 @@ export default function TeacherDashboard() {
   };
 
   // ---------- Exam locks ----------
-  const exams = listExams(); // static list from your /src/data/exams
+  const exams = listExams();
   const [locks, setLocks] = useState<Record<string, LockStatus>>(() =>
-    Object.fromEntries(exams.map(e => [e.slug, "loading" as LockStatus]))
+    Object.fromEntries(exams.map((e) => [e.slug, "loading" as LockStatus])),
   );
   const [saving, setSaving] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const entries = await Promise.all(exams.map(async (e) => {
-        try {
-          const locked = await fetchExamLock(e.slug);
-          return [e.slug, locked ? "locked" : "open"] as const;
-        } catch (err) {
-          console.warn("lock GET failed for", e.slug, err);
-          return [e.slug, "error"] as const;
-        }
-      }));
+      const entries = await Promise.all(
+        exams.map(async (e) => {
+          try {
+            const locked = await fetchExamLock(e.slug);
+            return [e.slug, locked ? "locked" : "open"] as const;
+          } catch (err) {
+            console.warn("lock GET failed for", e.slug, err);
+            return [e.slug, "error"] as const;
+          }
+        }),
+      );
       if (!cancelled) setLocks(Object.fromEntries(entries));
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [exams.length]);
 
   const toggleLock = async (slug: string) => {
-    setSaving(s => ({ ...s, [slug]: true }));
+    setSaving((s) => ({ ...s, [slug]: true }));
     try {
       const nextLocked = !(locks[slug] === "locked");
       const result = await setExamLock(slug, nextLocked);
-      setLocks(prev => ({ ...prev, [slug]: result ? "locked" : "open" }));
+      setLocks((prev) => ({ ...prev, [slug]: result ? "locked" : "open" }));
     } catch (err: any) {
       const msg = (err?.message || "").replace(/<[^>]*>/g, "").slice(0, 200);
       alert(`Failed to update lock for ${slug}: ${msg || "unknown error"}`);
-      setLocks(prev => ({ ...prev, [slug]: "error" }));
+      setLocks((prev) => ({ ...prev, [slug]: "error" }));
     } finally {
-      setSaving(s => ({ ...s, [slug]: false }));
+      setSaving((s) => ({ ...s, [slug]: false }));
     }
   };
 
@@ -121,16 +127,19 @@ export default function TeacherDashboard() {
   const [showImport, setShowImport] = useState(false);
 
   const refresh = () => setBank(getEffectiveSatMathBank());
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    refresh();
+  }, []);
 
   const filtered = useMemo(() => {
     const s = search.toLowerCase();
-    return bank.filter(q =>
-      !s ||
-      q.id.toLowerCase().includes(s) ||
-      q.prompt.toLowerCase().includes(s) ||
-      q.source.toLowerCase().includes(s) ||
-      q.topic.toLowerCase().includes(s)
+    return bank.filter(
+      (q) =>
+        !s ||
+        q.id.toLowerCase().includes(s) ||
+        q.prompt.toLowerCase().includes(s) ||
+        q.source.toLowerCase().includes(s) ||
+        q.topic.toLowerCase().includes(s),
     );
   }, [bank, search]);
 
@@ -145,7 +154,9 @@ export default function TeacherDashboard() {
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "sat-math-overrides.json"; a.click();
+    a.href = url;
+    a.download = "sat-math-overrides.json";
+    a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -186,16 +197,27 @@ export default function TeacherDashboard() {
             <div className="text-xs text-white/60">Manage the whiteboard in the current room</div>
           </div>
           <div className="flex gap-2">
-            <button onClick={clearBoardForAll} className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">
+            <button
+              onClick={clearBoardForAll}
+              className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold"
+              title="Clear all drawings and images for everyone (keeps the session open)"
+            >
               Clear Board
             </button>
             <button
               onClick={toggleStudentDrawing}
-              className={`px-3 py-2 rounded-lg text-sm font-semibold ${drawingDisabled ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-white/10 hover:bg-white/20"}`}
+              className={`px-3 py-2 rounded-lg text-sm font-semibold ${
+                drawingDisabled ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-white/10 hover:bg-white/20"
+              }`}
+              title="Toggle whether students can draw"
             >
               {drawingDisabled ? "Enable Student Drawing" : "Disable Student Drawing"}
             </button>
-            <button onClick={endSession} className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold">
+            <button
+              onClick={endSession}
+              className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold"
+              title="End session and clear the board for everyone"
+            >
               End Session
             </button>
           </div>
@@ -219,7 +241,7 @@ export default function TeacherDashboard() {
               </tr>
             </thead>
             <tbody>
-              {exams.map(e => {
+              {exams.map((e) => {
                 const st = locks[e.slug] || "loading";
                 const disabled = st === "loading" || saving[e.slug];
                 return (
@@ -236,7 +258,9 @@ export default function TeacherDashboard() {
                       <button
                         onClick={() => toggleLock(e.slug)}
                         disabled={disabled}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${st === "locked" ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-white/10 hover:bg-white/20"}`}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${
+                          st === "locked" ? "bg-amber-600 hover:bg-amber-500 text-white" : "bg-white/10 hover:bg-white/20"
+                        }`}
                         title={st === "locked" ? "Unlock exam" : "Lock exam"}
                       >
                         {saving[e.slug] ? "Saving…" : st === "locked" ? "Unlock" : "Lock"}
@@ -246,7 +270,11 @@ export default function TeacherDashboard() {
                 );
               })}
               {exams.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-6 text-center text-white/60">No exams found.</td></tr>
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center text-white/60">
+                    No exams found.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -257,8 +285,15 @@ export default function TeacherDashboard() {
       <header className="flex items-center justify-between">
         <h3 className="text-xl font-semibold">SAT Math Bank</h3>
         <div className="flex gap-2">
-          <button onClick={doExport} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Export</button>
-          <button onClick={() => setShowImport(s => !s)} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Import</button>
+          <button onClick={doExport} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">
+            Export
+          </button>
+          <button
+            onClick={() => setShowImport((s) => !s)}
+            className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold"
+          >
+            Import
+          </button>
         </div>
       </header>
 
@@ -290,7 +325,10 @@ export default function TeacherDashboard() {
                 <td className="px-4 py-3 text-white/60">{q.source}</td>
                 <td className="px-4 py-3 text-white/60">{q.choices[q.correctIndex]}</td>
                 <td className="px-4 py-3 text-right">
-                  <button onClick={() => remove(q.id)} className="ml-2 px-3 py-1 rounded-lg bg-red-600/80 hover:bg-red-600 text-white">
+                  <button
+                    onClick={() => remove(q.id)}
+                    className="ml-2 px-3 py-1 rounded-lg bg-red-600/80 hover:bg-red-600 text-white"
+                  >
                     Delete
                   </button>
                 </td>
@@ -298,7 +336,9 @@ export default function TeacherDashboard() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-white/60">No questions yet.</td>
+                <td colSpan={6} className="px-4 py-6 text-center text-white/60">
+                  No questions yet.
+                </td>
               </tr>
             )}
           </tbody>
@@ -316,8 +356,18 @@ export default function TeacherDashboard() {
             placeholder='{"byId": {...}, "deleted": [...]}'
           />
           <div className="flex gap-2">
-            <button onClick={doImport} className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold">Import</button>
-            <button onClick={() => setShowImport(false)} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold">Cancel</button>
+            <button
+              onClick={doImport}
+              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold"
+            >
+              Import
+            </button>
+            <button
+              onClick={() => setShowImport(false)}
+              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-semibold"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

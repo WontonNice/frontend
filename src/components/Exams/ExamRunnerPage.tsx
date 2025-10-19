@@ -9,7 +9,7 @@ import rehypeRaw from "rehype-raw";
 import { getQuestionsByIds as getRevEditBQuestionsByIds } from "../../data/revEditB-QuestionBank";
 import { getMathQuestionsByIds } from "../../data/SHSATMathBank";
 
-// Results page (use named import so props are typed)
+// Results page (named import)
 import { ExamResultsPage } from "./ExamResultsPage";
 import "./ExamRunnerPage.css";
 import { fetchExamLock } from "./ExamLock";
@@ -246,63 +246,45 @@ export default function ExamRunnerPage() {
   const navigate = useNavigate();
   const exam = slug ? getExamBySlug(slug) : undefined;
 
+  // ---------- Lock state ----------
   const [lockState, setLockState] = useState<"loading" | "open" | "locked">("loading");
 
-useEffect(() => {
-  let done = false;
-  const ctrl = new AbortController();
+  useEffect(() => {
+    let done = false;
+    const ctrl = new AbortController();
 
-  async function go() {
-    if (!exam?.slug) {
-      setLockState("open"); // no slug, nothing to check
-      return;
-    }
-
-    // Hard timeout so we never show a blank screen if backend is unreachable
-    const tm = setTimeout(() => {
-      if (!done) {
-        ctrl.abort();        // cancel the fetch
-        setLockState("open"); // fail-open
+    async function go() {
+      if (!exam?.slug) {
+        setLockState("open"); // no slug, nothing to check
+        return;
       }
-    }, 4500);
 
-    try {
-      const locked = await fetchExamLock(exam.slug, ctrl.signal);
-      if (!done) setLockState(locked ? "locked" : "open");
-    } catch {
-      if (!done) setLockState("open"); // fail-open on network/404/etc
-    } finally {
-      done = true;
-      clearTimeout(tm);
+      // Hard timeout so we never show a blank screen if backend is unreachable
+      const tm = setTimeout(() => {
+        if (!done) {
+          ctrl.abort();        // cancel the fetch
+          setLockState("open"); // fail-open
+        }
+      }, 4500);
+
+      try {
+        const locked = await fetchExamLock(exam.slug, ctrl.signal);
+        if (!done) setLockState(locked ? "locked" : "open");
+      } catch {
+        if (!done) setLockState("open"); // fail-open on network/404/etc
+      } finally {
+        done = true;
+        clearTimeout(tm);
+      }
     }
-  }
 
-  setLockState("loading");
-  go();
-  return () => {
-    done = true;
-    ctrl.abort();
-  };
-}, [exam?.slug]);
-
-if (lockState === "loading") {
-  return (
-    <div className="mx-auto max-w-2xl p-6 text-gray-300">
-      Checking exam status…
-    </div>
-  );
-}
-
-if (lockState === "locked") {
-  return (
-    <div className="mx-auto max-w-2xl p-6">
-      <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-900">
-        <h2 className="text-lg font-semibold">This exam is locked</h2>
-        <p className="mt-1">Your teacher has locked this exam. Please try again later.</p>
-      </div>
-    </div>
-  );
-}
+    setLockState("loading");
+    go();
+    return () => {
+      done = true;
+      ctrl.abort();
+    };
+  }, [exam?.slug]);
 
   /** Cache reading MD bodies and questions by section.id */
   const [readingBodies, setReadingBodies] = useState<Record<string, string>>({});
@@ -315,7 +297,7 @@ if (lockState === "locked") {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!exam) return;
+      if (!exam || lockState !== "open") return; // lock-aware guard
       const bodies: Record<string, string> = {};
       const qsMap: Record<string, MdFrontmatter["questions"]> = {};
 
@@ -344,13 +326,13 @@ if (lockState === "locked") {
     return () => {
       cancelled = true;
     };
-  }, [exam?.slug]);
+  }, [exam?.slug, lockState]);
 
   /** Load intro pages (Reading, Math, ELA A, ELA B) for section types present in the exam */
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (!exam) return;
+      if (!exam || lockState !== "open") return; // lock-aware guard
       const types = Array.from(new Set<string>(exam.sections.map((s: any) => s.type)));
       if (!types.includes("reading")) types.push("reading");
       const entries = await Promise.all(
@@ -370,7 +352,7 @@ if (lockState === "locked") {
     return () => {
       cancelled = true;
     };
-  }, [exam?.slug]);
+  }, [exam?.slug, lockState]);
 
   // ===== Flatten ALL questions and inject section intro pages =====
   const { items, introIndexByType } = useMemo(() => {
@@ -568,6 +550,7 @@ if (lockState === "locked") {
   // Prefer preloaded body for reading; else fall back to fetch (legacy)
   useEffect(() => {
     setFetchedPassage(undefined);
+    if (lockState !== "open") return;             // lock-aware
     if (!current || current.isEnd || current.isIntro) return;
     const sec = exam?.sections.find((s: any) => s.id === current.sectionId) as any;
     if (isMdType(sec?.type)) {
@@ -588,13 +571,42 @@ if (lockState === "locked") {
         setFetchedPassage(body || txt);
       })
       .catch(() => setFetchedPassage(undefined));
-  }, [current?.sectionId, current?.sectionPassageUrl, current?.isEnd, current?.isIntro, exam?.sections, readingBodies]);
+  }, [
+    lockState,
+    current?.sectionId,
+    current?.sectionPassageUrl,
+    current?.isEnd,
+    current?.isIntro,
+    exam?.sections,
+    readingBodies,
+  ]);
 
+  // If the slug is bogus
   if (!exam) {
     return (
       <div className="mx-auto max-w-2xl">
         <h1 className="text-2xl font-semibold text-red-600">Exam not found</h1>
         <p className="text-gray-600 mt-2">Check the URL or choose from the exams list.</p>
+      </div>
+    );
+  }
+
+  // ---------- Lock gate (render only, after all hooks are declared) ----------
+  if (lockState === "loading") {
+    return (
+      <div className="mx-auto max-w-2xl p-6 text-gray-700">
+        Checking exam status…
+      </div>
+    );
+  }
+
+  if (lockState === "locked") {
+    return (
+      <div className="mx-auto max-w-2xl p-6">
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-amber-900">
+          <h2 className="text-lg font-semibold">This exam is locked</h2>
+          <p className="mt-1">Your teacher has locked this exam. Please try again later.</p>
+        </div>
       </div>
     );
   }
