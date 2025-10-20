@@ -154,7 +154,7 @@ const Q: Record<string, MathQuestion> = {
     version: "2017-2018 Form A", 
     category: "set_theory",
     stemMarkdown:
-      "A survey asked students what pets they have. The results are:\\n\\n• 20 students have cats.\\n\\n• 23 students have dogs.\\n\\n• 3 students have both dogs and cats.\\n\\n• 5 students have no dogs or cats.\\n\\nHow many students were surveyed?",
+      "A survey asked students what pets they have. The results are:\n\n• 20 students have cats.\n\n• 23 students have dogs.\n\n• 3 students have both dogs and cats.\n\n• 5 students have no dogs or cats.\n\nHow many students were surveyed?",
     directionsMarkdown: "Enter your answer in the space",
     correctAnswer: "45",
     explanationMarkdown: ""

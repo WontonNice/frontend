@@ -7,7 +7,7 @@ import {
   useEffect,
 } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Home, Database, BookOpen, Boxes, Activity, Settings } from "lucide-react";
+import { Home, Database, BookOpen, Boxes, Activity, Settings, Trophy } from "lucide-react";
 import LogoutButton from "./LogoutButton";
 
 type LayoutProps = PropsWithChildren<{
@@ -117,8 +117,9 @@ function Sidebar({ displayName }: { displayName: string }) {
       {/* Navigation */}
       <nav className="flex-1 py-3 space-y-1">
         <SideLink to="/student-dashboard" icon={<Home size={18} />} label="Overview" open={open} />
+        <SideLink to="#" icon={<Trophy size={18} />} label="Achievements" open={open} />
         <SideLink to="#" icon={<Database size={18} />} label="Progress Report" open={open} />
-        <SideLink to="/sat" icon={<BookOpen size={18} />} label="Study Hall" open={open} />
+        <SideLink to="/study" icon={<BookOpen size={18} />} label="Study Hall" open={open} />
         <SideLink to="/live-activities" icon={<Boxes size={18} />} label="Live Activities" open={open} />
         <SideLink to="/exams" icon={<Activity size={18} />} label="Exams" open={open} />
       </nav>

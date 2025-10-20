@@ -27,10 +27,10 @@ const CATEGORIES: Category[] = [
   },
   {
     id: "geometry-angles",
-    title: "Geometry: Angles & Triangles",
-    blurb: "Angle chasing, triangle properties, similarity.",
+    title: "Combinatorics",
+    blurb: "Combinations and Permutations",
     icon: Shapes,
-    path: "/study/math/geometry-angles",
+    path: "/study/math/combinatorics",
   },
   {
     id: "probability",
