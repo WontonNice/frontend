@@ -36,7 +36,7 @@ export default function PracticeEngine({
   const [q, setQ] = useState<PracticeQuestion>(() => build());
   const [sel, setSel] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  const { current, best, record, clearAll } = useStreak(streakKey);
+  const { current, best, record } = useStreak(streakKey);
 
   const correct = useMemo(() => q.choices[q.correctIndex], [q]);
   const isCorrect = submitted && sel === q.correctIndex;
@@ -70,14 +70,6 @@ export default function PracticeEngine({
 
           <div className="flex items-center gap-2">
             <StreakBadge current={current} best={best} />
-            <button
-              onClick={clearAll}
-              className="text-xs text-white/50 hover:text-white/80 underline decoration-dotted"
-              title="Reset streak"
-              aria-label="Reset streak"
-            >
-              reset
-            </button>
           </div>
         </div>
 
@@ -174,10 +166,6 @@ export default function PracticeEngine({
             </div>
           )}
         </div>
-
-        <p className="text-white/50 text-xs mt-4">
-          New numbers each time — generated so all quantities are valid and integers.
-        </p>
       </div>
     </div>
   );

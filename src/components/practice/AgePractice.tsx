@@ -95,13 +95,13 @@ function buildAgeFractionChange(): BuiltQuestion {
   //  J = ((s - r)kq)/(rq - sp)
   const explanation =
     `Let ${Bname}’s current age be $J$ and ${Aname}’s be $T$. We are given ` +
-    `$T=\\tfrac{${p}}{${q}}J$ and $\\dfrac{T+${k}}{J+${k}}=\\tfrac{${r}}{${s}}$. Substitute ` +
-    `$T=\\tfrac{${p}}{${q}}J$ into the second equation and solve:\\\\[4pt]` +
-    `$${s}\\Big(\\tfrac{${p}}{${q}}J+${k}\\Big)=${r}(J+${k})$\\\\` +
-    `$\\Big(\\tfrac{${s * p}}{${q}}-${r}\\Big)J=(${r}-${s})\\,${k}$\\\\` +
-    `${`$(${s * p}-${r * q})J=(${r}-${s})\\,${k}\\,${q}$`}\\\\` +
-    `$J=\\dfrac{(${s}-${r})\\,${k}\\,${q}}{${r}\\,${q}-${s}\\,${p}} = ${J}.` +
-    `\\;\\;\\text{Therefore, }${Bname}\\text{ is **${J}** years old.}`;
+    `$T=\\tfrac{${p}}{${q}}J$ and $\\dfrac{T+${k}}{J+${k}}=\\tfrac{${r}}{${s}}$. ` +
+    `Substitute $T=\\tfrac{${p}}{${q}}J$ into the second equation and solve:` +
+    `\\[ ${s}\\Big(\\tfrac{${p}}{${q}}J+${k}\\Big) = ${r}(J+${k}) \\]` +
+    `\\[ \\Big(\\tfrac{${s * p}}{${q}} - ${r}\\Big)J = (${r}-${s})\\,${k} \\]` +
+    `\\[ (${s * p}-${r * q})J = (${r}-${s})\\,${k}\\,${q} \\]` +
+    `\\[ J = \\dfrac{(${s}-${r})\\,${k}\\,${q}}{${r}\\,${q}-${s}\\,${p}} = ${J}. \\]` +
+    `Therefore, ${Bname} is **${J}** years old.`;
 
   return {
     id: `AGE-FRAC-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
