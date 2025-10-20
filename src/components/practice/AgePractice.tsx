@@ -49,11 +49,13 @@ type BuiltQuestion = {
 };
 
 /* ------------- Template A: fraction now & in k years ---------- */
+/* ------------- Template A: fraction now & in k years (algebraic explain) ---------- */
 function buildAgeFractionChange(): BuiltQuestion {
   const pair = rand(FRACTION_PAIRS);
-  const { p, q } = pair.a;
-  const { r, s } = pair.b;
+  const { p, q } = pair.a;      // T = (p/q) J
+  const { r, s } = pair.b;      // (T+k)/(J+k) = r/s
 
+  // Construct a nice integer instance (unchanged)
   let t = randint(1, 8);
   let J = (s - r) * t * q; // B today
   let tries = 0;
@@ -62,7 +64,7 @@ function buildAgeFractionChange(): BuiltQuestion {
     J = (s - r) * t * q;
     tries++;
   }
-  const T = p * (s - r) * t;       // A today (for explanation)
+  //const T = p * (s - r) * t;       // A today (for explanation)
   const k = (r * q - p * s) * t;   // years in the future
 
   const [Aname, Bname] = rand(NAMES);
@@ -75,6 +77,7 @@ function buildAgeFractionChange(): BuiltQuestion {
 
   const answer = J;
 
+  // Make 4 plausible choices
   const deltas = shuffle([-6, -4, -2, +2, +4, +6, +8]);
   const raw = new Set<number>([answer]);
   for (const d of deltas) {
@@ -82,12 +85,23 @@ function buildAgeFractionChange(): BuiltQuestion {
     if (v >= 5 && v <= 90) raw.add(v);
     if (raw.size >= 4) break;
   }
-  const choices = shuffle(Array.from(raw)).slice(0, 4);
+  const choices = shuffle(Array.from(raw).slice(0, 4));
 
+  // 🔎 Algebraic solution (step-by-step)
+  // From T = (p/q)J and (T+k)/(J+k) = r/s:
+  //  s( (p/q)J + k ) = r(J + k)
+  //  (sp/q - r)J = (r - s)k
+  //  (sp - rq)J = (r - s)kq
+  //  J = ((s - r)kq)/(rq - sp)
   const explanation =
-    `Let ${Bname} be $J$ and ${Aname} be $T$. We pick integers so ` +
-    `$T=\\tfrac{${p}}{${q}}J$ and $\\dfrac{T+${k}}{J+${k}}=\\tfrac{${r}}{${s}}$. ` +
-    `Here $J=${J}$ and $T=${T}$, so ${Bname} is **${J}** years old.`;
+    `Let ${Bname}’s current age be $J$ and ${Aname}’s be $T$. We are given ` +
+    `$T=\\tfrac{${p}}{${q}}J$ and $\\dfrac{T+${k}}{J+${k}}=\\tfrac{${r}}{${s}}$. Substitute ` +
+    `$T=\\tfrac{${p}}{${q}}J$ into the second equation and solve:\\\\[4pt]` +
+    `$${s}\\Big(\\tfrac{${p}}{${q}}J+${k}\\Big)=${r}(J+${k})$\\\\` +
+    `$\\Big(\\tfrac{${s * p}}{${q}}-${r}\\Big)J=(${r}-${s})\\,${k}$\\\\` +
+    `${`$(${s * p}-${r * q})J=(${r}-${s})\\,${k}\\,${q}$`}\\\\` +
+    `$J=\\dfrac{(${s}-${r})\\,${k}\\,${q}}{${r}\\,${q}-${s}\\,${p}} = ${J}.` +
+    `\\;\\;\\text{Therefore, }${Bname}\\text{ is **${J}** years old.}`;
 
   return {
     id: `AGE-FRAC-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
