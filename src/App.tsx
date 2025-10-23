@@ -62,7 +62,7 @@ export default function App() {
         />
 
         {/* SAT routes */}
-        <Route path="/ahievements" element={<Achievements />} />
+        <Route path="/achievements" element={<Achievements />} />
 
         {/* Study routes */}
         <Route path="/study" element={<SATPage />} />
