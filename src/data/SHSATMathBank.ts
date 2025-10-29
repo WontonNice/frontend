@@ -337,6 +337,62 @@ const Q: Record<string, MathQuestion> = {
     ""
 },
 
+  "OFFICIAL-0018": {
+  id: "OFFICIAL-0018",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "ratios", 
+  stemMarkdown:
+    "In Centerville, 45% of the population is female, and 60% of the population commutes to work daily. Of the total Centerville population, 21% are females who commute to work daily. What percentage of the total Centerville population are males who do not commute to work daily?",
+  choices: ["$15$", "$16$", "$24$", "$39$"],
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
+  "OFFICIAL-0019": {
+  id: "OFFICIAL-0019",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "ratios", 
+  stemMarkdown:
+    "In a sample of 10 cards, 4 are red and 6 are blue. If 2 cards are selected at random from the sample, one at a time without replacement, what is the probability that both cards are **not** blue?",
+  choices: ["$\\dfrac{2}{15}$", "$\\dfrac{4}{25}$", "$\\dfrac{3}{10}$", "$\\dfrac{1}{3}$"],
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
+  "OFFICIAL-0020": {
+  id: "OFFICIAL-0020",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "ratios", 
+  stemMarkdown:
+    "1 sind = 4 lorgs\n2 plunks = 5 dalts\n5 sinds = 2 harps\n1 plunk = 3 harps\n\nA nation has five types of coins: sinds, dalts, lorgs, harps, and plunks. The relationship between the coins is shown above. Which coin is most valuable?",
+  choices: ["sind", "dalt", "harp", "plunk"],
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
+  "OFFICIAL-0021": {
+  id: "OFFICIAL-0021",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "ratios", 
+  stemMarkdown:
+    "1 sind = 4 lorgs\n2 plunks = 5 dalts\n5 sinds = 2 harps\n1 plunk = 3 harps\n\nA nation has five types of coins: sinds, dalts, lorgs, harps, and plunks. The relationship between the coins is shown above. Which coin is most valuable?",
+  choices: ["sind", "dalt", "harp", "plunk"],
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
 };
 
 /* ------------------------------------------------------------------ */
