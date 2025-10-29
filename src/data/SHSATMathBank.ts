@@ -154,7 +154,7 @@ const Q: Record<string, MathQuestion> = {
     version: "2017-2018 Form A", 
     category: "set_theory",
     stemMarkdown:
-      "A survey asked students what pets they have. The results are:\n\n• 20 students have cats.\n\n• 23 students have dogs.\n\n• 3 students have both dogs and cats.\n\n• 5 students have no dogs or cats.\n\nHow many students were surveyed?",
+      "A survey asked students what pets they have. The results are:\n\n• 20 students have cats.\n• 23 students have dogs.\n• 3 students have both dogs and cats.\n• 5 students have no dogs or cats.\n\nHow many students were surveyed?",
     directionsMarkdown: "Enter your answer in the space",
     correctAnswer: "45",
     explanationMarkdown: ""
@@ -193,21 +193,48 @@ const Q: Record<string, MathQuestion> = {
     version: "2017-2018 Form A", 
     category: "arithmetic",
     stemMarkdown:
-      "In a certain school, course grades range from 0 to 100. Adrianna took 4 courses and her average was $90$. Roberto took 5 courses. If both students have the same $$sum$$ of course grades, what was Roberto’s average?",
+      "In a certain school, course grades range from 0 to 100. Adrianna took 4 courses and her average was $90$. Roberto took 5 courses. If both students have the same **sum** of course grades, what was Roberto’s average?",
     choices: ["$72$", "$80$", "$90$", "$92$"],
     answerIndex: 0,
     explanationMarkdown: ""
   },
 
-    "OFFICIAL-0008": {
+  "OFFICIAL-0008": {
     id: "OFFICIAL-0008",
     type: "single_select",
     source: "official",
     version: "2017-2018 Form A", 
     category: "arithmetic",
     stemMarkdown:
-      "In a certain school, course grades range from 0 to 100. Adrianna took 4 courses and her average was $90$. Roberto took 5 courses. If both students have the same **sum** of course grades, what was Roberto’s average?",
+      "In a certain school, course grades range from 0 to 100. Adrianna took 4 courses and her average was $90$. Roberto took 5 courses. If both students have the same $$sum$$ of course grades, what was Roberto’s average?",
     choices: ["$72$", "$80$", "$90$", "$92$"],
+    answerIndex: 0,
+    explanationMarkdown: ""
+},
+
+
+  "OFFICIAL-0009": {
+    id: "OFFICIAL-0009",
+    type: "single_select",
+    source: "official",
+    version: "2017-2018 Form A", 
+    category: "arithmetic",
+    stemMarkdown:
+      "Jenny starts a game with twice as many marbles as Keiko. Jenny gives Keiko 5 marbles, but she still has 10 more than Keiko. How many marbles did Jenny have to start with?",
+    choices: ["$25$", "$30$", "$35$", "$40$"],
+    answerIndex: 0,
+    explanationMarkdown: ""
+},
+
+  "OFFICIAL-0010": {
+    id: "OFFICIAL-0010",
+    type: "single_select",
+    source: "official",
+    version: "2017-2018 Form A", 
+    category: "arithmetic",
+    stemMarkdown:
+      "Jenny starts a game with twice as many marbles as Keiko. Jenny gives Keiko 5 marbles, but she still has 10 more than Keiko. How many marbles did Jenny have to start with?",
+    choices: ["$25$", "$30$", "$35$", "$40$"],
     answerIndex: 0,
     explanationMarkdown: ""
   },
