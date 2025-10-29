@@ -193,6 +193,19 @@ const Q: Record<string, MathQuestion> = {
     version: "2017-2018 Form A", 
     category: "arithmetic",
     stemMarkdown:
+      "In a certain school, course grades range from 0 to 100. Adrianna took 4 courses and her average was $90$. Roberto took 5 courses. If both students have the same $$sum$$ of course grades, what was Roberto’s average?",
+    choices: ["$72$", "$80$", "$90$", "$92$"],
+    answerIndex: 0,
+    explanationMarkdown: ""
+  },
+
+    "OFFICIAL-0008": {
+    id: "OFFICIAL-0008",
+    type: "single_select",
+    source: "official",
+    version: "2017-2018 Form A", 
+    category: "arithmetic",
+    stemMarkdown:
       "In a certain school, course grades range from 0 to 100. Adrianna took 4 courses and her average was $90$. Roberto took 5 courses. If both students have the same **sum** of course grades, what was Roberto’s average?",
     choices: ["$72$", "$80$", "$90$", "$92$"],
     answerIndex: 0,
