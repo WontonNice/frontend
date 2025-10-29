@@ -206,12 +206,11 @@ const Q: Record<string, MathQuestion> = {
     version: "2017-2018 Form A", 
     category: "arithmetic",
     stemMarkdown:
-      "In a certain school, course grades range from 0 to 100. Adrianna took 4 courses and her average was $90$. Roberto took 5 courses. If both students have the same $$sum$$ of course grades, what was Roberto’s average?",
-    choices: ["$72$", "$80$", "$90$", "$92$"],
+      "Jenny starts a game with twice as many marbles as Keiko. Jenny gives Keiko 5 marbles, but she still has 10 more than Keiko. How many marbles did Jenny have to start with?",
+    choices: ["$25$", "$30$", "$35$", "$40$"],
     answerIndex: 0,
     explanationMarkdown: ""
 },
-
 
   "OFFICIAL-0009": {
     id: "OFFICIAL-0009",
@@ -220,11 +219,11 @@ const Q: Record<string, MathQuestion> = {
     version: "2017-2018 Form A", 
     category: "arithmetic",
     stemMarkdown:
-      "Jenny starts a game with twice as many marbles as Keiko. Jenny gives Keiko 5 marbles, but she still has 10 more than Keiko. How many marbles did Jenny have to start with?",
-    choices: ["$25$", "$30$", "$35$", "$40$"],
+      "In a scale diagram, 0.125 inch represents 125 feet. How many inches represent 1 foot?",
+    choices: ["$0.001\\text{ in}$", "$0.01\\text{ in}$", "$0.1\\text{ in}$", "$0.12\\text{ in}$"],
     answerIndex: 0,
     explanationMarkdown: ""
-},
+  },
 
   "OFFICIAL-0010": {
     id: "OFFICIAL-0010",
@@ -233,11 +232,111 @@ const Q: Record<string, MathQuestion> = {
     version: "2017-2018 Form A", 
     category: "arithmetic",
     stemMarkdown:
-      "Jenny starts a game with twice as many marbles as Keiko. Jenny gives Keiko 5 marbles, but she still has 10 more than Keiko. How many marbles did Jenny have to start with?",
-    choices: ["$25$", "$30$", "$35$", "$40$"],
+      "A researcher recorded the number of people in each vehicle that passed through a checkpoint. The table above shows the percent distribution for the 420 vehicles that passed through the checkpoint yesterday morning. How many of the 420 vehicles contained **at least** 3 people?",
+    image: "/exams/math/imgsrc/OFFICIAL-0010.png",
+    choices: ["$0.001\\text{ in}$", "$0.01\\text{ in}$", "$0.1\\text{ in}$", "$0.12\\text{ in}$"],
     answerIndex: 0,
     explanationMarkdown: ""
   },
+
+  "OFFICIAL-0011": {
+    id: "OFFICIAL-0011",
+    type: "single_select",
+    source: "official",
+    version: "2017-2018 Form A", 
+    category: "arithmetic",
+    stemMarkdown:
+      "In the pyramid above, each triangular face has the same area, and the base MNPQ is a square that measures 8 centimeters on each side. If the length of RS = 6 centimeters, what is the surface area of the pyramid **excluding** the base?",
+    image: "/exams/math/imgsrc/OFFICIAL-0011.png",
+    choices: ["$48\\text{ sq cm}$", "$96\\text{ sq cm}$", "$128\\text{ sq cm}$", "$160\\text{ sq cm}$"],
+    answerIndex: 0,
+    explanationMarkdown: ""
+  },
+
+  "OFFICIAL-0012": {
+    id: "OFFICIAL-0012",
+    type: "single_select",
+    source: "official",
+    version: "2017-2018 Form A", 
+    category: "arithmetic",
+    stemMarkdown:
+      "The perimeter of a rectangle is 510 centimeters. The ratio of the length to the width is 3:2. What are the dimensions of this rectangle?",
+    choices: ["$150\\text{ cm by}$", "$96\\text{ sq cm}$", "$128\\text{ sq cm}$", "$160\\text{ sq cm}$"],
+    answerIndex: 0,
+    explanationMarkdown: ""
+  },
+
+  "OFFICIAL-0013": {
+    id: "OFFICIAL-0013",
+    type: "single_select",
+    source: "official",
+    version: "2017-2018 Form A", 
+    category: "arithmetic",
+    stemMarkdown:
+      "Which number line below shows the solution to the inequality $-4 < \\dfrac{x}{2} < 2$?",
+    image: "/exams/math/imgsrc/OFFICIAL-0013.png",
+    choices: ["A", "B", "C", "D"],
+    answerIndex: 0,
+    explanationMarkdown: ""
+  },
+
+  "OFFICIAL-0014": {
+  id: "OFFICIAL-0014",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "units", // currency/unit conversion
+  stemMarkdown:
+    "1 dollar = 7 lorgs\n1 dollar = 0.5 dalt\n\nKevin has 140 lorgs and 16 dalts. If he exchanges the lorgs and dalts for dollars according to the rates above, how many dollars will he receive?",
+  choices: ["$\\$28$", "$\\$52$", "$\\$182$", "$\\$282$"],
+  answerIndex: 1,
+  explanationMarkdown:
+    "From $1\\text{ dollar}=7\\text{ lorgs}$, $$140\\text{ lorgs}=\\frac{140}{7}=20\\text{ dollars}.$$ From $1\\text{ dollar}=0.5\\text{ dalt}$, we have $1\\text{ dalt}=2\\text{ dollars}$, so $$16\\text{ dalts}=16\\cdot 2=32\\text{ dollars}.$$ Total dollars $=20+32=\\boxed{52}.$"
+},
+
+  "OFFICIAL-0015": {
+  id: "OFFICIAL-0015",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "probability", 
+  stemMarkdown:
+    "A box of colored pencils contains exactly 6 red pencils. The probability of choosing a red pencil from the box is $\\tfrac{2}{7}$. How many of the pencils in the box are **not** red?",
+  choices: ["$5$", "$15$", "$21$", "$30$"],
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
+  "OFFICIAL-0016": {
+  id: "OFFICIAL-0016",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "ratios", 
+  stemMarkdown:
+    "The sum of the numbers $x$, $y$, and $z$ is $50$. The ratio of $x$ to $y$ is $1:4$, and the ratio of $y$ to $z$ is $4:5$. What is the value of $y$?",
+  choices: ["$4$", "$8$", "$10$", "$20$"],
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
+  "OFFICIAL-0017": {
+  id: "OFFICIAL-0017",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "ratios", 
+  stemMarkdown:
+    "What is the area of the shaded region in the graph above?",
+  image: "/exams/math/imgsrc/OFFICIAL-0017.png",
+  choices: ["$4$", "$8$", "$10$", "$20$"],
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
 };
 
 /* ------------------------------------------------------------------ */
