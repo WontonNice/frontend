@@ -240,6 +240,112 @@ const ChoiceText = ({ it, text }: { it: FlatItem; text: string }) => {
   );
 };
 
+/* ------------ Poem viewer (numbers every N lines) ------------- */
+function PoemViewer({
+  title,
+  author,
+  body,
+  every = 5,
+}: {
+  title?: string;
+  author?: string;
+  body: string;   // poem text with blank lines between stanzas
+  every?: number; // show a number every N lines
+}) {
+  const lines = body.replace(/\r\n/g, "\n").split("\n");
+  let count = 0;
+  return (
+    <div className="poem-wrap">
+      {title && <h2 className="poem-title">{title}</h2>}
+      {author && <div className="poem-author">by {author}</div>}
+      <ol className="poem-list">
+        {lines.map((ln, i) => {
+          const blank = ln.trim() === "";
+          if (blank) return <li key={i} className="poem-gap" aria-hidden="true" />;
+          count += 1;
+          const milestone = count % every === 0;
+          return (
+            <li
+              key={i}
+              className={`poem-line${milestone ? " poem-line--milestone" : ""}`}
+              data-line={count}
+            >
+              {ln}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+/** Try to detect a poem from MD. Supports an optional marker:
+ *   <!-- poem:every=5 -->
+ * And/or the pattern:
+ *   ### Title
+ *   by Author
+ *   <poem lines...>
+ */
+function tryParsePoem(md: string): {
+  ok: boolean; title?: string; author?: string; body: string; every: number;
+} {
+  let m = md;
+  let every = 5;
+
+  const marker = m.match(/^\s*<!--\s*poem(?::\s*every=(\d+))?\s*-->\s*/i);
+  if (marker) {
+    if (marker[1]) every = parseInt(marker[1], 10) || 5;
+    m = m.slice(marker[0].length);
+  }
+
+  // 🚫 Bail if we see ordered/paragraph numbering like "1. "
+  // (protects prose passages that number paragraphs)
+  if (!marker && /\n?\s*\d+\.\s/.test(m)) return { ok: false, body: md, every };
+
+  const lines = m.replace(/\r\n/g, "\n").split("\n");
+  let i = 0;
+  while (i < lines.length && lines[i].trim() === "") i++;
+
+  const head = lines[i]?.match(/^\s{0,3}#{1,3}\s+(.*)$/);
+  if (!head && !marker) return { ok: false, body: md, every };
+  const title = head ? head[1].trim() : undefined;
+  if (head) i++;
+
+  while (i < lines.length && lines[i].trim() === "") i++;
+  let author: string | undefined;
+  const by = lines[i]?.match(/^\s*by\s+(.+)\s*$/i);
+  if (by) { author = by[1].trim(); i++; }
+
+  const body = lines.slice(i).join("\n").trim();
+
+  // Heuristic: look like poetry (many short lines, not paragraphs)
+  if (!marker) {
+    const nonEmpty = body.split("\n").filter(l => l.trim() !== "");
+    if (nonEmpty.length < 6) return { ok: false, body: md, every };
+    const shortish = nonEmpty.filter(l => l.length <= 60).length / nonEmpty.length >= 0.7;
+    if (!shortish) return { ok: false, body: md, every };
+  }
+
+  return { ok: true, title, author, body, every };
+}
+
+/** Render passage: poem (numbered) if detected, else normal markdown */
+function renderPassageWithPoemSupport(md: string) {
+  const p = tryParsePoem(md);
+  if (p.ok) {
+    return (
+      <div className="prose md:prose-lg max-w-none passage">
+        <PoemViewer title={p.title} author={p.author} body={p.body} every={p.every} />
+      </div>
+    );
+  }
+  return (
+    <div className="prose md:prose-lg max-w-none passage">
+      <ReactMarkdown rehypePlugins={[rehypeRaw]}>{md}</ReactMarkdown>
+    </div>
+  );
+}
+
 export default function ExamRunnerPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -1014,9 +1120,7 @@ export default function ExamRunnerPage() {
                 <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
                   <div className="border rounded-md p-6 bg-white">
                     {effectivePassage ? (
-                      <div className="prose md:prose-lg max-w-none passage">
-                        <ReactMarkdown>{effectivePassage}</ReactMarkdown>
-                      </div>
+                      renderPassageWithPoemSupport(effectivePassage)
                     ) : (
                       <p className="text-gray-500">No passage for this item.</p>
                     )}

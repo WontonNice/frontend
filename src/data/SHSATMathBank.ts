@@ -234,7 +234,7 @@ const Q: Record<string, MathQuestion> = {
     stemMarkdown:
       "A researcher recorded the number of people in each vehicle that passed through a checkpoint. The table above shows the percent distribution for the 420 vehicles that passed through the checkpoint yesterday morning. How many of the 420 vehicles contained **at least** 3 people?",
     image: "/exams/math/imgsrc/OFFICIAL-0010.png",
-    choices: ["$0.001\\text{ in}$", "$0.01\\text{ in}$", "$0.1\\text{ in}$", "$0.12\\text{ in}$"],
+    choices: ["$42$", "$63$", "$105$","$315$"],
     answerIndex: 0,
     explanationMarkdown: ""
   },
@@ -261,7 +261,7 @@ const Q: Record<string, MathQuestion> = {
     category: "arithmetic",
     stemMarkdown:
       "The perimeter of a rectangle is 510 centimeters. The ratio of the length to the width is 3:2. What are the dimensions of this rectangle?",
-    choices: ["$150\\text{ cm by}$", "$96\\text{ sq cm}$", "$128\\text{ sq cm}$", "$160\\text{ sq cm}$"],
+    choices: ["150 cm by 105 cm", "153 cm by 102 cm", "158 cm by 97 cm", "165 cm by 90 cm"],
     answerIndex: 0,
     explanationMarkdown: ""
   },
@@ -331,7 +331,7 @@ const Q: Record<string, MathQuestion> = {
   stemMarkdown:
     "What is the area of the shaded region in the graph above?",
   image: "/exams/math/imgsrc/OFFICIAL-0017.png",
-  choices: ["$4$", "$8$", "$10$", "$20$"],
+  choices: ["0.25 square unit", "0.5 square unit", "1 square unit", "1.5 square units"],
   answerIndex: 1,
   explanationMarkdown:
     ""
@@ -345,7 +345,7 @@ const Q: Record<string, MathQuestion> = {
   category: "ratios", 
   stemMarkdown:
     "In Centerville, 45% of the population is female, and 60% of the population commutes to work daily. Of the total Centerville population, 21% are females who commute to work daily. What percentage of the total Centerville population are males who do not commute to work daily?",
-  choices: ["$15$", "$16$", "$24$", "$39$"],
+  choices: ["15%", "16%", "24%", "39%"],
   answerIndex: 1,
   explanationMarkdown:
     ""
@@ -358,8 +358,8 @@ const Q: Record<string, MathQuestion> = {
   version: "2017-2018 Form A",
   category: "ratios", 
   stemMarkdown:
-    "In a sample of 10 cards, 4 are red and 6 are blue. If 2 cards are selected at random from the sample, one at a time without replacement, what is the probability that both cards are **not** blue?",
-  choices: ["$\\dfrac{2}{15}$", "$\\dfrac{4}{25}$", "$\\dfrac{3}{10}$", "$\\dfrac{1}{3}$"],
+    "Mrs. Cranston bought five bottles of water for $0.90 each and 8 pounds of meat. She paid a total of $26.90 for these items, not including tax. What was the price per pound of the meat?",
+  choices: ["$2.80", "$3.25", "$14.40", "$22.40"],
   answerIndex: 1,
   explanationMarkdown:
     ""
@@ -372,8 +372,8 @@ const Q: Record<string, MathQuestion> = {
   version: "2017-2018 Form A",
   category: "ratios", 
   stemMarkdown:
-    "1 sind = 4 lorgs\n2 plunks = 5 dalts\n5 sinds = 2 harps\n1 plunk = 3 harps\n\nA nation has five types of coins: sinds, dalts, lorgs, harps, and plunks. The relationship between the coins is shown above. Which coin is most valuable?",
-  choices: ["sind", "dalt", "harp", "plunk"],
+    "In a sample of 10 cards, 4 are red and 6 are blue. If 2 cards are selected at random from the sample, one at a time without replacement, what is the probability that both cards are **not** blue?",
+  choices: ["$\\dfrac{2}{15}$", "$\\dfrac{4}{25}$", "$\\dfrac{3}{10}$", "$\\dfrac{1}{3}$"],
   answerIndex: 1,
   explanationMarkdown:
     ""
@@ -388,6 +388,116 @@ const Q: Record<string, MathQuestion> = {
   stemMarkdown:
     "1 sind = 4 lorgs\n2 plunks = 5 dalts\n5 sinds = 2 harps\n1 plunk = 3 harps\n\nA nation has five types of coins: sinds, dalts, lorgs, harps, and plunks. The relationship between the coins is shown above. Which coin is most valuable?",
   choices: ["sind", "dalt", "harp", "plunk"],
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
+  "OFFICIAL-0022": {
+  id: "OFFICIAL-0022",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "ratios", 
+  stemMarkdown:
+    "What is the mean score of the 10 students in the table above?",
+  choices: ["22.5", "75", "77", "85"],
+  image: "/exams/math/imgsrc/OFFICIAL-0021.png",
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
+  "OFFICIAL-0023": {
+  id: "OFFICIAL-0023",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "ratios", 
+  stemMarkdown:
+    "How many more people in Center City walk to work than ride their bicycle to work?",
+  choices: ["2,500", "2,700", "2,800", "3,000"],
+  image: "/exams/math/imgsrc/OFFICIAL-0022.png",
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
+  "OFFICIAL-0024": {
+  id: "OFFICIAL-0024",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "ratios", 
+  stemMarkdown:
+    "Which of the following numbers has factors that include the smallest factor (other than 1) of 91?",
+  choices: ["30", "35", "39", "44"],
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
+  "OFFICIAL-0025": {
+  id: "OFFICIAL-0025",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "ratios", 
+  stemMarkdown:
+    "In a scale drawing of a triangular banner, one side measures 16 centimeters and the other two sides each measure 12 centimeters. On the actual banner, these two sides each measure 36 feet. What is the length of the remaining side of the actual banner?",
+  choices: ["16 ft", "32 ft", "40 ft", "48 ft"],
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
+  "OFFICIAL-0026": {
+  id: "OFFICIAL-0026",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "ratios", 
+  stemMarkdown:
+    "The faculty of a certain four-year college consists of 179 teachers. There are 663 first-year students. The student-to-faculty ratio for the entire college is 15 to 1. What is the total number of second-, third-, and fourth-year students?",
+  choices: ["1,989", "2,022", "2,652", "2,685"],
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
+  "OFFICIAL-0027": {
+  id: "OFFICIAL-0027",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "ratios", 
+  stemMarkdown:
+    "A car is traveling $55$ miles per hour, and $1\\text{ mile}=5{,}280\\text{ feet}$. Which of the following calculations would give the car’s speed in **feet per second**?",
+  choices: [
+    "$\\dfrac{55\\cdot 5{,}280}{1}$",
+    "$\\dfrac{55\\cdot 5{,}280}{3{,}600}$",
+    "$\\dfrac{55\\cdot 3{,}600}{5{,}280}$",
+    "$\\dfrac{55\\cdot 5{,}280}{60}$"
+  ],
+  answerIndex: 1,
+  explanationMarkdown:
+    ""
+},
+
+  "OFFICIAL-0028": {
+  id: "OFFICIAL-0028",
+  type: "single_select",
+  source: "official",
+  version: "2017-2018 Form A",
+  category: "ratios", 
+  stemMarkdown:
+    "Today, Tien’s age is $\\tfrac{1}{4}$ of Jordan’s age. In $2$ years, Tien’s age will be $\\tfrac{1}{3}$ of Jordan’s age.\\n\\nHow old is Jordan today?",
+  choices: [
+    "$4\\,\\text{ years old}$",
+    "$6\\,\\text{ years old}$",
+    "$12\\,\\text{ years old}$",
+    "$16\\,\\text{ years old}$"
+  ],
   answerIndex: 1,
   explanationMarkdown:
     ""

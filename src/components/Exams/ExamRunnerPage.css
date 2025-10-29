@@ -170,3 +170,18 @@ html { overflow-x: hidden; }
   outline: 2px solid #93c5fd;     /* sky-300 */
   outline-offset: 2px;
 }
+
+/* Poem / numbered lines */
+.poem-title { font-size: 1.125rem; font-weight: 600; margin-bottom: .25rem; }
+.poem-author { color: #6b7280; font-style: italic; margin-bottom: .75rem; }
+.passage .poem-wrap { margin-top: .25rem; }
+.passage .poem-list { list-style: none; padding: 0; margin: 0; }
+.passage .poem-line, .passage .poem-gap {
+  position: relative; padding-left: 2.5rem; line-height: 1.75rem; white-space: pre-wrap;
+}
+.passage .poem-gap { height: .75rem; }
+.passage .poem-line::before {
+  content: ""; position: absolute; left: 0; width: 2rem; text-align: right;
+  color: #9ca3af; font-size: .875rem;
+}
+.passage .poem-line.poem-line--milestone::before { content: attr(data-line); }
