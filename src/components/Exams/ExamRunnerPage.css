@@ -171,19 +171,19 @@ html { overflow-x: hidden; }
   outline-offset: 2px;
 }
 
-/* --- Poem viewer: number only every Nth line --- */
+/* --- Poem viewer: number only every N lines --- */
 .poem-wrap .poem-list { list-style: none; padding-left: 0; margin: 0; }
 .poem-wrap .poem-line { position: relative; padding-left: 2rem; margin: .4rem 0; }
 
 /* default (non-milestone) lines: no number badge */
 .poem-wrap .poem-line::before {
-  content: "";              /* nothing by default */
-  display: none;            /* hide the badge for normal lines */
+  content: "";
+  display: none;
 }
 
 /* milestone lines: show the circular number badge */
 .poem-wrap .poem-line--milestone::before {
-  content: attr(data-line); /* <- only here */
+  content: attr(data-line);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -196,24 +196,25 @@ html { overflow-x: hidden; }
 }
 
 /* ---------- POEM OVERRIDES so paragraph counters don't leak ---------- */
-/* Neutralize .passage ol counter styles inside poem lists */
-.passage .poem-list { 
-  counter-reset: none !important; 
-  list-style: none; 
-  padding-left: 0; 
-  margin-left: 0; 
+/* Neutralize the paragraph-numbering list styles ONLY for non-milestones */
+.passage .poem-list {
+  counter-reset: none;
+  list-style: none;
+  padding-left: 0;
+  margin-left: 0;
 }
-.passage .poem-list > li { 
-  counter-increment: none !important; 
-  padding-left: 2rem; 
-  margin: .4rem 0; 
+.passage .poem-list > li {
+  counter-increment: none;
 }
-.passage .poem-list > li::before { 
-  content: none !important;      /* prevents stray numbers like “11” */
+
+/* Kill the paragraph-number bubble only on non-milestone lines */
+.passage .poem-list > li:not(.poem-line--milestone)::before {
+  content: none;
+  display: none;
 }
 
 /* Never show a badge for stanza gaps */
-.poem-wrap .poem-gap::before { 
-  content: none !important; 
-  display: none !important; 
+.poem-wrap .poem-gap::before {
+  content: none;
+  display: none;
 }
