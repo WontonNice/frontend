@@ -195,3 +195,25 @@ html { overflow-x: hidden; }
   font-weight: 700; font-size: .875rem;
 }
 
+/* ---------- POEM OVERRIDES so paragraph counters don't leak ---------- */
+/* Neutralize .passage ol counter styles inside poem lists */
+.passage .poem-list { 
+  counter-reset: none !important; 
+  list-style: none; 
+  padding-left: 0; 
+  margin-left: 0; 
+}
+.passage .poem-list > li { 
+  counter-increment: none !important; 
+  padding-left: 2rem; 
+  margin: .4rem 0; 
+}
+.passage .poem-list > li::before { 
+  content: none !important;      /* prevents stray numbers like “11” */
+}
+
+/* Never show a badge for stanza gaps */
+.poem-wrap .poem-gap::before { 
+  content: none !important; 
+  display: none !important; 
+}
