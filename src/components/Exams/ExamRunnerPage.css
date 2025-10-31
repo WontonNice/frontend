@@ -171,7 +171,7 @@ html { overflow-x: hidden; }
   outline-offset: 2px;
 }
 
-/* === Poem line-numbering (overrides generic .passage ol styles) === */
+/* === Poem line-numbering (robust, won’t fight generic .passage ol) === */
 .passage ol.poem-lines {
   counter-reset: line !important;
   list-style: none !important;
@@ -186,9 +186,9 @@ html { overflow-x: hidden; }
   margin: .15rem 0;
 }
 
-/* single marker (overrides the generic .passage ol > li::before) */
+/* Base bubble styling BUT default to no content (so nothing shows) */
 .passage ol.poem-lines > li::before {
-  content: counter(line);
+  content: none !important;               /* kill any generic marker */
   position: absolute;
   left: 0;
   top: .1rem;
@@ -204,9 +204,9 @@ html { overflow-x: hidden; }
   justify-content: center;
 }
 
-/* show only every Nth line — use content:none so no empty bubble appears */
-.passage ol.poem-lines.every-5 > li:not(:nth-child(5n))::before { content: none; }
-.passage ol.poem-lines.every-4 > li:not(:nth-child(4n))::before { content: none; }
-.passage ol.poem-lines.every-3 > li:not(:nth-child(3n))::before { content: none; }
-.passage ol.poem-lines.every-2 > li:not(:nth-child(2n))::before { content: none; }
+/* Now ENABLE only the lines you want numbered */
+.passage ol.poem-lines.every-5 > li:nth-child(5n)::before { content: counter(line) !important; }
+.passage ol.poem-lines.every-4 > li:nth-child(4n)::before { content: counter(line) !important; }
+.passage ol.poem-lines.every-3 > li:nth-child(3n)::before { content: counter(line) !important; }
+.passage ol.poem-lines.every-2 > li:nth-child(2n)::before { content: counter(line) !important; }
 

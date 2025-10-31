@@ -16,6 +16,7 @@ questions:
     explanationMarkdown: ""
 
 ---
+<!-- poem:every=5 -->
 
 The British novelist Charles Dickens is well
 known for the colorful and eccentric
