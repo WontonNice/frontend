@@ -21,15 +21,15 @@
       "id": "reading-3",
       "title": "Reading Passage 3",
       "type": "reading",
-      "passageMd": "/exams/readingpassages/From-Devastation-Beauty.md",
+      "passageMd": "/exams/readingpassages/Taste.md",
       "passageImages": [""]
     },
     {
       "id": "reading-4",
       "title": "Reading Passage 4",
       "type": "reading",
-      "passageMd": "/exams/readingpassages/Healthier-Choices.md",
-      "passageImages": ["/exams/readingpassages/imgsrc/Healthier-Choices.png"]
+      "passageMd": "/exams/readingpassages/Zimbabwe.md",
+      "passageImages": [""]
     },
     {
       "id": "reading-5",

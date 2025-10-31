@@ -171,42 +171,27 @@ html { overflow-x: hidden; }
   outline-offset: 2px;
 }
 
-/* === Poem line-numbering (robust, won’t fight generic .passage ol) === */
-.passage ol.poem-lines {
-  counter-reset: line !important;
-  list-style: none !important;
-  padding-left: 0 !important;
-  margin-left: 0 !important;
+/* --- Poem viewer: number only every Nth line --- */
+.poem-wrap .poem-list { list-style: none; padding-left: 0; margin: 0; }
+.poem-wrap .poem-line { position: relative; padding-left: 2rem; margin: .4rem 0; }
+
+/* default (non-milestone) lines: no number badge */
+.poem-wrap .poem-line::before {
+  content: "";              /* nothing by default */
+  display: none;            /* hide the badge for normal lines */
 }
 
-.passage ol.poem-lines > li {
-  counter-increment: line;
-  position: relative;
-  padding-left: 2.25rem;
-  margin: .15rem 0;
-}
-
-/* Base bubble styling BUT default to no content (so nothing shows) */
-.passage ol.poem-lines > li::before {
-  content: none !important;               /* kill any generic marker */
-  position: absolute;
-  left: 0;
-  top: .1rem;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 9999px;
-  background: #111827;
-  color: #fff;
-  font-weight: 700;
-  font-size: .8rem;
+/* milestone lines: show the circular number badge */
+.poem-wrap .poem-line--milestone::before {
+  content: attr(data-line); /* <- only here */
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: absolute;
+  left: 0; top: .15rem;
+  width: 1.5rem; height: 1.5rem;
+  border-radius: 9999px;
+  background: #111827; color: #fff;
+  font-weight: 700; font-size: .875rem;
 }
-
-/* Now ENABLE only the lines you want numbered */
-.passage ol.poem-lines.every-5 > li:nth-child(5n)::before { content: counter(line) !important; }
-.passage ol.poem-lines.every-4 > li:nth-child(4n)::before { content: counter(line) !important; }
-.passage ol.poem-lines.every-3 > li:nth-child(3n)::before { content: counter(line) !important; }
-.passage ol.poem-lines.every-2 > li:nth-child(2n)::before { content: counter(line) !important; }
 
