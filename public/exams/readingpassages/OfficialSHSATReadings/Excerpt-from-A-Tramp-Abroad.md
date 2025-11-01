@@ -1,6 +1,6 @@
 ---
-title: "Dickens"
-source: "2018-2019 Form A"
+title: "Excerpt from A Tramp Abroad"
+source: "2018-2019 Form A | 2020-2021 Form B"
 
 questions:
   - id: q1
@@ -157,7 +157,7 @@ questions:
 
 by Mark Twain
 
-Now and then, while we rested, we watched the laborious ant at his work. I found nothing new in
+1. Now and then, while we rested, we watched the laborious ant at his work. I found nothing new in
 him—certainly nothing to change my opinion of him. It seems to me that in the matter of intellect the
 ant must be a strangely overrated bird. During many summers now I have watched him, when I ought
 to have been in better business, and I have not yet come across a living ant that seemed to have any
@@ -166,7 +166,7 @@ wonderful Swiss and African ones which vote, keep drilled armies, . . . and disp
 Those particular ants may be all that the naturalist paints them, but I am persuaded that the average
 ant is a sham.
 
-I admit his industry, of course; he is the hardest working creature in the world—when anybody is
+2. I admit his industry, of course; he is the hardest working creature in the world—when anybody is
 looking—but his leather-headedness is the point I make against him. He goes out foraging, he makes a
 capture, and then what does he do? Go home? No; he goes anywhere but home. He doesn’t know where
 home is. His home may be only three feet away; no matter, he can’t find it. He makes his capture, as I
@@ -192,7 +192,7 @@ have ever seen it before; he looks around to see which is not the way home, grab
 starts. He goes through the same adventures he had before; finally stops to rest, and a friend
 comes along.
 
-Evidently the friend remarks that a last year’s grasshopper leg is a very noble acquisition, and
+3. Evidently the friend remarks that a last year’s grasshopper leg is a very noble acquisition, and
 inquires where he got it. Evidently the proprietor does not remember exactly where he did get it, but
 thinks he got it “around here somewhere.” Evidently the friend contracts to help him freight it home.
 Then, with a judgment peculiarly antic (pun not intentional), they take hold of opposite ends of that
@@ -207,7 +207,7 @@ and then each starts off in a different direction to see if he can’t find an o
 is heavy enough to afford entertainment and at the same time valueless enough to make an ant want
 to own it. . . .
 
-Science has recently discovered that the ant does not lay up anything for winter use. . . . He does not
+4. Science has recently discovered that the ant does not lay up anything for winter use. . . . He does not
 work, except when people are looking, and only then when the observer has a green, naturalistic look,
 and seems to be taking notes. This amounts to deception, and will injure him for the Sunday schools.
 He has not judgment enough to know what is good to eat from what isn’t. This amounts to ignorance,
