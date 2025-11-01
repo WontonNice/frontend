@@ -12,7 +12,7 @@ questions:
       - "B. the enthusiasm with which the author approached her work indoors."
       - "C. the fond feelings that the author has toward her childhood experiences."
       - "D. the mix of emotions that the author feels toward her work and her mother."
-    answerIndex: 1
+    answerIndex: 2
     explanationMarkdown: ""
 
   - id: q2
@@ -36,19 +36,19 @@ questions:
       - "B. conveying the importance of following the steps of the beading process in a precise order to work most efficiently."
       - "C. emphasizing the time required to fully prepare for and execute the many large and small tasks in the activity of beading."
       - "D. detailing each step in preparation for beading in order to highlight the author’s enthusiasm for the work."
-    answerIndex: 1
+    answerIndex: 3
     explanationMarkdown: ""
 
   - id: q4
     type: single_select
     skillType: function
-    stemMarkdown: "detailing each step in preparation for beading in order to highlight the author’s enthusiasm for the work."
+    stemMarkdown: "The details in paragraph 3 convey a central idea of the excerpt by suggesting that"
     choices:
       - "A. the author was interested in the work because she knew her mother was making something for her."
       - "B. the author had difficulty learning through observation but wanted to help her mother."
       - "C. the author was determined to behave according to her mother’s standards and sought her approval."
       - "D. the author had great admiration for her mother’s precision and mastery of her craft."
-    answerIndex: 1
+    answerIndex: 3
     explanationMarkdown: ""
 
   - id: q5
@@ -60,7 +60,7 @@ questions:
       - "B. Cut the double sheet of buckskin into a shape; take a skein of sinew and pierce the buckskin with an awl; thread the sinew with beads of many different colors in a simple or complex pattern; twist the sinew to keep it tight after every stitch into the buckskin."
       - "C. Arrange the beads into groups of colors on a mat; smooth out a double sheet of buckskin and cut it to shape; take a single thread of sinew; pierce the buckskin with an awl; thread the buckskin with the sinew and string it with beads, carefully twisting after every stitch."
       - "D. Gather beads, buckskin, sinew, and awl and place them on a mat; cut the buckskin into the desired shape; decide on a pattern for the beads and create it using the sinews and the awl; thread the beads onto the sinew in the desired pattern and twist it tight."
-    answerIndex: 1
+    answerIndex: 2
     explanationMarkdown: ""
 
   - id: q6
@@ -72,7 +72,7 @@ questions:
       - "B. the descriptions of the special materials that must be used to make decorated moccasins."
       - "C. the descriptions of the various color combinations that make an attractive moccasin design."
       - "D. the example of the author successfully and independently using a sharpened rod."
-    answerIndex: 1
+    answerIndex: 0
     explanationMarkdown: ""
 
   - id: q7
@@ -102,7 +102,7 @@ questions:
       - "B. It signals a change from the challenging aspects of life on the reservation to the advantages of living on the prairie."
       - "C. It highlights a contrast between the focus and control required while working and the freedom of having fun outside."
       - "D. It concludes the progression of events in the narrative by describing the sequence of events at the end of the author’s day."
-    answerIndex: 1
+    answerIndex: 2
     explanationMarkdown: ""
 
   - id: q9
@@ -114,7 +114,7 @@ questions:
       - "B. the author’s family incorporated traditional materials into their craft as a way of resisting the influence from European traders."
       - "C. the uniqueness of the cultural tradition that the author learned as a child was eventually recognized in Europe."
       - "D. the author was able to incorporate color into her craftwork as a result of trade with other peoples."
-    answerIndex: 1
+    answerIndex: 0
     explanationMarkdown: ""
 
 ---
