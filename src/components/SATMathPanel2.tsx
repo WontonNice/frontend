@@ -40,11 +40,11 @@ const CATEGORIES: Category[] = [
     path: "/study/math/probability",
   },
   {
-    id: "functions",
-    title: "Functions & Graphs",
-    blurb: "Domain/range, transformations, interpreting graphs.",
+    id: "inequalities",
+    title: "Inequalities",
+    blurb: "Inequality properties, solving and graphing inequalities.",
     icon: FunctionSquare,
-    path: "/study/math/functions",
+    path: "/study/math/inequalities",
   },
   {
     id: "exponents",

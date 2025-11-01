@@ -1,6 +1,6 @@
 ---
 title: "Excerpt from The Spirit of the Herd"
-source: "|Official SHSAT Practice Test A"
+source: "2021-2022 Form B | 2025-2026 Form A"
 
 questions:
   - id: q1
