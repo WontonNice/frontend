@@ -4,10 +4,21 @@ import { useNavigate } from "react-router-dom";
 
 /* ----------------------- helpers: front-matter ----------------------- */
 function splitFrontmatter(md: string): { fm: string | null; body: string } {
-  if (!md.startsWith("---")) return { fm: null, body: md };
-  const rest = md.slice(3);
-  const m = rest.match(/\r?\n---\r?\n/);
+  // 1) strip UTF-8 BOM
+  let s = md.replace(/^\uFEFF/, "");
+
+  // 2) strip any leading whitespace and leading HTML comments
+  //    (some editors add a blank line; some generators add comments)
+  s = s.replace(/^(?:\s*|<!--[\s\S]*?-->)+/, "");
+
+  // 3) must start with a fence after cleanup
+  if (!s.startsWith("---")) return { fm: null, body: md };
+
+  // 4) find the closing fence:  \n---\n   or   \n---<EOF>
+  const rest = s.slice(3);
+  const m = rest.match(/\r?\n---(?:\r?\n|$)/);
   if (!m) return { fm: null, body: md };
+
   const end = m.index ?? 0;
   const fm = rest.slice(0, end).trim();
   const body = rest.slice(end + m[0].length).replace(/^\s+/, "");
@@ -127,7 +138,9 @@ async function toPassageMeta(
     const meta = (await parseYaml<any>(fm)) as any;
     const title: string = meta?.title ?? titleFromFilename(last);
     const image: string | undefined = meta?.image;
-    const totalQuestions = Array.isArray(meta?.questions) ? meta.questions.length : 0;
+    const totalQuestions =
+  Array.isArray(meta?.questions) ? meta.questions.length :
+  (typeof meta?.totalQuestions === "number" ? meta.totalQuestions : 0);
     return { slug, title, image, totalQuestions, url: path };
   } catch {
     // minimal fallback
@@ -278,15 +291,6 @@ export default function StudyHallReadingPage() {
           })
         )}
       </div>
-
-      <p className="text-xs text-white/50">
-        Tip: The “Start” button expects a route for <code>/reading-runner</code>. Add
-        <br />
-        <code>{`<Route path="/reading-runner" element={<ReadingRunnerPage />} />`}</code> to your{" "}
-        <code>App.tsx</code>. Your runner should save best scores to{" "}
-        <code>localStorage</code> as <code>readingBest:&lt;mdPath&gt;</code> with{" "}
-        <code>{`{correct,total}`}</code>.
-      </p>
     </div>
   );
 }
