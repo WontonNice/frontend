@@ -47,11 +47,11 @@ const CATEGORIES: Category[] = [
     path: "/study/math/inequalities",
   },
   {
-    id: "exponents",
-    title: "Exponents & Radicals",
-    blurb: "Laws of exponents, roots, rational exponents.",
+    id: "consecutive-integers",
+    title: "Consecutive Integers",
+    blurb: "Consecutive integer problems and their applications.",
     icon: Layers,
-    path: "/study/math/exponents",
+    path: "/study/math/consecutive-integers",
   },
 ];
 
