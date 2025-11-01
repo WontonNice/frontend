@@ -118,13 +118,18 @@ type FlatItem = {
 /* ----------------------- Small utility helpers ----------------------- */
 
 function splitFrontmatter(md: string): { fm: string | null; body: string } {
-  if (!md.startsWith("---")) return { fm: null, body: md };
-  const rest = md.slice(3);
-  const match = rest.match(/\r?\n---\r?\n/);
-  if (!match) return { fm: null, body: md };
-  const end = match.index!;
+  // Strip UTF-8 BOM and any leading whitespace/newlines
+  const src = md.replace(/^\uFEFF/, "").replace(/^\s+/, "");
+  if (!src.startsWith("---")) return { fm: null, body: src };
+
+  const rest = src.slice(3);
+  // allow closing fence followed by newline OR end-of-file
+  const m = rest.match(/\r?\n---(?:\r?\n|$)/);
+  if (!m) return { fm: null, body: src };
+
+  const end = m.index ?? 0;
   const fm = rest.slice(0, end).trim();
-  const body = rest.slice(end + match[0].length).replace(/^\s+/, "");
+  const body = rest.slice(end + m[0].length).replace(/^\s+/, "");
   return { fm, body };
 }
 
