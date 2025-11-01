@@ -1,13 +1,163 @@
 ---
 title: "Dickens"
 source: "2018-2019 Form A"
+
+questions:
+  - id: q1
+    type: single_select
+    skillType: function
+    stemMarkdown: "The phrase “those wonderful Swiss and African ones which vote, keep drilled armies, . . . and dispute about religion” in paragraph 1 shows that the author"
+    choices:
+      - "A. believes that the behavior of the ants is reflected in other living creatures."
+      - "B. acknowledges that his observations of a few do not necessarily apply to all."
+      - "C. knows that disproving a commonly held belief is challenging."
+      - "D. accepts that there are flaws in his interpretation of the behavior of the ants."
+    answerIndex: 1
+    explanationMarkdown: ""
+
+  - id: q2
+    type: single_select
+    skillType: function
+    stemMarkdown: "The central idea that “the average ant is a sham” (paragraph 1) is conveyed mainly through the"
+    choices:
+      - "A. comical descriptions of the inability of the ants to accomplish the task at hand."
+      - "B. comparison between ants from other countries and the ants being observed."
+      - "C. keen observations that the level of intelligence of ants is mostly overstated."
+      - "D. conclusion that ants value objects that are of little practical use to them."
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q3
+    type: single_select
+    skillType: function
+    stemMarkdown: "In paragraph 2, how do the words “grabs,” “yanks,” and “tearing away” contribute to the meaning of the excerpt?"
+    choices:
+      - "A. They highlight the ant’s belief that his work is important."
+      - "B. They illustrate that the ant is more efficient working on his own."
+      - "C. They indicate the speed with which the ant completes his tasks."
+      - "D. They emphasize the ant’s anxious efforts to be productive."
+    answerIndex: 3
+    explanationMarkdown: ""
+
+  - id: q4
+    type: single_select
+    skillType: function
+    stemMarkdown: |
+        Read this text from paragraph 2.
+
+        **He . . . comes to a weed; it never occurs to him to go around it. No; he must climb it,
+        and he does climb it, dragging his worthless property to the top—which is as bright a
+        thing to do as it would be for me to carry a sack of flour from Heidelberg to Paris by
+        way of Strasburg steeple;**
+
+        These details convey the central idea in the excerpt by showing that the ant
+    choices:
+      - "A. often wastes his strength when working on a task."
+      - "B. is surprised by the effort he needs in order to move the object."
+      - "C. is oblivious to the most practical solution to his problem."
+      - "D. focuses more on obtaining the object than getting it back home efficiently"
+    answerIndex: 2
+    explanationMarkdown: ""
+
+  - id: q5
+    type: single_select
+    skillType: function
+    stemMarkdown: "Which of the following best explains the author’s fascination with the ants?"
+    choices:
+      - "A. “During many summers now I have watched him, when I ought to have been in better business, and I have not yet come across a living ant that seemed to have any more sense than a dead one.” (paragraph 1)"
+      - "B. “I admit his industry, of course; he is the hardest working creature in the world—” (paragraph 2)"
+      - "C. “Science has recently discovered that the ant does not lay up anything for winter use.” (paragraph 4)"
+      - "D. “It is strange beyond comprehension that so manifest a humbug as the ant has been able to fool so many nations and keep it up so many ages without being found out.” (paragraph 4)"
+    answerIndex: 3
+    explanationMarkdown: ""
+
+  - id: q6
+    type: single_select
+    skillType: function
+    stemMarkdown: |
+        Read this sentence from paragraph 2.
+
+        **At the end of half an hour he fetches up within six inches of the place he started
+        from, and lays his burden down.**
+
+        How does the sentence contribute to the development of the central idea of the excerpt?
+    choices:
+      - "A. It reveals that the ant is aware of the purposelessness of his efforts and that he does not enjoy his work."
+      - "B. It highlights how little the ant accomplishes despite the great amount of effort he exerts."
+      - "C. It suggests that the ant has an industrious attitude and does not easily give up."
+      - "D. It emphasizes that the ant does not thoughtfully consider how difficult it would be to carry his capture for such a long period of time."
+    answerIndex: 1
+    explanationMarkdown: ""
+
+  - id: q7
+    type: single_select
+    skillType: function
+    stemMarkdown: "Which sentence from paragraph 2 best supports the idea that sheer “leather-headedness” (paragraph 2) amounts to “ignorance” and “idiocy” (paragraph 4)?"
+    choices:
+      - "A. “He goes out foraging, he makes a capture, and then what does he do?”"
+      - "B. “He lifts it bodily up in the air by main force,”"
+      - "C. “When he gets up there he finds that that is not the place;”"
+      - "D. “Now he wipes the sweat from his brow, strokes his limbs, and then marches aimlessly off, in as violent a hurry as ever.”"
+    answerIndex: 2
+    explanationMarkdown: ""
+
+  - id: q8
+    type: single_select
+    skillType: function
+    stemMarkdown: |
+        Read this sentence from paragraph 3.
+
+        **Evidently the friend remarks that a last year’s grasshopper leg is a very noble
+        acquisition, and inquires where he got it.**
+
+        Which statement best describes how the sentence fits into the overall structure of the excerpt?
+    choices:
+      - "A. It indicates a shift to the realization that the ants place great importance on an item that has little value."
+      - "B. It emphasizes a shift from an analysis of the actions of the individual ant to a commentary on the actions of the ants working together."
+      - "C. It introduces a transition to the idea that specific observations about one ant allow for generalizations about all ants."
+      - "D. It provides a transition to the observation that the ant’s friend is just as purposeful in his efforts toward a futile ending as the first ant."
+    answerIndex: 1
+    explanationMarkdown: ""
+
+  - id: q9
+    type: single_select
+    skillType: function
+    stemMarkdown: |
+        Read this sentence from paragraph 3.
+
+        **The two perspiring ants inspect it thoughtfully and decide that dried grasshopper
+        legs are a poor sort of property after all, and then each starts off in a different
+        direction to see if he can’t find an old nail or something else that is heavy enough to
+        afford entertainment and at the same time valueless enough to make an ant want to
+        own it.**
+
+        How does the word choice in the sentence contribute to the overall meaning of the excerpt?
+    choices:
+      - "A. It creates a humorous critique of the ants’ intense attitude toward their pointless work."
+      - "B. It illustrates the ants’ confusion over their lack of positive results compared with their level of effort."
+      - "C. It highlights the ants’ frustration as they repeatedly chose a difficult task over one that could be accomplished more easily."
+      - "D. It illustrates the ants’ stubborn determination to hold on to the worthless object."
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q10
+    type: single_select
+    skillType: function
+    stemMarkdown: "How does the presence of the friend in paragraph 3 influence the first ant’s behavior?"
+    choices:
+      - "A. The friend distracts the ant from finding the correct path home."
+      - "B. The friend inspires the ant to consider a new approach to the situation."
+      - "C. The friend encourages the ant to continue his worthless efforts."
+      - "D. The friend tries to prevent the ant from finishing his task."
+    answerIndex: 2
+    explanationMarkdown: ""
 ---
 
 ### Excerpt from A Tramp Abroad
 
 by Mark Twain
 
-Now and then, while we1 rested, we watched the laborious ant at his work. I found nothing new in
+Now and then, while we rested, we watched the laborious ant at his work. I found nothing new in
 him—certainly nothing to change my opinion of him. It seems to me that in the matter of intellect the
 ant must be a strangely overrated bird. During many summers now I have watched him, when I ought
 to have been in better business, and I have not yet come across a living ant that seemed to have any
