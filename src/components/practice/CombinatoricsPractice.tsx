@@ -81,7 +81,7 @@ function buildPairsFromN(): PracticeQuestion {
 function buildPizzaTwoToppings(): PracticeQuestion {
   const forceSample = Math.random() < 0.25;
   const S = forceSample ? 3 : randInt(2, 5);                  // sizes
-  const n = forceSample ? 7 : randInt(6, 12);                 // toppings
+  const n = 2                // toppings
   const k = forceSample ? 2 : randInt(2, Math.min(4, n - 1)); // exactly k toppings
   const correct = S * nCr(n, k);
 
