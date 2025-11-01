@@ -125,7 +125,7 @@ questions:
   - id: q8
     type: single_select
     skillType: function
-    stemMarkdown: "the study of particles and the study of objects in space are similar."
+    stemMarkdown: " The last stanza (lines 33–44) concludes the poem by emphasizing which central idea?"
     choices:
       - "A. The exciting work that physicists conduct provides information about fundamental aspects of the universe."
       - "B. The unusual work of physicists is carried out in unconventional locations and in special conditions."

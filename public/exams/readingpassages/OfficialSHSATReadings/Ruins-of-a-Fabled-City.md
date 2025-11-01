@@ -12,9 +12,68 @@ questions:
       - "B. Mysteries related to Great Zimbabwe continue to interest historians and explorers even though archaeologists have confirmed its origins."
       - "C. The history of Great Zimbabwe was subject to much speculation until modern archaeologists definitively determined its origins."
       - "D. Early missteps in the study and excavation of the Great Zimbabwe ruins led to the loss of valuable evidence about the city."
+    answerIndex: 2
+    explanationMarkdown: ""
+
+  - id: q2
+    type: single_select
+    skillType: function
+    stemMarkdown: "What was the main way that Karl Mauch’s conclusions about Great Zimbabwe in paragraph 4 affected later archaeological investigations?"
+    choices:
+      - "A. Archaeologists from all over Europe became interested in excavating the area."
+      - "B. Archaeologists made assumptions about the history of the ruins before excavating."
+      - "C. Archaeologists started to believe that many of the past accounts recorded about the ruins were true."
+      - "D. Archaeologists realized it was unlikely that an ancient culture could build such grand structures."
     answerIndex: 1
     explanationMarkdown: ""
 
+  - id: q3
+    type: single_select
+    skillType: function
+    stemMarkdown: "Which statement best describes Portuguese explorers’ experience searching for Great Zimbabwe?"
+    choices:
+      - "A. They routinely visited East Africa but never located the city."
+      - "B. They were motivated by the hope of finding a mysterious city."
+      - "C. They used details from de Barros’s story in order to determine the city’s exact location."
+      - "D. They studied history books in order to gather information about the city."
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q4
+    type: single_select
+    skillType: function
+    stemMarkdown: "What was “one mystery of Great Zimbabwe” (paragraph 6) that had been solved?"
+    choices:
+      - "A. why the settlement was abandoned"
+      - "B. where the ivory and gold from the city went"
+      - "C. why the ruins remained undiscovered until the 1870s"
+      - "D. who had built the settlement"
+    answerIndex: 3
+    explanationMarkdown: ""
+
+  - id: q5
+    type: single_select
+    skillType: function
+    stemMarkdown: "Which statement about the Shona people is best supported by the passage?"
+    choices:
+      - "A. They live along the east coast of Africa."
+      - "B. They are descendants of the people who built Great Zimbabwe."
+      - "C. They lived in the Middle East before settling in Africa."
+      - "D. They were once ruled by King Solomon and the Queen of Sheba."
+    answerIndex: 2
+    explanationMarkdown: ""
+
+  - id: q6
+    type: single_select
+    skillType: function
+    stemMarkdown: "The conclusions of David Randall-MacIver and Gertrude Caton-Thompson were significant because they"
+    choices:
+      - "A. proved that Great Zimbabwe was much older than previously thought."
+      - "B. questioned why the Shona people left Great Zimbabwe."
+      - "C. supported the idea that the ancient Shona had a robust society at Great Zimbabwe."
+      - "D. revealed that Great Zimbabwe was African in origin."
+    answerIndex: 3
+    explanationMarkdown: ""
 ---
 
 ### Ruins of a Fabled City
