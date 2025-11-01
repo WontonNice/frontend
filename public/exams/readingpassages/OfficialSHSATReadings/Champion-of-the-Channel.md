@@ -1,4 +1,6 @@
 ---
+title: "Champion of the Channel"
+source: "2018-2019 Form A"
 ---
 
 ### Champion of the Channel

@@ -1,9 +1,12 @@
 ---
+title: "Dickens"
+source: "2018-2019 Form A"
 ---
 
 ### Excerpt from A Tramp Abroad
 
 by Mark Twain
+
 Now and then, while we1 rested, we watched the laborious ant at his work. I found nothing new in
 him—certainly nothing to change my opinion of him. It seems to me that in the matter of intellect the
 ant must be a strangely overrated bird. During many summers now I have watched him, when I ought

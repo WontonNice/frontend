@@ -14,6 +14,9 @@ import SATMathPage from "./components/SATMathPage";
 import SATMathPanel1 from "./components/SATMathPanel1";
 import SATMathPanel2 from "./components/SATMathPanel2";
 
+import StudyHallReadingRunner from "./components/StudyHallReadingRunner";
+import StudyHallReading from "./components/StudyHallReadingPage";
+
 import Achievements from "./components/Achievements";
 
 import LiveActivitiesPage from "./components/LiveActivitiesPage"; 
@@ -72,6 +75,7 @@ export default function App() {
         <Route path="/study/math/set-theory" element={<SetTheoryPractice />} />
         <Route path="/study/math/age-practice" element={<AgePractice />} />
         <Route path="/study/math/combinatorics" element={<CombinatoricsPractice />} />
+        <Route path="/study/reading" element={<StudyHallReading />} />
 
         {/* ✅ Live Activities route */}
         <Route path="/live-activities" element={<LiveActivitiesPage />} />
@@ -92,6 +96,17 @@ export default function App() {
           </RequireAuth>
         }
       />
+
+      <Route
+  path="/reading-runner"
+  element={
+    <RequireAuth>
+      <ExamFullscreenLayout>
+        <StudyHallReadingRunner />
+      </ExamFullscreenLayout>
+    </RequireAuth>
+  }
+/>
 
       {/* Catch-all */}
       <Route path="*" element={<Navigate to="/auth" replace />} />
