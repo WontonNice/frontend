@@ -164,7 +164,7 @@ export default function StudyHallReadingPage() {
       // Fetch manifests from both folders (optional files)
       const [top, official] = await Promise.all([
         loadManifest("/exams/readingpassages/_manifest.json"),
-        loadManifest("/exams/readingpassages/OfficialSHSATReadingPassages/_manifest.json"),
+        loadManifest("/exams/readingpassages/OfficialSHSATReadings/_manifest.json"),
       ]);
 
       const used = new Set<string>();
