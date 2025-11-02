@@ -30,6 +30,8 @@ import AgePractice from "./components/practice/AgePractice";
 import CombinatoricsPractice from "./components/practice/CombinatoricsPractice";
 import InequalitiesPractice from "./components/practice/InequalityPractice";
 import ConsecutiveIntegers from "./components/practice/ConsecutiveIntegers";
+import Arithmetic from "./components/practice/Arithmetic";
+import Algebra from "./components/practice/Algebra";
 
 export default function App() {
   return (
@@ -79,6 +81,9 @@ export default function App() {
         <Route path="/study/math/combinatorics" element={<CombinatoricsPractice />} />
         <Route path="/study/math/inequalities" element={<InequalitiesPractice />} />
         <Route path="/study/math/consecutive-integers" element={<ConsecutiveIntegers />} />
+        <Route path="/study/math/arithmetic" element={<Arithmetic />} />
+        <Route path="/study/math/algebra" element={<Algebra />} />
+
         <Route path="/study/reading" element={<StudyHallReading />} />
 
         {/* ✅ Live Activities route */}

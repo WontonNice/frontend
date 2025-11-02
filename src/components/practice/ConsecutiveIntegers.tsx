@@ -1,4 +1,3 @@
-// src/components/practice/ConsecutiveIntegersProduct.tsx
 import { useEffect, useMemo, useState } from "react";
 import MathText from "../MathText";
 
@@ -18,6 +17,9 @@ function shuffle<T>(arr: readonly T[]): T[] {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+function countMultiplesInRange(k: number, L: number, R: number) {
+  return Math.floor(R / k) - Math.floor((L - 1) / k);
 }
 
 /* ===================== PRODUCT (free response) ===================== */
@@ -48,18 +50,18 @@ function buildProduct(): BuiltProduct {
   return { S, a, prod, stemText, explText };
 }
 
-/* ===================== AVERAGE (multiple choice) ===================== */
-type BuiltAvg = {
-  n: number;              // count of consecutive integers (odd)
-  halfSpan: number;       // (n-1)/2
+/* ===================== MC template type ===================== */
+type BuiltMC = {
   stemText: string;       // KaTeX-ready
-  choices: string[];      // KaTeX-wrapped options
+  choices: string[];      // KaTeX strings
   answerIndex: number;
   explText: string;       // KaTeX-ready
 };
 
-function buildAverage(): BuiltAvg {
-  const n = [3, 5, 7, 9, 11][randint(0, 4)]; // odd count
+/* ===================== AVERAGE (multiple choice) ===================== */
+function buildAverage(): BuiltMC {
+  const oddCounts = [3, 5, 7, 9, 11] as const;
+  const n = oddCounts[randint(0, oddCounts.length - 1)]; // odd count
   const halfSpan = (n - 1) / 2;
 
   const stemText =
@@ -82,13 +84,57 @@ function buildAverage(): BuiltAvg {
     `Thus $\\displaystyle \\frac{\\ell+g}{2} = \\frac{\\ell + (\\ell+${n - 1})}{2} ` +
     `= \\frac{2\\ell + ${n - 1}}{2} = \\ell + \\frac{${n - 1}}{2} = \\ell + ${halfSpan}$.`;
 
-  return { n, halfSpan, stemText, choices, answerIndex, explText };
+  return { stemText, choices, answerIndex, explText };
+}
+
+/* ===================== NEITHER (2 nor 3) — multiple choice ===================== */
+function buildNeither2or3(): BuiltMC {
+  // choose an inclusive range with at least 1 multiple of 6 (to mirror the exemplar wording)
+  let L = 0, R = 0, c6 = 0;
+  do {
+    L = randint(1, 40);
+    R = L + randint(14, 30); // 15–31 numbers
+    c6 = countMultiplesInRange(6, L, R);
+  } while (c6 < 1);
+
+  const total = R - L + 1;
+  const c2 = countMultiplesInRange(2, L, R);
+  const c3 = countMultiplesInRange(3, L, R);
+  const neither = total - (c2 + c3 - c6); // inclusion–exclusion
+
+  const stemText =
+    `In the set of consecutive integers from ${L} to ${R}, inclusive, there are ${c6} integers ` +
+    `that are multiples of both $2$ and $3$. How many integers in this set are multiples of ` +
+    `**neither** $2$ nor $3$?`;
+
+  // plausible distractors (common mistakes)
+  const d1 = total - c2;                // removed only multiples of 2
+  const d2 = total - c3;                // removed only multiples of 3
+  const d3 = total - (c2 + c3);         // double-counted removal (forgot +c6)
+  const d4 = Math.max(0, neither - 1);  // off-by-one
+  const d5 = neither + 1;
+
+  const all = shuffle(Array.from(new Set([neither, d1, d2, d3, d4, d5])));
+  const choices = all.slice(0, 4).map((v) => `$${v}$`);
+  if (!choices.map((c) => c.replace(/\$|\\,/g, "")).includes(String(neither))) {
+    choices[0] = `$${neither}$`;
+  }
+  const answerIndex = choices.findIndex((c) => c === `$${neither}$`);
+
+  const explText =
+    `There are $N=${total}$ integers in the range. Use inclusion–exclusion for multiples of $2$ or $3$: \\n\\n` +
+    `$\\#(2)=${c2},\\ \\#(3)=${c3},\\ \\#(2\\cap 3)=\\#(6)=${c6}$. \\;` +
+    `So $\\#(2\\cup 3)=${c2}+${c3}-${c6}=${c2 + c3 - c6}$. \\n\\n` +
+    `Therefore “neither $2$ nor $3$” is $N-\\#(2\\cup 3)=${total}-(${c2 + c3 - c6})=${neither}$.`;
+
+  return { stemText, choices, answerIndex, explText };
 }
 
 /* --------------- streak storage (separate per mode) --------------- */
 const STREAK_KEYS = {
   prod: "streak:consecutive-product:best",
   avg: "streak:consecutive-avg:best",
+  nei: "streak:consecutive-neither:best",
 } as const;
 
 function loadBest(key: keyof typeof STREAK_KEYS) {
@@ -105,28 +151,34 @@ function saveBest(key: keyof typeof STREAK_KEYS, best: number) {
 }
 
 /* ============================== PAGE ============================== */
-type Mode = "product" | "average";
+type Mode = "product" | "average" | "neither";
 
-export default function ConsecutiveIntegersProduct() {
+export default function ConsecutiveIntegersPractice() {
   const [mode, setMode] = useState<Mode>("product");
 
   // Seeds to force regeneration per mode
   const [seedProd, setSeedProd] = useState(0);
   const [seedAvg, setSeedAvg] = useState(0);
+  const [seedNei, setSeedNei] = useState(0);
 
-  // Product state
+  // Product state (free response)
   const [answer, setAnswer] = useState<string>("");
   const p = useMemo(() => {
     void seedProd;
     return buildProduct();
   }, [seedProd]);
 
-  // Average state
+  // MC states (shared UI)
   const [sel, setSel] = useState<number | null>(null);
-  const q = useMemo(() => {
+  const qAvg = useMemo(() => {
     void seedAvg;
     return buildAverage();
   }, [seedAvg]);
+  const qNei = useMemo(() => {
+    void seedNei;
+    return buildNeither2or3();
+  }, [seedNei]);
+  const q: BuiltMC | null = mode === "average" ? qAvg : mode === "neither" ? qNei : null;
 
   // Reveal & streaks (separate per mode)
   const [revealed, setRevealed] = useState(false);
@@ -137,13 +189,17 @@ export default function ConsecutiveIntegersProduct() {
   const [currentAvg, setCurrentAvg] = useState(0);
   const [bestAvg, setBestAvg] = useState(0);
 
+  const [currentNei, setCurrentNei] = useState(0);
+  const [bestNei, setBestNei] = useState(0);
+
   useEffect(() => {
     setBestProd(loadBest("prod"));
     setBestAvg(loadBest("avg"));
+    setBestNei(loadBest("nei"));
   }, []);
 
   // Derived correctness per mode
-  const numericAnswer = (() => {
+  const numericAnswer: number | null = (() => {
     const t = answer.trim();
     if (!t) return null;
     const n = Number(t);
@@ -152,9 +208,9 @@ export default function ConsecutiveIntegersProduct() {
   const isCorrect =
     mode === "product"
       ? numericAnswer === p.prod
-      : sel != null && sel === q.answerIndex;
+      : sel != null && q != null && sel === q.answerIndex;
 
-  // Keyboard: Enter to check (both modes)
+  // Keyboard: Enter to check (both UIs)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Enter" && !revealed) onCheck();
@@ -178,7 +234,7 @@ export default function ConsecutiveIntegersProduct() {
       } else {
         setCurrentProd(0);
       }
-    } else {
+    } else if (mode === "average") {
       if (isCorrect) {
         const next = currentAvg + 1;
         setCurrentAvg(next);
@@ -188,6 +244,17 @@ export default function ConsecutiveIntegersProduct() {
         }
       } else {
         setCurrentAvg(0);
+      }
+    } else {
+      if (isCorrect) {
+        const next = currentNei + 1;
+        setCurrentNei(next);
+        if (next > bestNei) {
+          setBestNei(next);
+          saveBest("nei", next);
+        }
+      } else {
+        setCurrentNei(0);
       }
     }
 
@@ -199,14 +266,17 @@ export default function ConsecutiveIntegersProduct() {
     if (mode === "product") {
       setAnswer("");
       setSeedProd((s) => s + 1);
-    } else {
+    } else if (mode === "average") {
       setSel(null);
       setSeedAvg((s) => s + 1);
+    } else {
+      setSel(null);
+      setSeedNei((s) => s + 1);
     }
   };
 
-  const shownCurrent = mode === "product" ? currentProd : currentAvg;
-  const shownBest = mode === "product" ? bestProd : bestAvg;
+  const shownCurrent = mode === "product" ? currentProd : mode === "average" ? currentAvg : currentNei;
+  const shownBest = mode === "product" ? bestProd : mode === "average" ? bestAvg : bestNei;
 
   return (
     <div className="space-y-4">
@@ -216,7 +286,9 @@ export default function ConsecutiveIntegersProduct() {
           <h2 className="text-2xl font-semibold">
             {mode === "product"
               ? "Consecutive Integers — Product"
-              : "Consecutive Integers — Averages"}
+              : mode === "average"
+              ? "Consecutive Integers — Averages"
+              : "Consecutive Integers — Neither 2 nor 3"}
           </h2>
           <p className="text-white/70">
             {mode === "product"
@@ -265,15 +337,28 @@ export default function ConsecutiveIntegersProduct() {
         >
           Averages
         </button>
+        <button
+          onClick={() => {
+            setRevealed(false);
+            setMode("neither");
+          }}
+          className={`px-4 py-2 text-sm font-semibold ${
+            mode === "neither"
+              ? "bg-white/20 text-white"
+              : "bg-white/5 text-white/80 hover:bg-white/10"
+          }`}
+        >
+          Neither 2 nor 3
+        </button>
       </div>
 
       {/* ======= STEM ======= */}
       <div className="rounded-xl bg-white text-gray-900 border border-gray-200 shadow-sm p-4">
         {mode === "product" ? (
           <MathText className="text-lg" text={p.stemText} />
-        ) : (
+        ) : q ? (
           <MathText className="text-lg" text={q.stemText} />
-        )}
+        ) : null}
       </div>
 
       {/* ======= INTERACTION + BUTTONS ======= */}
@@ -312,53 +397,55 @@ export default function ConsecutiveIntegersProduct() {
           </button>
         </div>
       ) : (
-        <div className="rounded-xl bg-white text-gray-900 border border-gray-200 shadow-sm p-4">
-          <div className="space-y-2">
-            {q.choices.map((ch, i) => (
-              <label
-                key={i}
-                className={`flex items-center gap-3 rounded-lg border px-3 py-2 cursor-pointer ${
-                  sel === i ? "border-indigo-500 bg-indigo-50" : "border-gray-300 hover:bg-gray-50"
-                } ${revealed ? "pointer-events-none opacity-90" : ""}`}
-              >
-                <input
-                  type="radio"
-                  className="h-4 w-4"
-                  checked={sel === i}
-                  onChange={() => setSel(i)}
-                  disabled={revealed}
-                />
-                <span className="font-semibold w-6">{String.fromCharCode(65 + i)}.</span>
-                <MathText text={ch} />
-              </label>
-            ))}
-          </div>
+        q && (
+          <div className="rounded-xl bg-white text-gray-900 border border-gray-200 shadow-sm p-4">
+            <div className="space-y-2">
+              {q.choices.map((ch, i) => (
+                <label
+                  key={i}
+                  className={`flex items-center gap-3 rounded-lg border px-3 py-2 cursor-pointer ${
+                    sel === i ? "border-indigo-500 bg-indigo-50" : "border-gray-300 hover:bg-gray-50"
+                  } ${revealed ? "pointer-events-none opacity-90" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    className="h-4 w-4"
+                    checked={sel === i}
+                    onChange={() => setSel(i)}
+                    disabled={revealed}
+                  />
+                  <span className="font-semibold w-6">{String.fromCharCode(65 + i)}.</span>
+                  <MathText text={ch} />
+                </label>
+              ))}
+            </div>
 
-          <div className="mt-3 flex items-center gap-3">
-            <button
-              onClick={onCheck}
-              disabled={revealed || sel === null}
-              className={`px-5 py-2.5 rounded-xl font-semibold shadow-sm ${
-                revealed || sel === null
-                  ? "bg-indigo-300 text-white/80 cursor-not-allowed"
-                  : "bg-indigo-600 hover:bg-indigo-500 text-white"
-              }`}
-            >
-              Check Answer
-            </button>
-            <button
-              onClick={onNext}
-              disabled={!revealed}
-              className={`px-5 py-2.5 rounded-xl font-semibold shadow-sm ${
-                revealed
-                  ? "bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-300"
-                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
-              }`}
-            >
-              Next Question
-            </button>
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={onCheck}
+                disabled={revealed || sel === null}
+                className={`px-5 py-2.5 rounded-xl font-semibold shadow-sm ${
+                  revealed || sel === null
+                    ? "bg-indigo-300 text-white/80 cursor-not-allowed"
+                    : "bg-indigo-600 hover:bg-indigo-500 text-white"
+                }`}
+              >
+                Check Answer
+              </button>
+              <button
+                onClick={onNext}
+                disabled={!revealed}
+                className={`px-5 py-2.5 rounded-xl font-semibold shadow-sm ${
+                  revealed
+                    ? "bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-300"
+                    : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                }`}
+              >
+                Next Question
+              </button>
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {/* ======= FEEDBACK ======= */}
@@ -375,9 +462,11 @@ export default function ConsecutiveIntegersProduct() {
               ? "Correct!"
               : mode === "product"
               ? `Not quite. The correct answer is ${p.prod}.`
-              : `Not quite. The correct choice is ${String.fromCharCode(65 + q.answerIndex)}.`}
+              : q
+              ? `Not quite. The correct choice is ${String.fromCharCode(65 + q.answerIndex)}.`
+              : "Not quite."}
           </div>
-          <MathText text={mode === "product" ? p.explText : q.explText} />
+          <MathText text={mode === "product" ? p.explText : q ? q.explText : ""} />
         </div>
       )}
     </div>

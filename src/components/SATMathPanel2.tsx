@@ -33,11 +33,11 @@ const CATEGORIES: Category[] = [
     path: "/study/math/combinatorics",
   },
   {
-    id: "probability",
-    title: "Probability & Counting",
-    blurb: "Basic probability, counting principles, expected value.",
+    id: "arithmetic",
+    title: "Arithmetic",
+    blurb: "Arithmetic word problems, sequences, and series.",
     icon: Dice5,
-    path: "/study/math/probability",
+    path: "/study/math/arithmetic",
   },
   {
     id: "inequalities",
@@ -52,6 +52,13 @@ const CATEGORIES: Category[] = [
     blurb: "Consecutive integer problems and their applications.",
     icon: Layers,
     path: "/study/math/consecutive-integers",
+  },
+  {
+    id: "algebra",
+    title: "Algebra",
+    blurb: "Algebraic expressions, equations, and word problems.",
+    icon: Layers,
+    path: "/study/math/algebra",
   },
 ];
 
