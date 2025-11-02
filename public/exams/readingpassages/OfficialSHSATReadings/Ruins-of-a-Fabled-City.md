@@ -60,7 +60,7 @@ questions:
       - "B. They are descendants of the people who built Great Zimbabwe."
       - "C. They lived in the Middle East before settling in Africa."
       - "D. They were once ruled by King Solomon and the Queen of Sheba."
-    answerIndex: 2
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q6
