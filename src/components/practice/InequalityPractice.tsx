@@ -1,5 +1,5 @@
 // src/components/practice/InequalityNumberLinePractice.tsx
-import React, { useMemo, useRef, useState, useEffect } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import MathText from "../MathText";
 
 /* ----------------------------- helpers ----------------------------- */
@@ -89,11 +89,11 @@ function buildSegment(): BuiltSegment {
   const symR = includeRight ? "\\le" : "<";
   const stemLatex = `${L} \\; ${symL} \\; ${mid} \\; ${symR} \\; ${R}`;
 
+  // Pretty explanation with markdown + KaTeX only inside $...$
   const explanationLatex =
-    `\\textbf{Solve:}\\; ${L}\\,${symL}\\,${mid}\\,${symR}\\,${R} \\quad (n=${n}>0) \\\\` +
-    `\\text{Multiply by } ${n}:\\; ${nProd(L, n)}\\,${symL}\\,${num}\\,${symR}\\,${nProd(R, n)} \\\\` +
-    `\\text{Subtract } ${m}:\\; ${leftX}\\,${symL}\\,x\\,${symR}\\,${rightX} \\;\\Rightarrow\\;` +
-    `\\; x\\in ${includeLeft ? "[" : "("}${leftX},\\,${rightX}${includeRight ? "]" : ")"}.`;
+    `**Solve:** $${L}\\,${symL}\\,${mid}\\,${symR}\\,${R}$\n\n` +
+    `Multiply by $${n}$: $${nProd(L, n)}\\,${symL}\\,${num}\\,${symR}\\,${nProd(R, n)}$\n\n` +
+    `Subtract $${m}$: $${leftX}\\,${symL}\\,x\\,${symR}\\,${rightX}$. Therefore $x\\in ${includeLeft ? "[" : "("}${leftX},\\,${rightX}${includeRight ? "]" : ")"}$.`;
 
   const correct: Bound = { left: leftX, right: rightX, includeLeft, includeRight };
 
@@ -120,41 +120,42 @@ function buildRay(): BuiltRay {
   const a = sample([-4, -3, -2, 2, 3, 4] as const);
   const b = randint(-6, 6);
 
+  // final relation for x: this determines direction + closed/open
   const finalRel = sample(["\\le", "<", "\\ge", ">"] as const);
   const closed = finalRel === "\\le" || finalRel === "\\ge";
 
-  const shownComp = a > 0 ? finalRel : flipComp(finalRel);
+  // Randomly place variable side LHS or RHS to add variety
+  const varOnRight = Math.random() < 0.5;
+  const axb = `${a}x${b === 0 ? "" : b > 0 ? " + " + b : " - " + Math.abs(b)}`;
   const k = a * x0 + b;
 
-  const varOnRight = Math.random() < 0.5;
-  const axb = `${a}x ${b === 0 ? "" : b > 0 ? "+ " + b : "- " + Math.abs(b)}`.trim();
+  // We must choose the comparator shown so that solving yields x (finalRel) x0
+  // ax+b ? k:    if a>0 then ?=finalRel, else flip
+  // k ? ax+b:    after division by a>0 we get (…) ? x, so ?=flip(finalRel); if a<0 we flip again, so ?=finalRel
+  const shownComp = !varOnRight
+    ? a > 0
+      ? finalRel
+      : flipComp(finalRel)
+    : a > 0
+    ? flipComp(finalRel)
+    : finalRel;
 
   const stemLatex = varOnRight ? `${k} \\; ${shownComp} \\; ${axb}` : `${axb} \\; ${shownComp} \\; ${k}`;
-
   const dir: Ray["dir"] = finalRel === "\\le" || finalRel === "<" ? "left" : "right";
 
-  const step1 = varOnRight
-    ? `${k} \\; ${shownComp} \\; ${a}x ${b >= 0 ? "+ " + b : "- " + Math.abs(b)}`
-    : `${a}x ${b >= 0 ? "+ " + b : "- " + Math.abs(b)} \\; ${shownComp} \\; ${k}`;
-
-  const afterSub = varOnRight
-    ? `${k - b} \\; ${shownComp} \\; ${a}x`
-    : `${a}x \\; ${shownComp} \\; ${k - b}`;
-
-  const afterDiv =
-    a > 0
-      ? `x \\; ${finalRel} \\; ${x0}`
-      : `x \\; ${finalRel} \\; ${x0} \\quad (\\text{flip the sign since } a<0)`;
-
+  // Pretty explanation (markdown + KaTeX)
+  const step1 = varOnRight ? `${k} \\; ${shownComp} \\; ${axb}` : `${axb} \\; ${shownComp} \\; ${k}`;
+  const afterSub = varOnRight ? `${k - b} \\; ${shownComp} \\; ${a}x` : `${a}x \\; ${shownComp} \\; ${k - b}`;
   const intervalText =
     dir === "left"
       ? `(-\\infty,\\,${x0}${closed ? "]" : ")"}`
       : `${closed ? "[" : "("}${x0},\\,\\infty)`;
 
   const explanationLatex =
-    `\\textbf{Solve:}\\; ${step1} \\\\` +
-    `\\text{Subtract } ${b}:\\; ${afterSub} \\\\` +
-    `\\text{Divide by } ${a}:\\; ${afterDiv} \\;\\Rightarrow\\; x\\in ${intervalText}.`;
+    `**Solve:** $${step1}$\n\n` +
+    `Subtract $${b}$: $${afterSub}$\n\n` +
+    `Divide by $${a}$: $x \\; ${finalRel} \\; ${x0}$${a < 0 ? " (direction flips)" : ""}.\n\n` +
+    `So $x\\in ${intervalText}$.`;
 
   return { stemLatex, answer: { x0, dir, closed }, explanationLatex };
 }
@@ -319,22 +320,6 @@ function DraggableNumberLine({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const draggingRef = useRef(false);
 
-  // mouse handlers for wide compatibility
-  const onMouseDown = (ev: React.MouseEvent<SVGSVGElement>) => {
-    draggingRef.current = true;
-    move(ev.clientX);
-    window.addEventListener("mousemove", onMoveWin);
-    window.addEventListener("mouseup", onUpWin);
-  };
-  const onMoveWin = (clientX: number | MouseEvent) => {
-    const cx = typeof clientX === "number" ? clientX : clientX.clientX;
-    move(cx);
-  };
-  const onUpWin = () => {
-    draggingRef.current = false;
-    window.removeEventListener("mousemove", onMoveWin as any);
-    window.removeEventListener("mouseup", onUpWin);
-  };
   const move = (clientX: number) => {
     if (!draggingRef.current || !svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
@@ -342,22 +327,25 @@ function DraggableNumberLine({
     onChange(x);
   };
 
-  // click to snap
+  const onMouseDown = (ev: React.MouseEvent<SVGSVGElement>) => {
+    draggingRef.current = true;
+    move(ev.clientX);
+    const onMoveWin = (e: MouseEvent) => move(e.clientX);
+    const onUpWin = () => {
+      draggingRef.current = false;
+      window.removeEventListener("mousemove", onMoveWin);
+      window.removeEventListener("mouseup", onUpWin);
+    };
+    window.addEventListener("mousemove", onMoveWin);
+    window.addEventListener("mouseup", onUpWin);
+  };
+
   const onClick = (ev: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current) return;
     const rect = svgRef.current.getBoundingClientRect();
     const x = toVal(ev.clientX - rect.left);
     onChange(x);
   };
-
-  // cleanup in case component unmounts mid-drag
-  useEffect(() => {
-    return () => {
-      window.removeEventListener("mousemove", onMoveWin as any);
-      window.removeEventListener("mouseup", onUpWin);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const ticks: React.ReactNode[] = [];
   for (let t = minTick; t <= maxTick; t++) {
@@ -579,9 +567,7 @@ export default function InequalityNumberLinePractice() {
           {revealedSeg && (
             <div
               className={`rounded-xl p-4 border shadow-sm ${
-                selIdx === correctIndex
-                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                  : "bg-rose-50 border-rose-200 text-rose-800"
+                selIdx === correctIndex ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-rose-50 border-rose-200 text-rose-800"
               }`}
             >
               <div className="font-semibold mb-1">
@@ -622,7 +608,6 @@ export default function InequalityNumberLinePractice() {
               setHalo(false);
             }}
             onClear={() => {
-              // fully clear
               setChoice(null);
               setXPlaced(null);
               setHalo(false);
