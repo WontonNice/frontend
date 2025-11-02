@@ -60,6 +60,13 @@ const CATEGORIES: Category[] = [
     icon: Layers,
     path: "/study/math/algebra",
   },
+  {
+    id: "factorsandmultiples",
+    title: "Factors and Multiples",
+    blurb: "Factorization, GCF, LCM, and counting multiples in ranges.",
+    icon: Layers,
+    path: "/study/math/factorsandmultiples",
+  },
 ];
 
 export default function SATMathPanel2() {

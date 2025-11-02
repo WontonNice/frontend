@@ -32,6 +32,7 @@ import InequalitiesPractice from "./components/practice/InequalityPractice";
 import ConsecutiveIntegers from "./components/practice/ConsecutiveIntegers";
 import Arithmetic from "./components/practice/Arithmetic";
 import Algebra from "./components/practice/Algebra";
+import FactorsMultiplesPractice from "./components/practice/FactorsandMultiples";
 
 export default function App() {
   return (
@@ -83,6 +84,7 @@ export default function App() {
         <Route path="/study/math/consecutive-integers" element={<ConsecutiveIntegers />} />
         <Route path="/study/math/arithmetic" element={<Arithmetic />} />
         <Route path="/study/math/algebra" element={<Algebra />} />
+        <Route path="/study/math/factorsandmultiples" element={<FactorsMultiplesPractice />} />
 
         <Route path="/study/reading" element={<StudyHallReading />} />
 
