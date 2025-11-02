@@ -200,6 +200,53 @@ function buildNeither(): PracticeQuestion {
   };
 }
 
+/* ----- NEW: “pets survey” → find total surveyed from bullet facts ----- */
+function buildPetsSurvey(): PracticeQuestion {
+  // Keep numbers friendly like the screenshot
+  const cats = rng(12, 32);
+  const dogs = rng(15, 36);
+  const both = rng(1, Math.min(10, cats, dogs));
+  const neither = rng(0, 15);
+
+  const correct = cats + dogs - both + neither;
+
+  // plausible mistakes
+  const distractors = unique<number>([
+    cats + dogs + neither,               // forgot to subtract both
+    cats + dogs - both,                  // forgot people with neither
+    cats + dogs + both + neither,        // added the overlap
+    Math.max(0, cats + dogs - 2 * both + neither), // counted "exactly one + neither"
+    correct + rng(-3, 3),                // small arithmetic slip
+  ]).filter((x) => x > 0 && x !== correct);
+
+  let pool = unique<number>([correct, ...distractors]);
+  while (pool.length < 4) pool.push(correct + rng(4, 12));
+  const choices = shuffle(pool).slice(0, 4);
+  const correctIndex = choices.indexOf(correct);
+
+  const stem =
+    `A survey asked students what pets they have. Based on the results, the following statements are all true:\n\n` +
+    `- ${fmt(cats)} students have cats.\n` +
+    `- ${fmt(dogs)} students have dogs.\n` +
+    `- ${fmt(both)} students have both dogs and cats.\n` +
+    `- ${fmt(neither)} students have no dogs or cats.\n\n` +
+    `How many students were surveyed?`;
+
+  const explanation =
+    `Cats only + dogs only + both + neither = total.\n\n` +
+    `Cats only = cats − both, dogs only = dogs − both.\n\n` +
+    `Total = (cats − both) + (dogs − both) + both + neither = cats + dogs − both + neither = ${fmt(correct)}.`;
+
+  return {
+    id: `set-pets-${Date.now()}`,
+    tag: "Pets survey (total)",
+    stem,
+    choices,
+    correctIndex,
+    explanation,
+  };
+}
+
 // ✅ readonly list so pick(...) type-checks cleanly
 const BUILDERS: ReadonlyArray<() => PracticeQuestion> = [
   buildMinOverlap,
@@ -207,6 +254,7 @@ const BUILDERS: ReadonlyArray<() => PracticeQuestion> = [
   buildUnion,
   buildExactlyOne,
   buildNeither,
+  buildPetsSurvey, // ← added
 ];
 
 /* --------------------------- component ------------------------- */
