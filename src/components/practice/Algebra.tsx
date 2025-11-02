@@ -30,12 +30,12 @@ function ratDisplay(r: Rat): string {
 
 /* ---------------- instance builder ---------------- */
 type Built = {
-  A: number;
-  m: Rat;
-  B: number;
-  c: number;
-  L: number;
-  X: number;
+  A: number;        // left side
+  m: Rat;           // multiplier p/q
+  B: number;        // constant inside parentheses
+  c: number;        // (p/q) * B
+  L: number;        // A - c
+  X: number;        // solution
 
   mTex: string;
   stemTop: string;
@@ -46,6 +46,7 @@ type Built = {
 };
 
 function build(): Built {
+  // Choose a rational multiplier m = p/q
   const mChoices: Rat[] = [
     { num: -1, den: 2, show: Math.random() < 0.5 ? "decimal" : "frac" },
     { num: -1, den: 1, show: "frac" },
@@ -57,48 +58,46 @@ function build(): Built {
   ];
   const m: Rat = mChoices[randint(0, mChoices.length - 1)];
 
-  const den: number = m.den;
-  const B: number = den * randint(1, 8) * (Math.random() < 0.5 ? 1 : -1);
-  let X: number = den * randint(-8, 8);
-  if (X === 0) X = den * (Math.random() < 0.5 ? 3 : -3);
+  // Pick B and X as multiples of q so (p/q)*B and x are integers
+  const q = m.den;
+  const B = q * randint(1, 8) * (Math.random() < 0.5 ? 1 : -1);
+  let X = q * randint(-8, 8);
+  if (X === 0) X = q * (Math.random() < 0.5 ? 3 : -3);
 
-  const mNum: number = m.num;
-  const mDen: number = m.den;
-  const A: number = (mNum * (X + B)) / mDen; // integer by construction
-  const c: number = (mNum * B) / mDen;
-  const L: number = A - c;
+  const p = m.num;
+  const A = (p * (X + B)) / q;   // integer by construction
+  const c = (p * B) / q;         // (p/q)*B
+  const L = A - c;               // = (p/q)*X
 
-  const tilesSet: Set<number> = new Set<number>([c, L, X]);
-  const distractors: number[] = [
-    A,
-    B,
-    -B,
-    -A,
-    c + A,
-    L + den,
-    L - den,
-    X + den,
-    X - den,
-    Math.trunc(L * 2),
-    Math.trunc(X * 2),
-  ];
-  distractors.forEach((v) => {
-    if (Number.isFinite(v)) tilesSet.add(v);
-  });
-  const tiles: number[] = shuffle(Array.from(tilesSet)).slice(0, 8);
+  // Always include the three required chips, then fill up to 8 with distractors
+  const mTex = ratDisplay(m);
+  const base = [c, L, X];
+  const pool = shuffle([
+    A, B, -B, -A, c + A, L + q, L - q, X + q, X - q,
+    p * B, q * A,  // from the "multiply both sides by q" path
+    Math.trunc(L * 2), Math.trunc(X * 2),
+  ]).filter((v) => Number.isFinite(v));
 
-  const mTex: string = ratDisplay(m);
+  const tiles: number[] = [];
+  for (const v of base) if (!tiles.includes(v)) tiles.push(v);
+  for (const d of pool) {
+    if (tiles.length >= 8) break;
+    if (!tiles.includes(d)) tiles.push(d);
+  }
 
-  const stemTop: string =
+  // Pretty B for LaTeX inside "(x + ...)"
+  const Bterm = B >= 0 ? `${B}` : `(${B})`;
+
+  const stemTop =
     `Complete the steps to show one way to solve the equation ` +
-    `$${A} = ${mTex}\\,(x + ${B})$ for $x$.\\n\\n` +
+    `$${A} = ${mTex}\\,(x + ${Bterm})$ for $x$.\\n\\n` +
     `Move the correct answer to each box. Each answer may be used more than once. ` +
     `Not all answers will be used.`;
 
-  const step1: string = `$${A} = ${mTex}\\,(x + ${B})$`;
+  const step1 = `$${A} = ${mTex}\\,(x + ${Bterm})$`;
 
-  const expl: string =
-    `Distribute: $${A} = ${mTex}\\,(x + ${B}) = ${mTex}\\,x + (${mTex})\\cdot(${B}) = ${mTex}\\,x + ${c}$.\\n\\n` +
+  const expl =
+    `Distribute: $${A} = ${mTex}\\,(x + ${Bterm}) = ${mTex}\\,x + ${mTex}\\cdot${Bterm} = ${mTex}\\,x + ${c}$.\\n\\n` +
     `Add $${-c}$ to both sides: $${A} - (${c}) = ${mTex}\\,x$, so $${L} = ${mTex}\\,x$.\\n\\n` +
     `Divide both sides by $${mTex}$: $\\dfrac{${L}}{${mTex}} = x$, hence $x = ${X}$.`;
 
@@ -237,8 +236,8 @@ export default function DistributeSolvePractice() {
   };
 
   useEffect(() => {
-    const handler = (e: any) => {
-      if (e && e.key === "Enter" && !revealed) onCheck();
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && !revealed) onCheck();
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
