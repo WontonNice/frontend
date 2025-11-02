@@ -57,7 +57,13 @@ type BuiltRay = {
   explanationLatex: string;
 };
 
-type Mode = "segment" | "ray";
+type BuiltCount = {
+  stemLatex: string;        // e.g. "2x + 5 < 21"
+  correct: number;          // number of positive integer solutions
+  explanationLatex: string; // KaTeX explanation
+};
+
+type Mode = "segment" | "ray" | "count";
 
 /* --------------------- build: SEGMENT (compound) --------------------- */
 function buildSegment(): BuiltSegment {
@@ -89,7 +95,6 @@ function buildSegment(): BuiltSegment {
   const symR = includeRight ? "\\le" : "<";
   const stemLatex = `${L} \\; ${symL} \\; ${mid} \\; ${symR} \\; ${R}`;
 
-  // Pretty explanation with markdown + KaTeX only inside $...$
   const explanationLatex =
     `**Solve:** $${L}\\,${symL}\\,${mid}\\,${symR}\\,${R}$\n\n` +
     `Multiply by $${n}$: $${nProd(L, n)}\\,${symL}\\,${num}\\,${symR}\\,${nProd(R, n)}$\n\n` +
@@ -129,9 +134,7 @@ function buildRay(): BuiltRay {
   const axb = `${a}x${b === 0 ? "" : b > 0 ? " + " + b : " - " + Math.abs(b)}`;
   const k = a * x0 + b;
 
-  // We must choose the comparator shown so that solving yields x (finalRel) x0
-  // ax+b ? k:    if a>0 then ?=finalRel, else flip
-  // k ? ax+b:    after division by a>0 we get (…) ? x, so ?=flip(finalRel); if a<0 we flip again, so ?=finalRel
+  // Choose the comparator shown so that solving yields x (finalRel) x0
   const shownComp = !varOnRight
     ? a > 0
       ? finalRel
@@ -143,7 +146,6 @@ function buildRay(): BuiltRay {
   const stemLatex = varOnRight ? `${k} \\; ${shownComp} \\; ${axb}` : `${axb} \\; ${shownComp} \\; ${k}`;
   const dir: Ray["dir"] = finalRel === "\\le" || finalRel === "<" ? "left" : "right";
 
-  // Pretty explanation (markdown + KaTeX)
   const step1 = varOnRight ? `${k} \\; ${shownComp} \\; ${axb}` : `${axb} \\; ${shownComp} \\; ${k}`;
   const afterSub = varOnRight ? `${k - b} \\; ${shownComp} \\; ${a}x` : `${a}x \\; ${shownComp} \\; ${k - b}`;
   const intervalText =
@@ -158,6 +160,35 @@ function buildRay(): BuiltRay {
     `So $x\\in ${intervalText}$.`;
 
   return { stemLatex, answer: { x0, dir, closed }, explanationLatex };
+}
+
+/* -------------------- build: COUNT positive solutions ----------------- */
+function buildCount(): BuiltCount {
+  // Build inequality of the form m x + b  (op)  N  with op in { <, <= } and m>=1
+  const m = randint(1, 4);
+  const b = randint(-9, 9);
+  const op = sample(["<", "\\le"] as const);
+
+  // Choose T so that x (op) T after solving; pick a nice positive integer T
+  const T = randint(3, 18); // ensures at least some positive solutions
+  const N = m * T + b;      // guarantees (N - b)/m = T exactly
+
+  const lhs = m === 1 ? "x" : `${m}x`;
+  const stemLatex = `${lhs}${b === 0 ? "" : b > 0 ? " + " + b : " - " + Math.abs(b)} \\; ${op} \\; ${N}`;
+
+  // Count of x in {1,2,...} with x (op) T
+  const correct = op === "<" ? Math.max(0, T - 1) : Math.max(0, T);
+
+  const explanationLatex =
+    `**Solve:** $${lhs}${b === 0 ? "" : b > 0 ? " + " + b : " - " + Math.abs(b)} \\; ${op} \\; ${N}$\n\n` +
+    `Subtract $${b}$: $${lhs} \\; ${op} \\; ${N - b}$\n\n` +
+    `Divide by $${m}$: $x \\; ${op} \\; ${T}$.\n\n` +
+    `Positive integers are $1,2,\\ldots$.\n` +
+    (op === "<"
+      ? `For $x<${T}$, the largest possible positive integer is ${T - 1}, so the count is ${T - 1}.`
+      : `For $x\\le ${T}$, the largest possible positive integer is ${T}, so the count is ${T}.)`);
+
+  return { stemLatex, correct, explanationLatex };
 }
 
 /* --------------------------- STATIC number line -------------------------- */
@@ -440,18 +471,36 @@ export default function InequalityNumberLinePractice() {
 
   const canCheckRay = choice !== null && xPlaced !== null && !revealedRay;
 
+  /* COUNT (free response) */
+  const [seedCount, setSeedCount] = useState(0);
+  const countQ = useMemo(() => {
+    void seedCount;
+    return buildCount();
+  }, [seedCount]);
+
+  const [ansText, setAnsText] = useState("");
+  const ansNum = ansText.trim() === "" ? null : Number(ansText);
+  const [revealedCount, setRevealedCount] = useState(false);
+  const countCorrect = revealedCount && ansNum === countQ.correct;
+
   return (
     <div className="space-y-4">
       {/* Header + mode switch */}
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-2xl font-semibold">
-            {mode === "segment" ? "Compound Inequalities — Number Lines" : "One-Sided Inequalities — Graph a Ray"}
+            {{
+              segment: "Compound Inequalities — Number Lines",
+              ray: "One-Sided Inequalities — Graph a Ray",
+              count: "Inequalities — Count Positive Integer Solutions",
+            }[mode]}
           </h2>
           <p className="text-white/70">
             {mode === "segment"
               ? "Choose the number line that represents the solution set."
-              : "Select a ray, then drag (or click) the endpoint to the correct tick."}
+              : mode === "ray"
+              ? "Select a ray, then drag (or click) the endpoint to the correct tick."
+              : "Solve the inequality and enter how many positive integers satisfy it."}
           </p>
         </div>
 
@@ -471,6 +520,14 @@ export default function InequalityNumberLinePractice() {
             }`}
           >
             Ray (Drag)
+          </button>
+          <button
+            onClick={() => setMode("count")}
+            className={`px-4 py-2 text-sm font-semibold ${
+              mode === "count" ? "bg-white/20 text-white" : "bg-white/5 text-white/80 hover:bg-white/10"
+            }`}
+          >
+            Count
           </button>
         </div>
       </div>
@@ -577,7 +634,7 @@ export default function InequalityNumberLinePractice() {
             </div>
           )}
         </>
-      ) : (
+      ) : mode === "ray" ? (
         <>
           {/* stem */}
           <div className="rounded-xl bg-white text-gray-900 border border-gray-200 shadow-sm p-4">
@@ -660,6 +717,69 @@ export default function InequalityNumberLinePractice() {
                   <strong>{ray.answer.dir}</strong>.
                 </div>
               )}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {/* stem */}
+          <div className="rounded-xl bg-white text-gray-900 border border-gray-200 shadow-sm p-4">
+            <MathText
+              className="text-lg"
+              text={`How many positive integers satisfy the inequality $${countQ.stemLatex}$?\\n\\nEnter your answer in the space.`}
+            />
+          </div>
+
+          {/* input + buttons */}
+          <div className="rounded-xl bg-white text-gray-900 border border-gray-200 shadow-sm p-4 flex items-center gap-3">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={ansText}
+              onChange={(e) => setAnsText(e.target.value)}
+              className="w-36 rounded-lg border border-gray-300 px-3 py-2 text-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Answer"
+              disabled={revealedCount}
+            />
+            <button
+              onClick={() => setRevealedCount(true)}
+              disabled={revealedCount || ansText.trim() === "" || Number.isNaN(Number(ansText))}
+              className={`px-5 py-2.5 rounded-xl font-semibold shadow-sm ${
+                revealedCount || ansText.trim() === "" || Number.isNaN(Number(ansText))
+                  ? "bg-indigo-300 text-white/80 cursor-not-allowed"
+                  : "bg-indigo-600 hover:bg-indigo-500 text-white"
+              }`}
+            >
+              Check Answer
+            </button>
+            <button
+              onClick={() => {
+                setAnsText("");
+                setRevealedCount(false);
+                setSeedCount((s) => s + 1);
+              }}
+              disabled={!!(!revealedCount)}
+              className={`px-5 py-2.5 rounded-xl font-semibold shadow-sm ${
+                revealedCount
+                  ? "bg-gray-100 text-gray-900 hover:bg-gray-200 border border-gray-300"
+                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              Next Question
+            </button>
+          </div>
+
+          {/* feedback */}
+          {revealedCount && (
+            <div
+              className={`rounded-xl p-4 border shadow-sm ${
+                countCorrect ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-rose-50 border-rose-200 text-rose-800"
+              }`}
+            >
+              <div className="font-semibold mb-1">
+                {countCorrect ? "Correct!" : `Not quite. The correct answer is ${countQ.correct}.`}
+              </div>
+              <MathText text={countQ.explanationLatex} />
             </div>
           )}
         </>
