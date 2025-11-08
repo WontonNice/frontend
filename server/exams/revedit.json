@@ -1,0 +1,13 @@
+{
+  "slug": "revedit",
+  "title": "Digital SHSAT Practice Test Rev/Edit",
+  "description": "Digital SHSAT Practice Test Rev/Edit",
+  "sections": [
+    {
+      "id": "ela_b",
+      "title": "ELA Rev/Edit B Set 1",
+      "type": "ela_b",
+      "questionIds": ["REB-001", "REB-002", "REB-003", "REB-004", "REB-005"]
+    }
+  ]
+}

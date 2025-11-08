@@ -98,12 +98,48 @@ const REB_004: BankQuestion = {
   answerIndex: 0
 };
 
+/* ------------------------- NEW: REB-005 ------------------------- */
+/* Verb tense check across a short paragraph; only “lead” should be “led.” */
+const REB_005: BankQuestion = {
+  id: "REB-005",
+  type: "table_match",
+  stemMarkdown:
+    "Read the paragraph below. Then, for each **underlined** word, determine whether it contains an error in verb tense. " +
+    "If it contains an error, choose the option that **corrects** the error. If there is no error, select **“no error.”**\n\n" +
+    "> (1) Against a little hill **was** a white building with pillars, to the right of which was a waterfall that **<u>tumbled</u>** down among mossy stones to splash into a lake.  \n" +
+    "> (2) Steps fed from the building’s terrace to the water, and other steps **<u>lead</u>** to the green lawns beside it.  \n" +
+    "> (3) Away across the grassy slopes **<u>stood</u>** a herd of deer, and in the distance where a grove of trees thickened into what looked almost a forest were enormous shapes of grey stone.  \n" +
+    "> (4) The scene **<u>was</u>** like nothing that the children had ever seen before.",
+  // all row dropdowns draw from this common list
+  choices: ["no error", "led", "leads", "was", "were", "had led", "has led", "tumbles", "tumbled"],
+  table: {
+    columns: [{ key: "ans", header: "Answer" }],
+    rows: [
+      { id: "r1", header: "tumbled" },
+      { id: "r2", header: "lead" },
+      { id: "r3", header: "stood" },
+      { id: "r4", header: "was (sentence 4)" }
+    ]
+  },
+  // map is `${rowId}|${columnKey}` → choice string
+  correctCells: {
+    "r1|ans": "no error",
+    "r2|ans": "led",
+    "r3|ans": "no error",
+    "r4|ans": "no error"
+  },
+  explanationMarkdown:
+    "The paragraph narrates a past scene, so past-tense verbs are appropriate. **tumbled**, **stood**, and **was** are already in the correct past tense (**no error**). " +
+    "Only **lead** must be changed to the past tense **led** to keep tense consistent."
+};
+
 // The store (keyed by id)
 const BANK: Record<string, BankQuestion> = {
   "REB-001": REB_001,
   "REB-002": REB_002,
   "REB-003": REB_003,
-  "REB-004": REB_004
+  "REB-004": REB_004,
+  "REB-005": REB_005
 };
 
 // Helper used by ExamRunnerPage
