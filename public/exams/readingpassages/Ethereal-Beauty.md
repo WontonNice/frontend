@@ -12,7 +12,7 @@ questions:
       - "B. They occur in diverse locations and are known for remaining consistent in appearance."
       - "C. They are beautiful and variable events that result from planetary conditions."
       - "D. They are a scientific mystery that will be solved through further research and observation."
-    answerIndex: 1
+    answerIndex: 2
     explanationMarkdown: ""
 
   - id: q2
@@ -24,7 +24,7 @@ questions:
       - "B. the extreme beauty and unique aesthetics that characterize auroras."
       - "C. the fact that the beauty of auroras doesn’t resemble any other natural phenomenon on Earth."
       - "D. the profound effect that the visual appearance of an aurora can have on viewers despite repeated viewings."
-    answerIndex: 2
+    answerIndex: 1
     explanationMarkdown: ""
 
   - id: q3
@@ -41,7 +41,7 @@ questions:
       - "B. illustrating the ways that the motion of solar particles affects the size and color of an aurora."
       - "C. highlighting the appearance that auroras generally take when viewed from the planet it occurs on."
       - "D. conveying the complex research tools and methodology currently being used by scientists to attempt to better understand the phenomenon of auroras."
-    answerIndex: 3
+    answerIndex: 0
     explanationMarkdown: ""
 
   - id: q4
@@ -53,7 +53,7 @@ questions:
       - "B. “Indeed, some auroras occur across a number of different altitudes simultaneously.” (paragraph 3)"
       - "C. “The Hubble Telescope has observed auroras on many other planets in our galaxy.” (paragraph 5)"
       - "D.  “Jupiter and Saturn, for example, are home to auroras that are larger and brighter than those on Earth.” (paragrap 5)"
-    answerIndex: 1
+    answerIndex: 3
     explanationMarkdown: ""
 
   - id: q5
@@ -67,7 +67,7 @@ questions:
       - "B. They did not yet know the scientific explanations for how auroras are formed."
       - "C. They were fascinated by observing auroras and believed the source of wonder must've been the Gods."
       - "D. Their reasonings and beliefs of what auroras represented differed depending on their cultural background and geographical location."
-    correctIndices: [0, 1]
+    correctIndices: [1, 3]
     explanationMarkdown: ""
 
   - id: q6
@@ -91,7 +91,7 @@ questions:
       - "B. They enjoy the aesthetics of auroras but find vacation trips to viewing places expensive."
       - "C. They are awed by the colors and motion of the auroras and treasure any opportunity to view them."
       - "D. They are impressed by the beauty and mystery behind the phenomenon of auroras."
-    answerIndex: 0
+    answerIndex: 2
     explanationMarkdown: ""
 
 ---
