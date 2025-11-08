@@ -24,18 +24,19 @@ export type BankQuestion = {
 
   blanks?: { id: string; correctOptionId: string }[];
 
+  /** NEW: per-blank dropdown options for cloze items (each blank has its own list). */
+  dropdowns?: Record<string, { id: string; label: string }[]>;
+
   explanationMarkdown?: string;
 };
 
 // --- Example items -----------------------------------------------------------
 
-// REB-001 matches your screenshot formatting, including underlines.
 const REB_001: BankQuestion = {
   id: "REB-001",
   type: "single_select",
   stemMarkdown:
     "Read this sentence:\n\n" +
-    // Use a blockquote for the numbered paragraph and <u> for underlines
     "> (1) Although Morgan loves winning as much as his dog loves eating treats, he decided that he would purposely make it so that his cousin, and not he, would win.\n\n" +
     "Which of these is the most precise revision for the words “he decided that he would purposely make it so that his cousin, and not he, would win”?\"",
   choices: [
@@ -49,7 +50,6 @@ const REB_001: BankQuestion = {
     "Sentence 4 needs singular agreement (*it starts*) with *each pancake*, and a comma after *sweet* before *delicious*."
 };
 
-// Add more items as you build your bank:
 const REB_002: BankQuestion = {
   id: "REB-002",
   type: "single_select",
@@ -98,39 +98,82 @@ const REB_004: BankQuestion = {
   answerIndex: 0
 };
 
-/* ------------------------- NEW: REB-005 ------------------------- */
-/* Verb tense check across a short paragraph; only “lead” should be “led.” */
+/* ------------------------------------------------------------------ */
+/* REB-005: Verb tense, 4 separate drop-downs, each with its own list */
+/* ------------------------------------------------------------------ */
+
 const REB_005: BankQuestion = {
   id: "REB-005",
-  type: "table_match",
+  type: "cloze_drag",
   stemMarkdown:
-    "Read the paragraph below. Then, for each **underlined** word, determine whether it contains an error in verb tense. " +
-    "If it contains an error, choose the option that **corrects** the error. If there is no error, select **“no error.”**\n\n" +
-    "> (1) Against a little hill **was** a white building with pillars, to the right of which was a waterfall that **<u>tumbled</u>** down among mossy stones to splash into a lake.  \n" +
-    "> (2) Steps fed from the building’s terrace to the water, and other steps **<u>lead</u>** to the green lawns beside it.  \n" +
-    "> (3) Away across the grassy slopes **<u>stood</u>** a herd of deer, and in the distance where a grove of trees thickened into what looked almost a forest were enormous shapes of grey stone.  \n" +
-    "> (4) The scene **<u>was</u>** like nothing that the children had ever seen before.",
-  // all row dropdowns draw from this common list
-  choices: ["no error", "led", "leads", "was", "were", "had led", "has led", "tumbles", "tumbled"],
-  table: {
-    columns: [{ key: "ans", header: "Answer" }],
-    rows: [
-      { id: "r1", header: "tumbled" },
-      { id: "r2", header: "lead" },
-      { id: "r3", header: "stood" },
-      { id: "r4", header: "was (sentence 4)" }
+    "Read the paragraph below. Then, for each **underlined** word, choose the correct verb form to keep the paragraph in consistent past tense. If it contains no error, choose **no error**.\n\n" +
+    "> (1) Against a little hill was a white building with pillars, to the right of which was a waterfall that <u>tumbled</u> {{b1}} down among mossy stones to splash into a lake.\n" +
+    "> (2) Steps fed from the building’s terrace to the water, and other steps <u>lead</u> {{b2}} to the green lawns beside it.\n" +
+    "> (3) Away across the grassy slopes <u>stood</u> {{b3}} a herd of deer, and in the distance where a grove of trees thickened into what looked almost a forest were enormous shapes of grey stone.\n" +
+    "> (4) The scene <u>was</u> {{b4}} like nothing that the children had ever seen before.\n\n" +
+    "_(Each {{b1}}…{{b4}} marks a drop-down location.)_",
+  // Correct answers per blank
+  blanks: [
+    { id: "b1", correctOptionId: "b1_noerr" }, // "tumbled" is already correct
+    { id: "b2", correctOptionId: "b2_led"  }, // lead -> led
+    { id: "b3", correctOptionId: "b3_noerr" }, // stood is correct
+    { id: "b4", correctOptionId: "b4_noerr" }  // was is correct
+  ],
+  // Per-blank dropdown choices (each list shows exactly what the menu should contain)
+  dropdowns: {
+    b1: [
+      { id: "b1_tumbles", label: "tumbles" },
+      { id: "b1_tumble",  label: "tumble" },
+      { id: "b1_tumbling",label: "tumbling" },
+      { id: "b1_noerr",   label: "no error" }
+    ],
+    b2: [
+      { id: "b2_leads", label: "leads" },
+      { id: "b2_lead",  label: "lead" },
+      { id: "b2_led",   label: "led" },
+      { id: "b2_leading", label: "leading" },
+      { id: "b2_noerr", label: "no error" }
+    ],
+    b3: [
+      { id: "b3_stand",   label: "stand" },
+      { id: "b3_stands",  label: "stands" },
+      { id: "b3_standing",label: "standing" },
+      { id: "b3_noerr",   label: "no error" }
+    ],
+    b4: [
+      { id: "b4_were", label: "were" },
+      { id: "b4_is",   label: "is" },
+      { id: "b4_are",  label: "are" },
+      { id: "b4_noerr",label: "no error" }
     ]
   },
-  // map is `${rowId}|${columnKey}` → choice string
-  correctCells: {
-    "r1|ans": "no error",
-    "r2|ans": "led",
-    "r3|ans": "no error",
-    "r4|ans": "no error"
-  },
+  // (Optional) a flat options list is not required for dropdown mode,
+  // but can be provided if your runner falls back to drag mode:
+  options: [
+    { id: "b1_tumbles", label: "tumbles" },
+    { id: "b1_tumble",  label: "tumble" },
+    { id: "b1_tumbling",label: "tumbling" },
+    { id: "b1_noerr",   label: "no error" },
+
+    { id: "b2_leads", label: "leads" },
+    { id: "b2_led",   label: "led" },
+    { id: "b2_leading", label: "leading" },
+    { id: "b2_noerr", label: "no error" },
+
+    { id: "b3_stand",   label: "stand" },
+    { id: "b3_stands",  label: "stands" },
+    { id: "b3_standing",label: "standing" },
+    { id: "b3_noerr",   label: "no error" },
+
+    { id: "b4_is",   label: "is" },
+    { id: "b4_noerr",label: "no error" }
+  ],
   explanationMarkdown:
-    "The paragraph narrates a past scene, so past-tense verbs are appropriate. **tumbled**, **stood**, and **was** are already in the correct past tense (**no error**). " +
-    "Only **lead** must be changed to the past tense **led** to keep tense consistent."
+    "**Tense consistency:** the passage narrates in past tense.\n\n" +
+    "- (1) *tumbled* — **no error** (past tense).\n" +
+    "- (2) *lead* → **led** to maintain past tense.\n" +
+    "- (3) *stood* — **no error** (past tense).\n" +
+    "- (4) *was* — **no error** (past tense)."
 };
 
 // The store (keyed by id)
