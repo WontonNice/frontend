@@ -6,13 +6,97 @@ questions:
   - id: q1
     type: single_select
     skillType: function
-    stemMarkdown: "Which of the following best tells what this passage is about?"
+    stemMarkdown: "The fireworks in the poem represent the speaker’s"
     choices:
-      - "A. the belief of some religious leaders that the end of the world was coming in 1816"
-      - "B. a summer of strange weather and its probable cause"
-      - "C. the importance of summer weather to agriculture in New England"
-      - "D. a comparison of the weather of 1816 and 1991"
+      - "A. wish to return to a simpler way of living."
+      - "B. a summer of strange weather and its probable cause."
+      - "C. high expectations for everyday life."
+      - "D. reflections on past interactions with relatives."
     answerIndex: 1
+    explanationMarkdown: ""
+
+  - id: q2
+    type: single_select
+    skillType: function
+    stemMarkdown: "The comparison in lines 8–9 of the poem is used to convey"
+    choices:
+      - "A. the muffled pounding of explosions in the distance."
+      - "B. the way lightning streaks through the clouds."
+      - "C. the echoes of thunder on an autumn night."
+      - "D. the glow of sparks falling from the sky."
+    answerIndex: 0
+    explanationMarkdown: ""
+
+  - id: q3
+    type: single_select
+    skillType: function
+    stemMarkdown: |
+      Read lines 22–23 from the poem.
+
+      **the sky at night written upon
+      with those jewels.**
+
+      What does the word choice in these lines convey about the speaker?
+    choices:
+      - "A. The speaker values material possessions."
+      - "B. The speaker imagines that the fireworks are magical."
+      - "C. The speaker believes that the country setting is distinctive."
+      - "D. The speaker cherishes the memory of seeing fireworks as a child."
+    answerIndex: 3
+    explanationMarkdown: ""
+
+  - id: q4
+    type: single_select
+    skillType: function
+    stemMarkdown: "The use of italics on the word *“night”* in line 24 is most likely intended to emphasize the"
+    choices:
+      - "A. sense of mystery in the darkness."
+      - "B. sense of absolute darkness."
+      - "C. speaker’s fear of night."
+      - "D. speaker’s certainty about that night."
+    answerIndex: 1
+    explanationMarkdown: ""
+
+  - id: q5
+    type: single_select
+    skillType: function
+    stemMarkdown: "What is the purpose of the repeated words “rising and falling” in lines 26 and 37?"
+    choices:
+      - "A. to create a distinction between solitude and meaningful interaction"
+      - "B. to demonstrate a connection between the speaker’s past and present"
+      - "C. to emphasize the speaker’s attention to the surrounding sounds"
+      - "D. to compare the fireworks to common sights and sounds"
+    answerIndex: 1
+    explanationMarkdown: ""
+
+  - id: q6
+    type: single_select
+    skillType: function
+    stemMarkdown: "What impact does the phrase “Everything is a constant celebration” (line 33) have in the poem?"
+    choices:
+      - "A. It reveals that the speaker finds the city more pleasurable than the country."
+      - "B. It suggests that the persistent brightness of the city can be overwhelming to the speaker."
+      - "C. It implies that what is normal in the city was unusual in the country."
+      - "D. It emphasizes the hectic pace of daily life in the city"
+    answerIndex: 2
+    explanationMarkdown: ""
+
+  - id: q7
+    type: single_select
+    skillType: function
+    stemMarkdown: |
+      Read lines 41–42 from the poem.
+
+      **I kept waiting for those
+      childhood bursts, watching as they escorted us home.**
+
+      How does this memory affect the speaker?
+    choices:
+      - "A. The speaker believes it is impossible to ever return to a place in the past."
+      - "B. The speaker is still amused by the impatience felt during fireworks displays."
+      - "C. The speaker now regrets abandoning the rural way of life."
+      - "D. The speaker feels a sense of comfort when reflecting on the past."
+    answerIndex: 3
     explanationMarkdown: ""
 
 ---

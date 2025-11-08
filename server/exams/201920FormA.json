@@ -1,0 +1,62 @@
+{
+  "slug": "201920-digital-shsat-practice-test-form-a",
+  "title": "2019-2020 Form A",
+  "description": "Digital Version of 2019-2020 Form A",
+  "sections": [
+    {
+      "id": "reading-1",
+      "title": "Reading Passage 1",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/OfficialSHSATReadings/Ode-to-Fireworks.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "reading-2",
+      "title": "Reading Passage 2",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/OfficialSHSATReadings/Dickens.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "reading-3",
+      "title": "Reading Passage 3",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/OfficialSHSATReadings/Taste.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "reading-4",
+      "title": "Reading Passage 4",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/OfficialSHSATReadings/Zimbabwe.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "reading-5",
+      "title": "Reading Passage 5",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/Merry-Autumn.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "reading-6",
+      "title": "Reading Passage 6",
+      "type": "reading",
+      "passageMd": "/exams/readingpassages/Happy-Little-Accidents.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "ela_a",
+      "title": "Reading Passage 7",
+      "type": "ela_a",
+      "passageMd": "/exams/revising/All-About-The-Seeds.md",
+      "passageImages": [""]
+    },
+    {
+      "id": "ela_b",
+      "title": "ELA Rev/Edit B Set 1",
+      "type": "ela_b",
+      "questionIds": ["REB-001", "REB-002", "REB-003"]
+    }
+  ]
+}
