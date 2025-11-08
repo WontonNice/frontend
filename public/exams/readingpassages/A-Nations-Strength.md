@@ -157,7 +157,7 @@ questions:
       - "B. encouraging its people to be moral and virtuous."
       - "C. making money and creating beautiful works of art."
       - "D. convincing its people and others that it is the greatest nation."
-    answerIndex: 2
+    answerIndex: 1
     explanationMarkdown: ""
 
 ---
