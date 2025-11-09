@@ -112,44 +112,44 @@ researchers believe was created between 300 B.C. and A.D. 1100 by an indigenous 
 ### Serpent Mound
 Ohio, 1846
 
-.Brush Creek stood low when the museum men came
-.with their measuring tapes and sketchbooks.
-.    It was winter. Fringed with ice,
-.    the creek doubled back on itself
-.as if it had forgotten something.
-.    Pa was in Cincinnati, or else on his way home,
-.        so Ma told me to lead the men
-.        into the marshy low grounds. It being winter,
-.            there was little underbrush to speak of—
-.            in the summer there would have been
-.    briars, poison ivy, biting flies. I listened
-.for the swish of a beaver’s heavy tail,
-.    the chitter of a chickadee, or the cry of a hawk,
-.    but the winter silence of the creek pressed
-.    down on all of us like a weight.
-.The humps in the ground were all but
-.invisible until you were right up on them. The figure
-.was even less obvious: the sinuous body,
-.    the tail coiled three times around,
-.    and at the other end, the mouth wide open.
-.        In the summer the creek bottom was crowded
-.        with so much life that you could trip over
-.            the ridges of earth before you saw
-.            anything at all. In winter you could climb
-.            a tree and get some idea of the whole thing:
-.        the serpent’s body undulating, slithering
-.silently across the ancient
-.    earth. At the mouth end, there was an oval mound
-.    as if the snake were about to swallow an egg—
-.as snakes sometimes did in our rickety
-.henhouse—my Pa always said, or
-.as if swallowing the sun, one of the museum
-.    men suggested, taking notes with his quill pen,
-.    an old-style inkhorn slung at his side.
-.    I liked that: swallowing the sun,
-.        just the sort of thing a snake might do,
-.        might want to do. When, later, I told my sister Ruth,
-.            she disagreed. It is singing to the sun,
-.            she insisted. That is why its mouth
-.        is wide open. She said, “Sometimes I think
-.I hear it on summer nights. Not swallowing, singing.”
+Brush Creek stood low when the museum men came
+with their measuring tapes and sketchbooks.
+    It was winter. Fringed with ice,
+    the creek doubled back on itself
+as if it had forgotten something.
+    Pa was in Cincinnati, or else on his way home,
+        so Ma told me to lead the men
+        into the marshy low grounds. It being winter,
+            there was little underbrush to speak of—
+            in the summer there would have been
+    briars, poison ivy, biting flies. I listened
+for the swish of a beaver’s heavy tail,
+    the chitter of a chickadee, or the cry of a hawk,
+    but the winter silence of the creek pressed
+    down on all of us like a weight.
+The humps in the ground were all but
+invisible until you were right up on them. The figure
+was even less obvious: the sinuous body,
+    the tail coiled three times around,
+    and at the other end, the mouth wide open.
+        In the summer the creek bottom was crowded
+        with so much life that you could trip over
+            the ridges of earth before you saw
+            anything at all. In winter you could climb
+            a tree and get some idea of the whole thing:
+        the serpent’s body undulating, slithering
+silently across the ancient
+    earth. At the mouth end, there was an oval mound
+    as if the snake were about to swallow an egg—
+as snakes sometimes did in our rickety
+henhouse—my Pa always said, or
+as if swallowing the sun, one of the museum
+    men suggested, taking notes with his quill pen,
+    an old-style inkhorn slung at his side.
+    I liked that: swallowing the sun,
+        just the sort of thing a snake might do,
+        might want to do. When, later, I told my sister Ruth,
+            she disagreed. It is singing to the sun,
+            she insisted. That is why its mouth
+        is wide open. She said, “Sometimes I think
+I hear it on summer nights. Not swallowing, singing.”
