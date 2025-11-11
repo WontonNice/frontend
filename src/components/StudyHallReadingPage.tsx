@@ -27,21 +27,44 @@ async function parseYaml<T = any>(yamlText: string | null): Promise<T | {}> {
 }
 
 /** Robust resolver for images relative to an MD file’s location. */
+/** Encode a path safely: handles spaces/Unicode and avoids double-encoding. */
+function encodePath(p: string): string {
+  try {
+    const [pathAndSearch, hash = ""] = p.split("#", 2);
+    const [pathname, search = ""] = pathAndSearch.split("?", 2);
+
+    const encodedPath = pathname
+      .split("/")
+      .map((seg) => encodeURIComponent(decodeURIComponent(seg)))
+      .join("/");
+
+    return `${encodedPath}${search ? `?${search}` : ""}${hash ? `#${hash}` : ""}`;
+  } catch {
+    return p
+      .split("/")
+      .map((seg) => encodeURIComponent(seg))
+      .join("/");
+  }
+}
+
+/** Resolve an image relative to the MD file and ensure it’s URL-encoded. */
 function resolveImageRelative(mdPath: string, img?: string): string | undefined {
   if (!img) return undefined;
   const s = img.trim();
   if (!s) return undefined;
+
   // absolute http(s) or site-absolute
-  if (/^(https?:)?\/\//i.test(s) || s.startsWith("/")) return s;
+  if (/^(https?:)?\/\//i.test(s) || s.startsWith("/")) {
+    return encodePath(s);
+  }
 
   // base = md directory (keep trailing slash)
   const base = mdPath.replace(/[^/]+$/, "");
-  // Use URL to normalize ./ and ../ segments; return pathname (works for static hosting)
   try {
     const u = new URL(s, window.location.origin + base);
-    return u.pathname;
+    return encodePath(u.pathname + u.search + u.hash);
   } catch {
-    return base + s;
+    return encodePath(base + s);
   }
 }
 
