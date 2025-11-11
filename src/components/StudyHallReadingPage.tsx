@@ -4,21 +4,12 @@ import { useNavigate } from "react-router-dom";
 
 /* ----------------------- helpers: front-matter ----------------------- */
 function splitFrontmatter(md: string): { fm: string | null; body: string } {
-  // 1) strip UTF-8 BOM
   let s = md.replace(/^\uFEFF/, "");
-
-  // 2) strip any leading whitespace and leading HTML comments
-  //    (some editors add a blank line; some generators add comments)
   s = s.replace(/^(?:\s*|<!--[\s\S]*?-->)+/, "");
-
-  // 3) must start with a fence after cleanup
   if (!s.startsWith("---")) return { fm: null, body: md };
-
-  // 4) find the closing fence:  \n---\n   or   \n---<EOF>
   const rest = s.slice(3);
   const m = rest.match(/\r?\n---(?:\r?\n|$)/);
   if (!m) return { fm: null, body: md };
-
   const end = m.index ?? 0;
   const fm = rest.slice(0, end).trim();
   const body = rest.slice(end + m[0].length).replace(/^\s+/, "");
@@ -35,27 +26,47 @@ async function parseYaml<T = any>(yamlText: string | null): Promise<T | {}> {
   }
 }
 
+/** Robust resolver for images relative to an MD file’s location. */
+function resolveImageRelative(mdPath: string, img?: string): string | undefined {
+  if (!img) return undefined;
+  const s = img.trim();
+  if (!s) return undefined;
+  // absolute http(s) or site-absolute
+  if (/^(https?:)?\/\//i.test(s) || s.startsWith("/")) return s;
+
+  // base = md directory (keep trailing slash)
+  const base = mdPath.replace(/[^/]+$/, "");
+  // Use URL to normalize ./ and ../ segments; return pathname (works for static hosting)
+  try {
+    const u = new URL(s, window.location.origin + base);
+    return u.pathname;
+  } catch {
+    return base + s;
+  }
+}
+
 /* ----------------------------- types ----------------------------- */
 type ManifestFile =
   | string
   | {
       path: string;
       title?: string;
-      image?: string;       // legacy (manifest-provided)
-      coverImage?: string;  // (optional) if a manifest already had it
+      /** Allow a manifest to optionally point at a cover too */
+      coverImage?: string;
+      image?: string;
       totalQuestions?: number;
     };
 
 type PassageMeta = {
-  slug: string; // derived from filename; uniqueness enforced
+  slug: string;
   title: string;
-  image?: string; // we will fill with MD front-matter coverImage (resolved)
+  image?: string; // cover image shown in the list
   totalQuestions: number;
   url: string; // public url to the md in /public
 };
 
 /* ----------------- localStorage for highest scores ---------------- */
-// New key shape used by ReadingRunnerPage recommendation:
+// New key used by ReadingRunnerPage:
 //   localStorage.setItem(`readingBest:${mdPath}`, JSON.stringify({ correct, total }))
 const getBestFromMdKey = (mdPath: string) => {
   try {
@@ -71,7 +82,7 @@ const getBestFromMdKey = (mdPath: string) => {
   }
 };
 
-// Legacy key shape you used before (number only):
+// Legacy key you used before (number only):
 //   localStorage.setItem(`reading_highscore:${slug}`, "7")
 const getBestFromSlugKey = (slug: string) => {
   try {
@@ -104,19 +115,7 @@ const titleFromFilename = (base: string) =>
     .replace(/[-_]/g, " ")
     .replace(/\b\w/g, (m) => m.toUpperCase());
 
-/* -------------------- small path helper (img) --------------------- */
-function resolveImageRelative(mdPath: string, img?: string): string | undefined {
-  if (!img) return undefined;
-  const s = img.trim();
-  if (!s) return undefined;
-  if (/^https?:\/\//i.test(s) || s.startsWith("/")) return s; // absolute URL or absolute path
-  // resolve relative to the MD directory
-  const cut = mdPath.lastIndexOf("/");
-  const base = cut >= 0 ? mdPath.slice(0, cut + 1) : "/";
-  return base + s;
-}
-
-/* ------------- build PassageMeta (fetch MD every time) ------------ */
+/* ------------- build PassageMeta (fetch MD if needed) ------------- */
 async function toPassageMeta(
   entry: ManifestFile,
   usedSlugs: Set<string>
@@ -152,14 +151,15 @@ async function toPassageMeta(
       manifestTitle ??
       titleFromFilename(last);
 
-    // Prefer MD front-matter coverImage, then image; resolve relative paths
+    // Prefer MD front-matter coverImage, then image
     const mdCoverOrImage =
       (meta?.coverImage as string | undefined) ??
       (meta?.image as string | undefined);
+
+    // Resolve image relative to MD path; fall back to any manifest-provided one (also resolved)
     const image: string | undefined =
       resolveImageRelative(path, mdCoverOrImage) ??
-      manifestCoverImage ??
-      manifestImage;
+      resolveImageRelative(path, manifestCoverImage ?? manifestImage);
 
     const totalQuestions: number =
       Array.isArray(meta?.questions)
@@ -174,7 +174,8 @@ async function toPassageMeta(
   } catch {
     // minimal fallback if MD fetch/parse fails
     const title: string = manifestTitle ?? titleFromFilename(last);
-    const image: string | undefined = manifestCoverImage ?? manifestImage;
+    const image: string | undefined =
+      resolveImageRelative(path, manifestCoverImage ?? manifestImage);
     const totalQuestions: number =
       typeof manifestTotalQuestions === "number" ? manifestTotalQuestions : 0;
 
@@ -268,10 +269,19 @@ export default function StudyHallReadingPage() {
                 key={p.slug}
                 className="flex items-stretch gap-4 rounded-2xl bg-white text-gray-900 shadow-sm border border-gray-200 p-3"
               >
-                {/* 1) Image — now taken from MD front-matter coverImage */}
-                <div className="w-40 h-28 rounded-xl overflow-hidden flex-shrink-0 border border-gray-200 bg-gray-100">
+                {/* 1) Image */}
+                <div className="w-40 h-28 rounded-xl overflow-hidden flex-shrink-0 border border-gray-200 bg-gray-100 relative">
                   {p.image ? (
-                    <img src={p.image} alt={p.title} className="w-full h-full object-cover" />
+                    <img
+                      src={p.image}
+                      alt={p.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // hide broken <img> so the gray gradient shows
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
                   ) : (
                     <div className="w-full h-full bg-gradient-to-br from-indigo-200 to-fuchsia-200" />
                   )}

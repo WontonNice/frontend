@@ -427,16 +427,42 @@ export default function ReadingRunnerPage() {
       // Support absolute "/exams/..." or relative "OfficialSHSATReadingPassages/..."
       const url = mdParam.startsWith("/") ? mdParam : `/exams/readingpassages/${mdParam}`;
 
-      const resolveImg = (img?: string) => {
-        if (!img) return undefined;
-        const trimmed = img.trim();
-        if (!trimmed) return undefined;
-        if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("/")) return trimmed;
-        // resolve relative to the MD file directory
-        const idx = url.lastIndexOf("/");
-        const base = idx >= 0 ? url.slice(0, idx + 1) : "/";
-        return base + trimmed;
-        };
+function encodePath(p: string): string {
+  try {
+    const [pathAndSearch, hash = ""] = p.split("#", 2);
+    const [pathname, search = ""] = pathAndSearch.split("?", 2);
+
+    const encodedPath = pathname
+      .split("/")
+      .map(seg => encodeURIComponent(decodeURIComponent(seg)))
+      .join("/");
+
+    return `${encodedPath}${search ? `?${search}` : ""}${hash ? `#${hash}` : ""}`;
+  } catch {
+    return p.split("/").map(seg => encodeURIComponent(seg)).join("/");
+  }
+}
+
+const resolveImg = (img?: string) => {
+  if (!img) return undefined;
+  const trimmed = img.trim();
+  if (!trimmed) return undefined;
+
+  // absolute http(s) or site-absolute
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("/")) {
+    return encodePath(trimmed);
+  }
+
+  // relative to the md file directory
+  const i = url.lastIndexOf("/");
+  const base = i >= 0 ? url.slice(0, i + 1) : "/";
+  try {
+    const u = new URL(trimmed, window.location.origin + base);
+    return encodePath(u.pathname + u.search + u.hash);
+  } catch {
+    return encodePath(base + trimmed);
+  }
+};
 
       try {
         const txt = await fetch(url).then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))));
@@ -846,7 +872,12 @@ export default function ReadingRunnerPage() {
               <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
                 <div className="border rounded-md p-6 bg-white">
                   {/* NEW: single passage image from MD front-matter */}
-                  {passageImage && (
+                  {passageBody ? (
+                    renderPassageWithPoemSupport(passageBody)
+                  ) : (
+                    <p className="text-gray-500">No passage loaded.</p>
+                  )}
+                                    {passageImage && (
                     <div className="mb-4">
                       <img
                         src={passageImage}
@@ -854,12 +885,6 @@ export default function ReadingRunnerPage() {
                         className="max-w-full h-auto rounded-md border border-gray-200 mx-auto"
                       />
                     </div>
-                  )}
-
-                  {passageBody ? (
-                    renderPassageWithPoemSupport(passageBody)
-                  ) : (
-                    <p className="text-gray-500">No passage loaded.</p>
                   )}
                 </div>
               </div>
