@@ -26,7 +26,14 @@ async function parseYaml<T = any>(yamlText: string | null): Promise<T | {}> {
   }
 }
 
-/** Robust resolver for images relative to an MD file’s location. */
+/** pick the first non-empty string (filters out false/null/undefined/numbers) */
+function pickString(...vals: unknown[]): string | undefined {
+  for (const v of vals) {
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return undefined;
+}
+
 /** Encode a path safely: handles spaces/Unicode and avoids double-encoding. */
 function encodePath(p: string): string {
   try {
@@ -50,7 +57,7 @@ function encodePath(p: string): string {
 /** Resolve an image relative to the MD file and ensure it’s URL-encoded. */
 function resolveImageRelative(mdPath: string, img?: string): string | undefined {
   if (!img) return undefined;
-  const s = img.trim();
+  const s = String(img).trim();
   if (!s) return undefined;
 
   // absolute http(s) or site-absolute
@@ -74,9 +81,8 @@ type ManifestFile =
   | {
       path: string;
       title?: string;
-      /** Allow a manifest to optionally point at a cover too */
-      coverImage?: string;
-      image?: string;
+      coverImage?: string; // used on the grid
+      image?: string; // fallback
       totalQuestions?: number;
     };
 
@@ -154,53 +160,47 @@ async function toPassageMeta(
   while (usedSlugs.has(slug)) slug = `${baseSlug}-${i++}`;
   usedSlugs.add(slug);
 
-  // manifest fields (typed, no boolean mixing)
-  const manifestTitle: string | undefined =
-    typeof entry !== "string" ? entry.title : undefined;
-  const manifestCoverImage: string | undefined =
-    typeof entry !== "string" ? entry.coverImage : undefined;
-  const manifestImage: string | undefined =
-    typeof entry !== "string" ? entry.image : undefined;
-  const manifestTotalQuestions: number | undefined =
-    typeof entry !== "string" ? entry.totalQuestions : undefined;
+  // manifest fields
+  const mf: Partial<ManifestFile> = typeof entry === "string" ? {} : entry;
 
   try {
     const txt = await fetch(path).then((r) => (r.ok ? r.text() : ""));
     const { fm } = splitFrontmatter(txt);
     const meta = (await parseYaml<any>(fm)) as any;
 
-    const title: string =
-      (meta?.title as string | undefined) ??
-      manifestTitle ??
-      titleFromFilename(last);
+    // Title: only accept a real string; otherwise use filename fallback
+    const rawTitle = pickString(meta?.title, mf.title);
+    const title: string = rawTitle ?? titleFromFilename(last);
 
-    // Prefer MD front-matter coverImage, then image
-    const mdCoverOrImage =
-      (meta?.coverImage as string | undefined) ??
-      (meta?.image as string | undefined);
-
-    // Resolve image relative to MD path; fall back to any manifest-provided one (also resolved)
-    const image: string | undefined =
-      resolveImageRelative(path, mdCoverOrImage) ??
-      resolveImageRelative(path, manifestCoverImage ?? manifestImage);
+    // Cover image for grid: coverImage first, then generic image (strings only)
+    const firstImg = pickString(meta?.coverImage, mf.coverImage, meta?.image, mf.image);
+    const image: string | undefined = resolveImageRelative(path, firstImg);
 
     const totalQuestions: number =
       Array.isArray(meta?.questions)
         ? meta.questions.length
         : typeof meta?.totalQuestions === "number"
         ? meta.totalQuestions
-        : typeof manifestTotalQuestions === "number"
-        ? manifestTotalQuestions
+        : typeof mf.totalQuestions === "number"
+        ? mf.totalQuestions
         : 0;
 
     return { slug, title, image, totalQuestions, url: path };
   } catch {
     // minimal fallback if MD fetch/parse fails
-    const title: string = manifestTitle ?? titleFromFilename(last);
-    const image: string | undefined =
-      resolveImageRelative(path, manifestCoverImage ?? manifestImage);
+    const safeTitle = pickString(typeof entry !== "string" ? entry.title : undefined);
+    const title: string = safeTitle ?? titleFromFilename(last);
+
+    const image: string | undefined = resolveImageRelative(
+      path,
+      pickString(
+        typeof entry !== "string" ? entry.coverImage : undefined,
+        typeof entry !== "string" ? entry.image : undefined
+      )
+    );
+
     const totalQuestions: number =
-      typeof manifestTotalQuestions === "number" ? manifestTotalQuestions : 0;
+      typeof mf.totalQuestions === "number" ? mf.totalQuestions : 0;
 
     return { slug, title, image, totalQuestions, url: path };
   }
@@ -247,6 +247,23 @@ export default function StudyHallReadingPage() {
     return items.filter((it) => it.title.toLowerCase().includes(s));
   }, [q, items]);
 
+  // Try common extension variants if the first image 404s (case-sensitive hosts)
+  function nextImageVariant(current: string): string | null {
+    const exts = [".jpg", ".jpeg", ".png"];
+    const parts = current.split("#")[0].split("?");
+    const path = parts[0];
+    const m = path.match(/\.(jpg|jpeg|png)$/i);
+    const base = m ? path.slice(0, -m[0].length) : path;
+    const suffix = current.slice(path.length);
+    for (const e of exts) {
+      const a = base + e + suffix;
+      if (a !== current) return a;
+      const b = base + e.toUpperCase() + suffix;
+      if (b !== current) return b;
+    }
+    return null;
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-semibold">Reading Passages</h2>
@@ -264,7 +281,7 @@ export default function StudyHallReadingPage() {
         />
       </div>
 
-      {/* list */}
+      {/* list: 1 / 2 / 3 columns */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? (
           <div className="text-white/70">Loading passages…</div>
@@ -292,7 +309,7 @@ export default function StudyHallReadingPage() {
                 key={p.slug}
                 className="rounded-2xl bg-white text-gray-900 shadow-sm border border-gray-200 overflow-hidden flex flex-col"
               >
-                {/* Image */}
+                {/* Image (coverImage only; robust fallback on 404) */}
                 <div className="relative w-full aspect-[16/10] bg-gray-100 border-b border-gray-200">
                   {p.image ? (
                     <img
@@ -301,7 +318,18 @@ export default function StudyHallReadingPage() {
                       loading="lazy"
                       className="absolute inset-0 w-full h-full object-cover"
                       onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                        const img = e.currentTarget as HTMLImageElement;
+                        const tried = img.getAttribute("data-tried") === "1";
+                        if (!tried) {
+                          const alt = nextImageVariant(img.src);
+                          if (alt) {
+                            img.setAttribute("data-tried", "1");
+                            img.src = alt;
+                            return;
+                          }
+                        }
+                        // final fallback: hide broken img so the gray background shows
+                        img.style.display = "none";
                       }}
                     />
                   ) : (
