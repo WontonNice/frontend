@@ -41,14 +41,15 @@ type ManifestFile =
   | {
       path: string;
       title?: string;
-      image?: string;
+      image?: string;       // legacy (manifest-provided)
+      coverImage?: string;  // (optional) if a manifest already had it
       totalQuestions?: number;
     };
 
 type PassageMeta = {
   slug: string; // derived from filename; uniqueness enforced
   title: string;
-  image?: string;
+  image?: string; // we will fill with MD front-matter coverImage (resolved)
   totalQuestions: number;
   url: string; // public url to the md in /public
 };
@@ -103,7 +104,19 @@ const titleFromFilename = (base: string) =>
     .replace(/[-_]/g, " ")
     .replace(/\b\w/g, (m) => m.toUpperCase());
 
-/* ------------- build PassageMeta (fetch MD if needed) ------------- */
+/* -------------------- small path helper (img) --------------------- */
+function resolveImageRelative(mdPath: string, img?: string): string | undefined {
+  if (!img) return undefined;
+  const s = img.trim();
+  if (!s) return undefined;
+  if (/^https?:\/\//i.test(s) || s.startsWith("/")) return s; // absolute URL or absolute path
+  // resolve relative to the MD directory
+  const cut = mdPath.lastIndexOf("/");
+  const base = cut >= 0 ? mdPath.slice(0, cut + 1) : "/";
+  return base + s;
+}
+
+/* ------------- build PassageMeta (fetch MD every time) ------------ */
 async function toPassageMeta(
   entry: ManifestFile,
   usedSlugs: Set<string>
@@ -114,38 +127,58 @@ async function toPassageMeta(
   // slug from filename (last segment without .md)
   const last = path.split("/").pop() || "";
   let baseSlug = last.replace(/\.md$/i, "");
-  // Ensure uniqueness across both folders
   let slug = baseSlug;
   let i = 2;
   while (usedSlugs.has(slug)) slug = `${baseSlug}-${i++}`;
   usedSlugs.add(slug);
 
-  // If manifest already provided metadata, trust it
-  if (typeof entry !== "string" && entry.title && typeof entry.totalQuestions === "number") {
-    return {
-      slug,
-      title: entry.title,
-      image: entry.image,
-      totalQuestions: entry.totalQuestions,
-      url: path,
-    };
-  }
+  // manifest fields (typed, no boolean mixing)
+  const manifestTitle: string | undefined =
+    typeof entry !== "string" ? entry.title : undefined;
+  const manifestCoverImage: string | undefined =
+    typeof entry !== "string" ? entry.coverImage : undefined;
+  const manifestImage: string | undefined =
+    typeof entry !== "string" ? entry.image : undefined;
+  const manifestTotalQuestions: number | undefined =
+    typeof entry !== "string" ? entry.totalQuestions : undefined;
 
-  // Otherwise fetch the MD and parse front-matter for title / questions / image
   try {
     const txt = await fetch(path).then((r) => (r.ok ? r.text() : ""));
     const { fm } = splitFrontmatter(txt);
     const meta = (await parseYaml<any>(fm)) as any;
-    const title: string = meta?.title ?? titleFromFilename(last);
-    const image: string | undefined = meta?.image;
-    const totalQuestions =
-  Array.isArray(meta?.questions) ? meta.questions.length :
-  (typeof meta?.totalQuestions === "number" ? meta.totalQuestions : 0);
+
+    const title: string =
+      (meta?.title as string | undefined) ??
+      manifestTitle ??
+      titleFromFilename(last);
+
+    // Prefer MD front-matter coverImage, then image; resolve relative paths
+    const mdCoverOrImage =
+      (meta?.coverImage as string | undefined) ??
+      (meta?.image as string | undefined);
+    const image: string | undefined =
+      resolveImageRelative(path, mdCoverOrImage) ??
+      manifestCoverImage ??
+      manifestImage;
+
+    const totalQuestions: number =
+      Array.isArray(meta?.questions)
+        ? meta.questions.length
+        : typeof meta?.totalQuestions === "number"
+        ? meta.totalQuestions
+        : typeof manifestTotalQuestions === "number"
+        ? manifestTotalQuestions
+        : 0;
+
     return { slug, title, image, totalQuestions, url: path };
   } catch {
-    // minimal fallback
-    const title = titleFromFilename(last);
-    return { slug, title, totalQuestions: 0, url: path };
+    // minimal fallback if MD fetch/parse fails
+    const title: string = manifestTitle ?? titleFromFilename(last);
+    const image: string | undefined = manifestCoverImage ?? manifestImage;
+    const totalQuestions: number =
+      typeof manifestTotalQuestions === "number" ? manifestTotalQuestions : 0;
+
+    return { slug, title, image, totalQuestions, url: path };
   }
 }
 
@@ -235,7 +268,7 @@ export default function StudyHallReadingPage() {
                 key={p.slug}
                 className="flex items-stretch gap-4 rounded-2xl bg-white text-gray-900 shadow-sm border border-gray-200 p-3"
               >
-                {/* 1) Image */}
+                {/* 1) Image — now taken from MD front-matter coverImage */}
                 <div className="w-40 h-28 rounded-xl overflow-hidden flex-shrink-0 border border-gray-200 bg-gray-100">
                   {p.image ? (
                     <img src={p.image} alt={p.title} className="w-full h-full object-cover" />

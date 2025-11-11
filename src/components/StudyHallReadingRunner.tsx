@@ -436,7 +436,7 @@ export default function ReadingRunnerPage() {
         const idx = url.lastIndexOf("/");
         const base = idx >= 0 ? url.slice(0, idx + 1) : "/";
         return base + trimmed;
-      };
+        };
 
       try {
         const txt = await fetch(url).then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))));
@@ -464,6 +464,20 @@ export default function ReadingRunnerPage() {
     })();
     return () => { cancelled = true; };
   }, [mdParam]);
+
+  // NEW: persist coverImage so other parts of the app can read it (and to mark it as "used")
+  useEffect(() => {
+    if (!mdParam) return;
+    try {
+      if (coverImage) {
+        sessionStorage.setItem(`coverImage:${mdParam}`, coverImage);
+      } else {
+        sessionStorage.removeItem(`coverImage:${mdParam}`);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [coverImage, mdParam]);
 
   // ===== Current item + status =====
   const current = items[idx];
@@ -509,7 +523,8 @@ export default function ReadingRunnerPage() {
       (choice?.label ??
         choice?.text ??
         choice?.value ??
-        (choice?.id != null ? String(choice.id) : "")) ?? ""
+        (choice?.id != null ? String(choice.id) : "")) ??
+      ""
     ).toString();
   };
 

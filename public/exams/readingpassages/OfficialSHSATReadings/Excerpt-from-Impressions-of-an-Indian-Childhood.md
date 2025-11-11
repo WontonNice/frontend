@@ -1,7 +1,7 @@
 ---
 title: "Excerpt from “Impressions of an Indian Childhood”"
 source: "2020-2021 Form B | 2022-2023 Form B | 2024-2025 Form A"
-coverImage: "/exams/readingpassages/imgsrc/cover/Excerpt from “Impressions of an Indian Childhood”.png" 
+coverImage: "/exams/readingpassages/imgsrc/cover/Excerpt from “Impressions of an Indian Childhood”.jpg"
 passageImage: "/exams/readingpassages/imgsrc/Excerpt from “Impressions of an Indian Childhood”.png" 
 
 questions:
