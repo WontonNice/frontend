@@ -35,6 +35,11 @@ type SkillType = "global" | "function" | "detail" | "inference";
 type MdFrontmatter = {
   title?: string;
   source?: string;
+
+  /** NEW: images defined in MD front-matter */
+  coverImage?: string;   // optional “cover page” image (stored for other code)
+  passageImage?: string; // the single image to display with the passage
+
   questions?: Array<{
     id: string;
 
@@ -288,6 +293,10 @@ export default function ReadingRunnerPage() {
   const [questions, setQuestions] = useState<MdFrontmatter["questions"]>([]);
   const [title, setTitle] = useState<string>("Reading Practice");
 
+  /** NEW: single passage image rendered with the passage; cover stored for other code */
+  const [passageImage, setPassageImage] = useState<string | undefined>(undefined);
+  const [coverImage, setCoverImage] = useState<string | undefined>(undefined);
+
   // Flattened items
   const items: FlatItem[] = useMemo(() => {
     const out: FlatItem[] = [];
@@ -418,6 +427,17 @@ export default function ReadingRunnerPage() {
       // Support absolute "/exams/..." or relative "OfficialSHSATReadingPassages/..."
       const url = mdParam.startsWith("/") ? mdParam : `/exams/readingpassages/${mdParam}`;
 
+      const resolveImg = (img?: string) => {
+        if (!img) return undefined;
+        const trimmed = img.trim();
+        if (!trimmed) return undefined;
+        if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("/")) return trimmed;
+        // resolve relative to the MD file directory
+        const idx = url.lastIndexOf("/");
+        const base = idx >= 0 ? url.slice(0, idx + 1) : "/";
+        return base + trimmed;
+      };
+
       try {
         const txt = await fetch(url).then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))));
         const { fm, body } = splitFrontmatter(txt);
@@ -427,11 +447,17 @@ export default function ReadingRunnerPage() {
         setPassageBody(body || "");
         setQuestions(Array.isArray(meta.questions) ? (meta.questions as any[]) : []);
         setTitle(meta.title || "Reading Practice");
+
+        // NEW: grab images from MD
+        setPassageImage(resolveImg(meta.passageImage));
+        setCoverImage(resolveImg(meta.coverImage));
       } catch (e) {
         if (!cancelled) {
           setPassageBody("");
           setQuestions([]);
           setTitle("Reading Practice");
+          setPassageImage(undefined);
+          setCoverImage(undefined);
           console.error("Failed to load passage:", e);
         }
       }
@@ -804,6 +830,17 @@ export default function ReadingRunnerPage() {
             <div className="rounded-lg border border-gray-200 shadow-sm p-4">
               <div className="h-[520px] overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
                 <div className="border rounded-md p-6 bg-white">
+                  {/* NEW: single passage image from MD front-matter */}
+                  {passageImage && (
+                    <div className="mb-4">
+                      <img
+                        src={passageImage}
+                        alt=""
+                        className="max-w-full h-auto rounded-md border border-gray-200 mx-auto"
+                      />
+                    </div>
+                  )}
+
                   {passageBody ? (
                     renderPassageWithPoemSupport(passageBody)
                   ) : (
