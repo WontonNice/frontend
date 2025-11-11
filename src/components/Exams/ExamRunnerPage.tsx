@@ -53,6 +53,8 @@ type SkillType = "global" | "function" | "detail" | "inference";
 type MdFrontmatter = {
   title?: string;
   source?: string;
+  coverImage?: string;                   
+  passageImage?: string | string[];
   questions?: Array<{
     id: string;
 
@@ -128,6 +130,7 @@ type FlatItem = {
   sectionPassageMarkdown?: string;
   sectionPassageImages?: string[];
   sectionPassageUrl?: string;
+  sectionCoverImage?: string;
 
   stemMarkdown?: string;
   image?: string;
@@ -354,6 +357,9 @@ export default function ExamRunnerPage() {
   /** Cache reading MD bodies and questions by section.id */
   const [readingBodies, setReadingBodies] = useState<Record<string, string>>({});
   const [readingQs, setReadingQs] = useState<Record<string, MdFrontmatter["questions"]>>({});
+  const [readingMeta, setReadingMeta] = useState<
+  Record<string, { passageImage?: string[]; coverImage?: string }>
+>({});
 
   /** Section intro markdown cache: type -> md text */
   const [introMd, setIntroMd] = useState<Record<string, string | undefined>>({});
@@ -365,6 +371,7 @@ export default function ExamRunnerPage() {
       if (!exam) return;
       const bodies: Record<string, string> = {};
       const qsMap: Record<string, MdFrontmatter["questions"]> = {};
+      const extras: Record<string, { passageImage?: string[]; coverImage?: string }> = {};
 
       const tasks = exam.sections
         .filter((s: any) => isMdType(s.type) && s.passageMd)
@@ -376,6 +383,14 @@ export default function ExamRunnerPage() {
             const meta = await parseYaml(fm);
             bodies[s.id] = body;
             if (Array.isArray(meta.questions)) qsMap[s.id] = meta.questions as any[];
+                      const toArray = (v?: string | string[]) =>
+            !v ? [] : Array.isArray(v) ? v.filter(Boolean) : [v].filter(Boolean);
+
+          const imgs = [...toArray(meta?.passageImage), ...toArray(meta?.passageImage)];
+          extras[s.id] = {
+            passageImage: imgs.length ? imgs : undefined,
+            coverImage: meta?.coverImage,
+          };
           } catch {
             bodies[s.id] = "";
             qsMap[s.id] = [];
@@ -386,6 +401,7 @@ export default function ExamRunnerPage() {
       if (!cancelled) {
         setReadingBodies(bodies);
         setReadingQs(qsMap);
+        setReadingMeta(extras);
       }
     })();
     return () => {
@@ -473,9 +489,9 @@ export default function ExamRunnerPage() {
           sectionType: type,
           sectionPassageMarkdown:
             isMdType(type) ? (readingBodies[sec.id] ?? "") : (sec as any).passageMarkdown,
-          sectionPassageImages: (sec as any).passageImages,
+          sectionPassageImages: readingMeta[sec.id]?.passageImage ?? (sec as any).passageImage,
           sectionPassageUrl: sec.passageMd ?? (sec as any).passageUrl,
-          stemMarkdown: q.stemMarkdown ?? q.promptMarkdown,
+          sectionCoverImage: readingMeta[sec.id]?.coverImage ?? (sec as any).coverImage, 
           image: q.image,
 
           // keep choices "raw" so scoring can read ids if present
@@ -525,7 +541,7 @@ export default function ExamRunnerPage() {
     });
 
     return { items: out, introIndexByType: introIndex };
-  }, [exam, readingBodies, readingQs]);
+  }, [exam, readingBodies, readingQs, readingMeta]);
 
   const questionItems = items.filter((i) => !i.isEnd && !i.isIntro);
   const lastIndex = Math.max(0, items.length - 1);
@@ -654,15 +670,18 @@ export default function ExamRunnerPage() {
       : undefined;
 
   // Normalize passage images
-  const effectivePassageImages = (() => {
-    if (current?.isEnd || current?.isIntro || !isMdType(current?.sectionType)) return undefined;
-    const sec = exam.sections.find((s: any) => s.id === current?.sectionId) as any;
-    const raw = sec?.passageImages;
-    const list = Array.isArray(raw)
-      ? raw.filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
-      : [];
-    return list.length ? list : undefined;
-  })();
+const effectivePassageImages = (() => {
+  if (current?.isEnd || current?.isIntro || !isMdType(current?.sectionType)) return undefined;
+  const sec = exam.sections.find((s: any) => s.id === current?.sectionId) as any;
+  const fromMd = readingMeta[current.sectionId]?.passageImage;
+  if (fromMd && fromMd.length) return fromMd;
+
+  const raw = sec?.passageImage;
+  const list = Array.isArray(raw)
+    ? raw.filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
+    : [];
+  return list.length ? list : undefined;
+})();
 
   // NEW: only reading/ela_a use a left passage pane
   const isPassageSection =
@@ -679,7 +698,6 @@ export default function ExamRunnerPage() {
     questionCount
   );
   const progressPct = questionCount ? Math.round((questionOrdinal / questionCount) * 100) : 0;
-
   // ===== Helpers =====
   const isAnsweredGid = (gid: string) => {
     const v = answers[gid];
