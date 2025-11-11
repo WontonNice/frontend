@@ -128,7 +128,7 @@ type FlatItem = {
   sectionType: "reading" | "math" | "ela_a" | "ela_b" | string;
 
   sectionPassageMarkdown?: string;
-  sectionPassageImages?: string[];
+  sectionPassageImage?: string[];
   sectionPassageUrl?: string;
   sectionCoverImage?: string;
 
@@ -358,7 +358,7 @@ export default function ExamRunnerPage() {
   const [readingBodies, setReadingBodies] = useState<Record<string, string>>({});
   const [readingQs, setReadingQs] = useState<Record<string, MdFrontmatter["questions"]>>({});
   const [readingMeta, setReadingMeta] = useState<
-  Record<string, { passageImage?: string[]; coverImage?: string }>
+  Record<string, { passageImage?: string; coverImage?: string }>
 >({});
 
   /** Section intro markdown cache: type -> md text */
@@ -371,7 +371,7 @@ export default function ExamRunnerPage() {
       if (!exam) return;
       const bodies: Record<string, string> = {};
       const qsMap: Record<string, MdFrontmatter["questions"]> = {};
-      const extras: Record<string, { passageImage?: string[]; coverImage?: string }> = {};
+      const extras: Record<string, { passageImage?: string; coverImage?: string }> = {};
 
       const tasks = exam.sections
         .filter((s: any) => isMdType(s.type) && s.passageMd)
@@ -383,12 +383,13 @@ export default function ExamRunnerPage() {
             const meta = await parseYaml(fm);
             bodies[s.id] = body;
             if (Array.isArray(meta.questions)) qsMap[s.id] = meta.questions as any[];
-                      const toArray = (v?: string | string[]) =>
-            !v ? [] : Array.isArray(v) ? v.filter(Boolean) : [v].filter(Boolean);
+            const pImg =
+            typeof meta?.passageImage === "string" && meta.passageImage.trim()
+              ? meta.passageImage.trim()
+              : undefined;
 
-          const imgs = [...toArray(meta?.passageImage), ...toArray(meta?.passageImage)];
           extras[s.id] = {
-            passageImage: imgs.length ? imgs : undefined,
+            passageImage: pImg,
             coverImage: meta?.coverImage,
           };
           } catch {
@@ -489,7 +490,7 @@ export default function ExamRunnerPage() {
           sectionType: type,
           sectionPassageMarkdown:
             isMdType(type) ? (readingBodies[sec.id] ?? "") : (sec as any).passageMarkdown,
-          sectionPassageImages: readingMeta[sec.id]?.passageImage ?? (sec as any).passageImage,
+          sectionPassageImage: readingMeta[sec.id]?.passageImage ?? (sec as any).passageImage,
           sectionPassageUrl: sec.passageMd ?? (sec as any).passageUrl,
           sectionCoverImage: readingMeta[sec.id]?.coverImage ?? (sec as any).coverImage, 
           image: q.image,
@@ -670,17 +671,14 @@ export default function ExamRunnerPage() {
       : undefined;
 
   // Normalize passage images
-const effectivePassageImages = (() => {
-  if (current?.isEnd || current?.isIntro || !isMdType(current?.sectionType)) return undefined;
-  const sec = exam.sections.find((s: any) => s.id === current?.sectionId) as any;
-  const fromMd = readingMeta[current.sectionId]?.passageImage;
-  if (fromMd && fromMd.length) return fromMd;
-
-  const raw = sec?.passageImage;
-  const list = Array.isArray(raw)
-    ? raw.filter((s: unknown) => typeof s === "string" && s.trim().length > 0)
-    : [];
-  return list.length ? list : undefined;
+const effectivePassageImage = (() => {
+  if (!current || current.isEnd || current.isIntro || !isMdType(current.sectionType)) return undefined;
+  const sec = exam.sections.find((s: any) => s.id === current.sectionId) as any;
+  return (
+    readingMeta[current.sectionId]?.passageImage ??
+    sec?.passageImage ??
+    current.sectionPassageImage
+  );
 })();
 
   // NEW: only reading/ela_a use a left passage pane
@@ -1143,9 +1141,9 @@ const effectivePassageImages = (() => {
                       <p className="text-gray-500">No passage for this item.</p>
                     )}
 
-                    {effectivePassageImages?.length ? (
+                    {effectivePassageImage?.length ? (
                       <div className="mt-4 space-y-3">
-                        {effectivePassageImages.map((src: string, i: number) => (
+                        {effectivePassageImage.map((src: string, i: number) => (
                           <img
                             key={i}
                             src={src}
