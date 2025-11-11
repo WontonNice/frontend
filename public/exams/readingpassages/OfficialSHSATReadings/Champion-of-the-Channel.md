@@ -1,7 +1,7 @@
 ---
 title: "Champion of the Channel"
 source: "2018-2019 Form A | 2020-2021 Form A | 2024-2025 Form A"
-coverImage: "/exams/readingpassages/imgsrc/cover/Champion-of-the-Channel.jpg"
+coverImage: "/exams/readingpassages/imgsrc/coverimage/Champion of the Channel.jpg"
 passageImage: "/exams/readingpassages/imgsrc/Champion of the Channel.png" 
 
 questions:
