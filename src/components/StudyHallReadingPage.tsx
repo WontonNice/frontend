@@ -265,7 +265,7 @@ export default function StudyHallReadingPage() {
       </div>
 
       {/* list */}
-      <div className="grid gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? (
           <div className="text-white/70">Loading passages…</div>
         ) : filtered.length === 0 ? (
@@ -290,32 +290,29 @@ export default function StudyHallReadingPage() {
             return (
               <div
                 key={p.slug}
-                className="flex items-stretch gap-4 rounded-2xl bg-white text-gray-900 shadow-sm border border-gray-200 p-3"
+                className="rounded-2xl bg-white text-gray-900 shadow-sm border border-gray-200 overflow-hidden flex flex-col"
               >
-                {/* 1) Image */}
-                <div className="w-40 h-28 rounded-xl overflow-hidden flex-shrink-0 border border-gray-200 bg-gray-100 relative">
+                {/* Image */}
+                <div className="relative w-full aspect-[16/10] bg-gray-100 border-b border-gray-200">
                   {p.image ? (
                     <img
                       src={p.image}
                       alt={p.title}
                       loading="lazy"
-                      className="w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-cover"
                       onError={(e) => {
-                        // hide broken <img> so the gray gradient shows
-                        e.currentTarget.style.display = "none";
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
                       }}
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-indigo-200 to-fuchsia-200" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-200 to-fuchsia-200" />
                   )}
                 </div>
 
-                {/* 2) Title + 4) Highest Score */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold truncate">{p.title}</h3>
-                  </div>
-                  <div className="mt-1 text-sm text-gray-600">
+                {/* Body */}
+                <div className="p-4 flex-1 flex flex-col">
+                  <h3 className="text-base font-semibold line-clamp-2">{p.title}</h3>
+                  <div className="mt-2 text-sm text-gray-600">
                     {p.totalQuestions > 0
                       ? `${p.totalQuestions} question${p.totalQuestions === 1 ? "" : "s"}`
                       : "Questions: —"}
@@ -324,33 +321,27 @@ export default function StudyHallReadingPage() {
                       Highest Score: {displayCorrect} / {displayTotal}
                     </span>
                   </div>
-                </div>
 
-                {/* 3) Start Button */}
-                <div className="flex flex-col items-end justify-between">
-                  <button
-                    onClick={() =>
-                      navigate(`/reading-runner?md=${encodeURIComponent(p.url)}`)
-                    }
-                    className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2"
-                  >
-                    Start
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      aria-hidden
+                  {/* Start Button */}
+                  <div className="mt-4">
+                    <button
+                      onClick={() =>
+                        navigate(`/reading-runner?md=${encodeURIComponent(p.url)}`)
+                      }
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2"
                     >
-                      <path
-                        d="M5 12h14M13 5l7 7-7 7"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
+                      Start
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+                        <path
+                          d="M5 12h14M13 5l7 7-7 7"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
