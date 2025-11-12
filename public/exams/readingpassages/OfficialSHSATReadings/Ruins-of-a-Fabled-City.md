@@ -1,6 +1,7 @@
 ---
 title: "Ruins of a Fabled City"
 source: "2017-2018 Form A | 2018-2019 Form A"
+coverImage: "/exams/readingpassages/imgsrc/coverimage/Ruins of a Fabled City.webp" 
 
 questions:
   - id: q1

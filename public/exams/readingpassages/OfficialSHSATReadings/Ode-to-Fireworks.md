@@ -1,6 +1,7 @@
 ---
 title: "Ode to Fireworks"
 source: "2019-2020 Form A | 2021-2022 Form A"
+coverImage: "/exams/readingpassages/imgsrc/coverimage/Ode to Fireworks.webp" 
 
 questions:
   - id: q1

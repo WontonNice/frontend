@@ -1,6 +1,8 @@
 ---
 title: "An Unwelcome Guest"
 source: "Tutorverse"
+coverImage: "/exams/readingpassages/imgsrc/coverimage/An Unwelcome Guest.jpg" 
+passageImage: "/exams/readingpassages/imgsrc/An Unwelcome Guest.jpg" 
 
 questions:
   - id: q1

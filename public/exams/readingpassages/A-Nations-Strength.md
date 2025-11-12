@@ -1,6 +1,7 @@
 ---
 title: "A Nation's Strength"
 source: "Tutorverse"
+coverImage: "/exams/readingpassages/imgsrc/coverimage/A Nation's Strength.jpg" 
 
 questions:
   - id: q1

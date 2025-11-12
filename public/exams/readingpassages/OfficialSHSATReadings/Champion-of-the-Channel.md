@@ -23,10 +23,10 @@ questions:
     stemMarkdown: |
         Read this sentence from paragraph 4.
 
-            **During her first channel- crossing attempt she had worn a standard one- piece
-            swimsuit that, after the lengthy hours of swimming across the channel, had
-            stretched out, filling with water and creating drag, making an already challenging
-            task almost insurmountable.**
+        **During her first channel- crossing attempt she had worn a standard one- piece
+        swimsuit that, after the lengthy hours of swimming across the channel, had
+        stretched out, filling with water and creating drag, making an already challenging
+        task almost insurmountable.**
 
         The word “insurmountable” is used to highlight
     choices:

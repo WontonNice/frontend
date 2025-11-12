@@ -1,6 +1,7 @@
 ---
 title: "Looking for the Smallest Spark of Everything"
 source: "2019-2020 Form B | 2022-2023 Form B"
+coverImage: "/exams/readingpassages/imgsrc/coverimage/Looking for the Smallest Spark of Everything.jpg" 
 
 questions:
   - id: q1
