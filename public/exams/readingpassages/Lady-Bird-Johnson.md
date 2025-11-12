@@ -1,6 +1,7 @@
 ---
 title: "Lady Bird Johnson"
 source: "Tutorverse"
+coverImage: "/exams/readingpassages/imgsrc/coverimage/Lady Bird Johnson.jpg" 
 
 questions:
   # ==== Your originals (now typed) ====

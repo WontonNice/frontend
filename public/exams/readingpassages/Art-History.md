@@ -84,7 +84,7 @@ questions:
       - "B. “Artists like Hokusai and Hiroshige were masters of the form.” (paragraph 2)"
       - "C. “Their compositions were often asymmetrical and featured dramatic cropping, as if the scene were a snapshot of a larger reality.” (paragraph 2)"
       - "D. “Vincent van Gogh was an avid collector of Japanese prints...” (paragraph 3)"
-    answerIndex: 3
+    answerIndex: 2
     explanationMarkdown: ""
 
 ---

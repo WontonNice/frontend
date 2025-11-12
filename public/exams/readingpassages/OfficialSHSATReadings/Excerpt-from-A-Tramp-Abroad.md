@@ -1,6 +1,7 @@
 ---
 title: "Excerpt from A Tramp Abroad"
 source: "2018-2019 Form A | 2020-2021 Form B"
+coverImage: "/exams/readingpassages/imgsrc/coverimage/Excerpt from A Tramp Abroad.jpg" 
 
 questions:
   - id: q1
